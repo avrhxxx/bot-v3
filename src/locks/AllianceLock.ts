@@ -6,7 +6,11 @@ interface AllianceLockState {
 export class AllianceLock {
   private static locks: Map<string, AllianceLockState> = new Map();
 
-  static acquire(allianceId: string, ownerId: string, timeoutMs = 5000): boolean {
+  static acquire(
+    allianceId: string,
+    ownerId: string,
+    timeoutMs = 5000
+  ): boolean {
     const now = Date.now();
     const existing = this.locks.get(allianceId);
 
@@ -43,5 +47,22 @@ export class AllianceLock {
     }
 
     return true;
+  }
+
+  static async run<T>(
+    allianceId: string,
+    handler: () => Promise<T> | T,
+    ownerId = "system"
+  ): Promise<T> {
+    const acquired = this.acquire(allianceId, ownerId);
+    if (!acquired) {
+      throw new Error("AllianceLock already acquired");
+    }
+
+    try {
+      return await handler();
+    } finally {
+      this.release(allianceId, ownerId);
+    }
   }
 }
