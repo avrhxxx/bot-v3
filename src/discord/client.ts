@@ -5,7 +5,6 @@ import {
   Routes,
   Interaction
 } from "discord.js";
-
 import { config } from "../config/config";
 import { CommandRegistry } from "../commands/CommandRegistry";
 import { Dispatcher } from "../engine/Dispatcher";
@@ -15,39 +14,36 @@ export const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
+const registry = new CommandRegistry();
+registry.register(new XsysCommand());
+
+const dispatcher = new Dispatcher(registry);
+
 export async function startDiscord() {
   try {
-    // 🔹 Rejestr komend
-    const registry = new CommandRegistry();
-    registry.register(new XsysCommand());
+    console.log("Registering slash commands...");
 
-    // 🔹 Dispatcher
-    const dispatcher = new Dispatcher(registry);
-
-    // 🔹 Deploy slash commands (guild – szybkie odświeżanie)
     const rest = new REST({ version: "10" }).setToken(config.token);
 
-    console.log("Deploying slash commands...");
+    const commands = registry
+      .getAll()
+      .map(cmd => cmd.data.toJSON());
 
     await rest.put(
       Routes.applicationGuildCommands(config.clientId, config.guildId),
-      {
-        body: registry.getAll().map(cmd => cmd.data.toJSON())
-      }
+      { body: commands }
     );
 
-    console.log("Slash commands deployed.");
+    console.log("Slash commands registered successfully.");
 
-    // 🔹 Interaction handler
     client.on("interactionCreate", async (interaction: Interaction) => {
       if (!interaction.isChatInputCommand()) return;
-
       await dispatcher.dispatch(interaction);
     });
 
     await client.login(config.token);
 
-    console.log("Discord client ready.");
+    console.log("Discord client ready");
   } catch (error) {
     console.error("Discord startup error:", error);
   }
