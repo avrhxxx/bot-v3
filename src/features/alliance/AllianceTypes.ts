@@ -8,5 +8,7 @@ export interface Alliance {
 
   identityRoleId?: string;
 
+  orphaned: boolean;
+
   createdAt: number;
 }
