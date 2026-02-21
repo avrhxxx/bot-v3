@@ -1,19 +1,8 @@
-type Collection<T> = Map<string, T>;
-
 export class Database {
-  private static instance: Database;
-
-  public alliances: Collection<any> = new Map();
-  public journal: Collection<any> = new Map();
-  public ownership: Collection<any> = new Map();
-  public health: Collection<any> = new Map();
-
-  private constructor() {}
-
-  public static getInstance(): Database {
-    if (!Database.instance) {
-      Database.instance = new Database();
-    }
-    return Database.instance;
-  }
+  public alliances: Map<string, any> = new Map();
+  public ownership: Map<string, any> = new Map();
+  public health: Map<string, any> = new Map();
+  public pendingDeletions: Map<string, any> = new Map();
 }
+
+export const db = new Database();
