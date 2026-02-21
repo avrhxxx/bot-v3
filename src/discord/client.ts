@@ -1,4 +1,10 @@
-import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } from "discord.js";
+import {
+  Client,
+  GatewayIntentBits,
+  REST,
+  Routes,
+  SlashCommandBuilder
+} from "discord.js";
 import { config } from "../config/config";
 
 export const client = new Client({
@@ -12,22 +18,30 @@ const commands = [
 ].map(command => command.toJSON());
 
 export async function startDiscord() {
-  const rest = new REST({ version: "10" }).setToken(config.token);
+  try {
+    console.log("Registering slash commands...");
 
-  await rest.put(
-    Routes.applicationGuildCommands(config.clientId, config.guildId),
-    { body: commands }
-  );
+    const rest = new REST({ version: "10" }).setToken(config.token);
 
-  client.on("interactionCreate", async interaction => {
-    if (!interaction.isChatInputCommand()) return;
+    await rest.put(
+      Routes.applicationGuildCommands(config.clientId, config.guildId),
+      { body: commands }
+    );
 
-    if (interaction.commandName === "ping") {
-      await interaction.reply("Pong ✅");
-    }
-  });
+    console.log("Slash commands registered successfully.");
 
-  await client.login(config.token);
+    client.on("interactionCreate", async interaction => {
+      if (!interaction.isChatInputCommand()) return;
 
-  console.log("Discord client ready");
+      if (interaction.commandName === "ping") {
+        await interaction.reply("Pong ✅");
+      }
+    });
+
+    await client.login(config.token);
+
+    console.log("Discord client ready");
+  } catch (error) {
+    console.error("Discord startup error:", error);
+  }
 }
