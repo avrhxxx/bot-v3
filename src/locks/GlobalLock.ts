@@ -31,12 +31,27 @@ export class GlobalLock {
   static isLocked(): boolean {
     if (!this.locked) return false;
     if (this.expiresAt && Date.now() > this.expiresAt) {
-      // expired
       this.locked = false;
       this.owner = null;
       this.expiresAt = null;
       return false;
     }
     return true;
+  }
+
+  static async run<T>(
+    handler: () => Promise<T> | T,
+    ownerId = "system"
+  ): Promise<T> {
+    const acquired = this.acquire(ownerId);
+    if (!acquired) {
+      throw new Error("GlobalLock already acquired");
+    }
+
+    try {
+      return await handler();
+    } finally {
+      this.release(ownerId);
+    }
   }
 }
