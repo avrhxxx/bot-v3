@@ -1,15 +1,11 @@
-import { Client, GatewayIntentBits } from "discord.js";
-import { config } from "./config/config";
+import { IntegrityMonitor } from "./system/snapshot/IntegrityMonitor";
+import { Health } from "./system/Health";
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers
-  ]
-});
+console.log("System booting...");
 
-client.once("ready", () => {
-  console.log(`Bot zalogowany jako ${client.user?.tag}`);
-});
+Health.setHealthy();
 
-client.login(config.token);
+// Start background integrity scan
+IntegrityMonitor.start(15000);
+
+console.log("Integrity Monitor started.");
