@@ -1,6 +1,4 @@
-import { Database } from "./Database";
-
-const db = Database.getInstance();
+import { db } from "./Database";
 
 export const AllianceRepo = {
   get(id: string) {
@@ -13,16 +11,10 @@ export const AllianceRepo = {
 
   delete(id: string) {
     db.alliances.delete(id);
-  }
-};
-
-export const JournalRepo = {
-  set(id: string, entry: any) {
-    db.journal.set(id, entry);
   },
 
-  get(id: string) {
-    return db.journal.get(id);
+  getAll() {
+    return Array.from(db.alliances.values());
   }
 };
 
@@ -43,5 +35,19 @@ export const HealthRepo = {
 
   set(key: string, value: any) {
     db.health.set(key, value);
+  }
+};
+
+export const PendingDeletionRepo = {
+  get(id: string) {
+    return db.pendingDeletions.get(id);
+  },
+
+  set(id: string, value: any) {
+    db.pendingDeletions.set(id, value);
+  },
+
+  delete(id: string) {
+    db.pendingDeletions.delete(id);
   }
 };
