@@ -1,81 +1,91 @@
-import { Journal } from "../journal/Journal";
 import { GlobalLock } from "../locks/GlobalLock";
 import { AllianceLock } from "../locks/AllianceLock";
-import { SafeMode } from "../system/SafeMode";
+import { Journal } from "../journal/Journal";
+import { SnapshotService } from "../system/snapshot/SnapshotService";
+import { AllianceRepo } from "../data/Repositories";
 import { Health } from "../system/Health";
+import { SafeMode } from "../system/SafeMode";
 
 interface MutationContext {
   operation: string;
   actor: string;
   allianceId?: string;
   preState?: any;
-  postState?: any;
-  metadata?: any;
 }
 
 interface MutationOptions {
   requireGlobalLock?: boolean;
   requireAllianceLock?: boolean;
-  systemOverride?: boolean; // 🔥 new
+  systemOverride?: boolean;
 }
 
 export class MutationGate {
   static async execute(
     context: MutationContext,
-    mutationFn: () => Promise<void>,
-    options?: MutationOptions
+    mutation: () => Promise<void> | void,
+    options: MutationOptions = {}
   ) {
-    // ----------------------------------
-    // 🔥 SYSTEM ENFORCEMENT
-    // ----------------------------------
-
-    if (!options?.systemOverride) {
-      if (SafeMode.isEnabled()) {
-        throw new Error("System is in SAFE_MODE");
-      }
-
-      if (Health.isCritical()) {
-        throw new Error("System health is CRITICAL");
-      }
+    if (SafeMode.isActive() && !options.systemOverride) {
+      throw new Error("System is in Safe Mode");
     }
 
-    // ----------------------------------
-    // 🔒 LOCKS
-    // ----------------------------------
+    const run = async () => {
+      try {
+        await mutation();
 
-    if (options?.requireGlobalLock) {
-      if (GlobalLock.isLocked()) {
-        throw new Error("Global lock active");
+        // AFTER SUCCESSFUL MUTATION
+        if (context.allianceId) {
+          const alliance = AllianceRepo.get(context.allianceId);
+
+          if (alliance) {
+            // Create snapshot
+            SnapshotService.createSnapshot(alliance);
+
+            // Verify integrity immediately
+            const valid = SnapshotService.verifySnapshot(alliance.id);
+
+            if (!valid) {
+              Health.setCritical(
+                `Snapshot mismatch detected for alliance ${alliance.id}`
+              );
+
+              SafeMode.activate(
+                `Integrity failure on alliance ${alliance.id}`
+              );
+
+              throw new Error("Snapshot integrity failure");
+            }
+          }
+        }
+
+        Journal.record({
+          operation: context.operation,
+          actor: context.actor,
+          allianceId: context.allianceId,
+          timestamp: Date.now()
+        });
+
+      } catch (error: any) {
+        Journal.record({
+          operation: "MUTATION_FAILED",
+          actor: context.actor,
+          allianceId: context.allianceId,
+          timestamp: Date.now(),
+          error: error.message
+        });
+
+        throw error;
       }
-      GlobalLock.lock();
+    };
+
+    if (options.requireGlobalLock) {
+      return GlobalLock.run(run);
     }
 
-    if (options?.requireAllianceLock && context.allianceId) {
-      if (AllianceLock.isLocked(context.allianceId)) {
-        throw new Error("Alliance lock active");
-      }
-      AllianceLock.lock(context.allianceId);
+    if (options.requireAllianceLock && context.allianceId) {
+      return AllianceLock.run(context.allianceId, run);
     }
 
-    try {
-      await mutationFn();
-
-      Journal.record({
-        operation: context.operation,
-        actor: context.actor,
-        allianceId: context.allianceId,
-        preState: context.preState,
-        postState: context.postState,
-        metadata: context.metadata
-      });
-    } finally {
-      if (options?.requireGlobalLock) {
-        GlobalLock.unlock();
-      }
-
-      if (options?.requireAllianceLock && context.allianceId) {
-        AllianceLock.unlock(context.allianceId);
-      }
-    }
+    return run();
   }
 }
