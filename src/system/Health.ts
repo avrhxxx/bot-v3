@@ -1,60 +1,27 @@
 import { HealthRepo } from "../data/Repositories";
-import { MutationGate } from "../engine/MutationGate";
-import { SafeMode } from "./SafeMode";
 
-export type HealthState = "HEALTHY" | "DEGRADED" | "CRITICAL";
-
-const KEY = "SYSTEM_HEALTH";
+type HealthState = "HEALTHY" | "WARNING" | "CRITICAL";
 
 export class Health {
-  // -----------------------
-  // Get current state
-  // -----------------------
-  static getState(): HealthState {
-    return HealthRepo.get(KEY) ?? "HEALTHY";
+  static get(): HealthState {
+    return HealthRepo.get("state") || "HEALTHY";
   }
 
-  static isHealthy(): boolean {
-    return this.getState() === "HEALTHY";
+  static setHealthy() {
+    HealthRepo.set("state", "HEALTHY");
   }
 
-  static isCritical(): boolean {
-    return this.getState() === "CRITICAL";
+  static setWarning(reason: string) {
+    HealthRepo.set("state", "WARNING");
+    HealthRepo.set("reason", reason);
   }
 
-  // -----------------------
-  // Update health state
-  // -----------------------
-  static async setState(
-    actorId: string,
-    newState: HealthState,
-    reason: string
-  ) {
-    const current = this.getState();
+  static setCritical(reason: string) {
+    HealthRepo.set("state", "CRITICAL");
+    HealthRepo.set("reason", reason);
+  }
 
-    if (current === newState) return;
-
-    await MutationGate.execute(
-      {
-        operation: "HEALTH_STATE_CHANGE",
-        actor: actorId,
-        preState: { current },
-        postState: { newState },
-        metadata: { reason }
-      },
-      async () => {
-        HealthRepo.set(KEY, newState);
-      },
-      {
-        requireGlobalLock: true
-      }
-    );
-
-    // CRITICAL auto-triggers SAFE_MODE
-    if (newState === "CRITICAL" && !SafeMode.isEnabled()) {
-      await SafeMode.systemTrigger(
-        "Health escalated to CRITICAL"
-      );
-    }
+  static getReason(): string | undefined {
+    return HealthRepo.get("reason");
   }
 }
