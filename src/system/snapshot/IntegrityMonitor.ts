@@ -6,7 +6,10 @@ import { RepairService } from "./RepairService";
 
 export class IntegrityMonitor {
   private static interval: NodeJS.Timeout | null = null;
+
   private static failureCount = 0;
+  private static repairAttempts = 0;
+  private static readonly MAX_REPAIR_ATTEMPTS = 2;
 
   static start(intervalMs: number = 10000) {
     if (this.interval) return;
@@ -26,38 +29,58 @@ export class IntegrityMonitor {
   private static runCheck() {
     const corrupted = SnapshotService.verifyAll();
 
+    // ✅ SYSTEM OK
     if (corrupted.length === 0) {
       this.failureCount = 0;
+      this.repairAttempts = 0;
+
+      const current = Health.get();
+      if (current.state !== "HEALTHY") {
+        Health.setHealthy();
+      }
+
       return;
     }
 
+    // ❌ SYSTEM NOT OK
     this.failureCount++;
 
-    Journal.record({
+    Journal.create({
       operation: "INTEGRITY_SCAN_FAILED",
       actor: "SYSTEM",
       timestamp: Date.now(),
-      error: `Corrupted alliances: ${corrupted.join(", ")}`
+      allianceId: undefined
     });
 
+    // 1️⃣ First failure → WARNING
     if (this.failureCount === 1) {
       Health.setWarning(
         `Integrity issue detected in ${corrupted.length} alliance(s)`
       );
+      return;
     }
 
-    if (this.failureCount >= 2) {
-      const repaired = RepairService.attemptRepair();
+    // 2️⃣ Second failure → CRITICAL + attempt repair
+    if (this.failureCount === 2) {
+      Health.setCritical(
+        `Integrity unstable – attempting repair`
+      );
 
-      if (!repaired) {
-        Health.setCritical(
-          `Integrity repair failed`
-        );
-
-        SafeMode.activate(
-          `Integrity monitor escalation`
-        );
+      if (this.repairAttempts < this.MAX_REPAIR_ATTEMPTS) {
+        this.repairAttempts++;
+        RepairService.attemptRepair();
       }
+
+      return;
+    }
+
+    // 3️⃣ Third failure → SafeMode
+    if (this.failureCount >= 3) {
+      Health.setCritical(
+        `Integrity escalation – SafeMode activated`
+      );
+
+      SafeMode.activate("Integrity escalation threshold reached");
     }
   }
 }
