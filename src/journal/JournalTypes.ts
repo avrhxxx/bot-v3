@@ -10,6 +10,7 @@ export interface JournalEntry {
   actor: string;
   allianceId?: string;
   timestamp: number;
+  preStateHash?: string;
   status: JournalStatus;
   error?: string;
 }
