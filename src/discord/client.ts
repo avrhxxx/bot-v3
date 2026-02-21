@@ -3,44 +3,51 @@ import {
   GatewayIntentBits,
   REST,
   Routes,
-  SlashCommandBuilder
+  Interaction
 } from "discord.js";
+
 import { config } from "../config/config";
+import { CommandRegistry } from "../commands/CommandRegistry";
+import { Dispatcher } from "../engine/Dispatcher";
+import { XsysCommand } from "../commands/XsysCommand";
 
 export const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-const commands = [
-  new SlashCommandBuilder()
-    .setName("ping")
-    .setDescription("Test command")
-].map(command => command.toJSON());
-
 export async function startDiscord() {
   try {
-    console.log("Registering slash commands...");
+    // 🔹 Rejestr komend
+    const registry = new CommandRegistry();
+    registry.register(new XsysCommand());
 
+    // 🔹 Dispatcher
+    const dispatcher = new Dispatcher(registry);
+
+    // 🔹 Deploy slash commands (guild – szybkie odświeżanie)
     const rest = new REST({ version: "10" }).setToken(config.token);
+
+    console.log("Deploying slash commands...");
 
     await rest.put(
       Routes.applicationGuildCommands(config.clientId, config.guildId),
-      { body: commands }
+      {
+        body: registry.getAll().map(cmd => cmd.data.toJSON())
+      }
     );
 
-    console.log("Slash commands registered successfully.");
+    console.log("Slash commands deployed.");
 
-    client.on("interactionCreate", async interaction => {
+    // 🔹 Interaction handler
+    client.on("interactionCreate", async (interaction: Interaction) => {
       if (!interaction.isChatInputCommand()) return;
 
-      if (interaction.commandName === "ping") {
-        await interaction.reply("Pong ✅");
-      }
+      await dispatcher.dispatch(interaction);
     });
 
     await client.login(config.token);
 
-    console.log("Discord client ready");
+    console.log("Discord client ready.");
   } catch (error) {
     console.error("Discord startup error:", error);
   }
