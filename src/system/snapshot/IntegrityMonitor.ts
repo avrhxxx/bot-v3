@@ -2,6 +2,7 @@ import { SnapshotService } from "./SnapshotService";
 import { Health } from "../Health";
 import { SafeMode } from "../SafeMode";
 import { Journal } from "../../journal/Journal";
+import { RepairService } from "./RepairService";
 
 export class IntegrityMonitor {
   private static interval: NodeJS.Timeout | null = null;
@@ -45,14 +46,18 @@ export class IntegrityMonitor {
       );
     }
 
-    if (this.failureCount >= 3) {
-      Health.setCritical(
-        `Repeated integrity failure detected`
-      );
+    if (this.failureCount >= 2) {
+      const repaired = RepairService.attemptRepair();
 
-      SafeMode.activate(
-        `Integrity monitor escalation`
-      );
+      if (!repaired) {
+        Health.setCritical(
+          `Integrity repair failed`
+        );
+
+        SafeMode.activate(
+          `Integrity monitor escalation`
+        );
+      }
     }
   }
 }
