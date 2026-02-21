@@ -10,9 +10,6 @@ const MAX_MEMBERS = 100;
 const MAX_R4 = 10;
 
 export class AllianceService {
-  // =============================
-  // CREATE
-  // =============================
   static async createAlliance(
     actorId: string,
     allianceId: string,
@@ -30,7 +27,8 @@ export class AllianceService {
       {
         operation: "ALLIANCE_CREATE",
         actor: actorId,
-        allianceId
+        allianceId,
+        requireGlobalLock: true
       },
       async () => {
         const alliance: Alliance = {
@@ -44,14 +42,10 @@ export class AllianceService {
         };
 
         AllianceRepo.set(allianceId, alliance);
-      },
-      { requireGlobalLock: true }
+      }
     );
   }
 
-  // =============================
-  // ADD MEMBER (R3)
-  // =============================
   static async addMember(
     actorId: string,
     allianceId: string,
@@ -77,20 +71,17 @@ export class AllianceService {
       {
         operation: "ALLIANCE_ADD_MEMBER",
         actor: actorId,
-        allianceId
+        allianceId,
+        requireAllianceLock: true
       },
       async () => {
         alliance.r3.push(userId);
         this.checkOrphanState(alliance);
         AllianceRepo.set(allianceId, alliance);
-      },
-      { requireAllianceLock: true }
+      }
     );
   }
 
-  // =============================
-  // PROMOTE TO R4
-  // =============================
   static async promoteToR4(
     actorId: string,
     allianceId: string,
@@ -114,20 +105,17 @@ export class AllianceService {
       {
         operation: "ALLIANCE_PROMOTE_R4",
         actor: actorId,
-        allianceId
+        allianceId,
+        requireAllianceLock: true
       },
       async () => {
         alliance.r3 = alliance.r3.filter(id => id !== userId);
         alliance.r4.push(userId);
         AllianceRepo.set(allianceId, alliance);
-      },
-      { requireAllianceLock: true }
+      }
     );
   }
 
-  // =============================
-  // REMOVE MEMBER
-  // =============================
   static async removeMember(
     actorId: string,
     allianceId: string,
@@ -159,7 +147,8 @@ export class AllianceService {
       {
         operation: "ALLIANCE_REMOVE_MEMBER",
         actor: actorId,
-        allianceId
+        allianceId,
+        requireAllianceLock: true
       },
       async () => {
         alliance.r3 = alliance.r3.filter(id => id !== userId);
@@ -171,14 +160,10 @@ export class AllianceService {
 
         this.checkOrphanState(alliance);
         AllianceRepo.set(allianceId, alliance);
-      },
-      { requireAllianceLock: true }
+      }
     );
   }
 
-  // =============================
-  // TRANSFER LEADERSHIP
-  // =============================
   static async transferLeadership(
     actorId: string,
     allianceId: string,
@@ -198,7 +183,8 @@ export class AllianceService {
       {
         operation: "ALLIANCE_TRANSFER_LEADERSHIP",
         actor: actorId,
-        allianceId
+        allianceId,
+        requireAllianceLock: true
       },
       async () => {
         alliance.r4 = alliance.r4.filter(id => id !== newLeaderId);
@@ -208,14 +194,10 @@ export class AllianceService {
         alliance.r5 = newLeaderId;
 
         AllianceRepo.set(allianceId, alliance);
-      },
-      { requireAllianceLock: true }
+      }
     );
   }
 
-  // =============================
-  // DELETE (2-step)
-  // =============================
   static requestDelete(actorId: string, allianceId: string) {
     if (!Ownership.isDiscordOwner(actorId)) {
       throw new Error("Only Discord Owner can delete alliance");
@@ -243,19 +225,16 @@ export class AllianceService {
       {
         operation: "ALLIANCE_DELETE",
         actor: actorId,
-        allianceId
+        allianceId,
+        requireGlobalLock: true
       },
       async () => {
         AllianceRepo.delete(allianceId);
         PendingDeletionRepo.delete(allianceId);
-      },
-      { requireGlobalLock: true }
+      }
     );
   }
 
-  // =============================
-  // HELPERS
-  // =============================
   private static getAllianceOrThrow(id: string): Alliance {
     const alliance = AllianceRepo.get(id);
     if (!alliance) throw new Error("Alliance not found");
@@ -271,16 +250,13 @@ export class AllianceService {
   }
 
   private static getTotalMembers(alliance: Alliance): number {
-    return (
-      1 + alliance.r4.length + alliance.r3.length
-    );
+    return 1 + alliance.r4.length + alliance.r3.length;
   }
 
   private static checkOrphanState(alliance: Alliance) {
-    if (!alliance.r5 && alliance.r4.length === 0 && alliance.r3.length === 0) {
-      alliance.orphaned = true;
-    } else {
-      alliance.orphaned = false;
-    }
+    alliance.orphaned =
+      !alliance.r5 &&
+      alliance.r4.length === 0 &&
+      alliance.r3.length === 0;
   }
 }
