@@ -1,5 +1,6 @@
+import crypto from "crypto";
 import { JournalEntry, JournalStatus } from "./JournalTypes";
-import { Database } from "../data/Database";
+import { db } from "../data/Database";
 
 export class Journal {
   static create(entry: Omit<JournalEntry, "id" | "status">): JournalEntry {
@@ -11,23 +12,24 @@ export class Journal {
       status: "PENDING"
     };
 
-    Database.journal.set(id, fullEntry);
+    db.journal.set(id, fullEntry);
     return fullEntry;
   }
 
   static updateStatus(id: string, status: JournalStatus, error?: string) {
-    const entry = Database.journal.get(id);
+    const entry = db.journal.get(id);
     if (!entry) return;
 
     entry.status = status;
+
     if (error) {
       entry.error = error;
     }
 
-    Database.journal.set(id, entry);
+    db.journal.set(id, entry);
   }
 
   static getAll(): JournalEntry[] {
-    return Array.from(Database.journal.values());
+    return Array.from(db.journal.values());
   }
 }
