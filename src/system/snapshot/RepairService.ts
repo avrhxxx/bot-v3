@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import { AllianceRepo, SnapshotRepo } from "../../data/Repositories";
 import { SnapshotService } from "./SnapshotService";
 import { Health } from "../Health";
@@ -35,23 +34,19 @@ export class RepairService {
         }
       } catch (error: any) {
         Journal.create({
-          id: crypto.randomUUID(),
           operation: "REPAIR_FAILED",
           actor: "SYSTEM",
           allianceId,
-          timestamp: Date.now(),
-          status: "ABORTED"
+          timestamp: Date.now()
         });
       }
     }
 
     if (repairedCount > 0) {
       Journal.create({
-        id: crypto.randomUUID(),
         operation: "REPAIR_SUCCESS",
         actor: "SYSTEM",
-        timestamp: Date.now(),
-        status: "CONFIRMED"
+        timestamp: Date.now()
       });
 
       Health.setHealthy();
