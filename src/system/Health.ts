@@ -1,4 +1,4 @@
-import { Database } from "../data/Database";
+import { db } from "../data/Database";
 
 export type HealthState = "HEALTHY" | "WARNING" | "CRITICAL";
 
@@ -11,21 +11,21 @@ const KEY = "system-health";
 
 export class Health {
   static setHealthy() {
-    Database.system.set(KEY, {
+    db.health.set(KEY, {
       state: "HEALTHY",
       reason: null
     } satisfies HealthRecord);
   }
 
   static setWarning(reason: string) {
-    Database.system.set(KEY, {
+    db.health.set(KEY, {
       state: "WARNING",
       reason
     } satisfies HealthRecord);
   }
 
   static setCritical(reason: string) {
-    Database.system.set(KEY, {
+    db.health.set(KEY, {
       state: "CRITICAL",
       reason
     } satisfies HealthRecord);
@@ -33,7 +33,7 @@ export class Health {
 
   static get(): HealthRecord {
     return (
-      Database.system.get(KEY) ?? {
+      db.health.get(KEY) ?? {
         state: "HEALTHY",
         reason: null
       }
