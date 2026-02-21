@@ -20,9 +20,7 @@ export class AllianceService {
     }
 
     const existing = AllianceRepo.get(allianceId);
-    if (existing) {
-      throw new Error("Alliance already exists");
-    }
+    if (existing) throw new Error("Alliance already exists");
 
     await MutationGate.execute(
       {
@@ -44,14 +42,199 @@ export class AllianceService {
 
         AllianceRepo.set(allianceId, alliance);
       },
-      {
-        requireGlobalLock: true
-      }
+      { requireGlobalLock: true }
     );
   }
 
   // -----------------------------
-  // DELETE REQUEST (STEP 1)
+  // ADD MEMBER (R3)
+  // -----------------------------
+  static async addMember(
+    actorId: string,
+    allianceId: string,
+    userId: string
+  ) {
+    const alliance = AllianceRepo.get(allianceId);
+    if (!alliance) throw new Error("Alliance not found");
+
+    if (alliance.orphaned) throw new Error("Alliance is orphaned");
+
+    if (actorId !== alliance.r5 && !alliance.r4.includes(actorId)) {
+      throw new Error("Insufficient permissions");
+    }
+
+    if (alliance.r3.includes(userId)) {
+      throw new Error("Already member");
+    }
+
+    await MutationGate.execute(
+      {
+        operation: "ALLIANCE_ADD_MEMBER",
+        actor: actorId,
+        allianceId,
+        preState: alliance
+      },
+      async () => {
+        alliance.r3.push(userId);
+        this.checkOrphanState(alliance);
+        AllianceRepo.set(allianceId, alliance);
+      },
+      { requireAllianceLock: true }
+    );
+  }
+
+  // -----------------------------
+  // PROMOTE TO R4
+  // -----------------------------
+  static async promoteToR4(
+    actorId: string,
+    allianceId: string,
+    userId: string
+  ) {
+    const alliance = AllianceRepo.get(allianceId);
+    if (!alliance) throw new Error("Alliance not found");
+
+    if (actorId !== alliance.r5)
+      throw new Error("Only R5 can promote to R4");
+
+    if (!alliance.r3.includes(userId))
+      throw new Error("User not in R3");
+
+    await MutationGate.execute(
+      {
+        operation: "ALLIANCE_PROMOTE_R4",
+        actor: actorId,
+        allianceId,
+        preState: alliance
+      },
+      async () => {
+        alliance.r3 = alliance.r3.filter(id => id !== userId);
+        alliance.r4.push(userId);
+        this.checkOrphanState(alliance);
+        AllianceRepo.set(allianceId, alliance);
+      },
+      { requireAllianceLock: true }
+    );
+  }
+
+  // -----------------------------
+  // DEMOTE R4
+  // -----------------------------
+  static async demoteR4(
+    actorId: string,
+    allianceId: string,
+    userId: string
+  ) {
+    const alliance = AllianceRepo.get(allianceId);
+    if (!alliance) throw new Error("Alliance not found");
+
+    if (actorId !== alliance.r5)
+      throw new Error("Only R5 can demote R4");
+
+    if (!alliance.r4.includes(userId))
+      throw new Error("User not R4");
+
+    await MutationGate.execute(
+      {
+        operation: "ALLIANCE_DEMOTE_R4",
+        actor: actorId,
+        allianceId,
+        preState: alliance
+      },
+      async () => {
+        alliance.r4 = alliance.r4.filter(id => id !== userId);
+        alliance.r3.push(userId);
+        this.checkOrphanState(alliance);
+        AllianceRepo.set(allianceId, alliance);
+      },
+      { requireAllianceLock: true }
+    );
+  }
+
+  // -----------------------------
+  // TRANSFER LEADERSHIP
+  // -----------------------------
+  static async transferLeadership(
+    actorId: string,
+    allianceId: string,
+    newLeaderId: string
+  ) {
+    const alliance = AllianceRepo.get(allianceId);
+    if (!alliance) throw new Error("Alliance not found");
+
+    if (actorId !== alliance.r5)
+      throw new Error("Only R5 can transfer leadership");
+
+    if (
+      !alliance.r4.includes(newLeaderId) &&
+      !alliance.r3.includes(newLeaderId)
+    ) {
+      throw new Error("New leader must be member");
+    }
+
+    await MutationGate.execute(
+      {
+        operation: "ALLIANCE_TRANSFER_LEADERSHIP",
+        actor: actorId,
+        allianceId,
+        preState: alliance
+      },
+      async () => {
+        alliance.r4 = alliance.r4.filter(id => id !== newLeaderId);
+        alliance.r3 = alliance.r3.filter(id => id !== newLeaderId);
+
+        alliance.r3.push(alliance.r5);
+        alliance.r5 = newLeaderId;
+
+        this.checkOrphanState(alliance);
+        AllianceRepo.set(allianceId, alliance);
+      },
+      { requireAllianceLock: true }
+    );
+  }
+
+  // -----------------------------
+  // REMOVE MEMBER
+  // -----------------------------
+  static async removeMember(
+    actorId: string,
+    allianceId: string,
+    userId: string
+  ) {
+    const alliance = AllianceRepo.get(allianceId);
+    if (!alliance) throw new Error("Alliance not found");
+
+    if (
+      actorId !== alliance.r5 &&
+      !alliance.r4.includes(actorId)
+    ) {
+      throw new Error("Insufficient permissions");
+    }
+
+    await MutationGate.execute(
+      {
+        operation: "ALLIANCE_REMOVE_MEMBER",
+        actor: actorId,
+        allianceId,
+        preState: alliance
+      },
+      async () => {
+        alliance.r3 = alliance.r3.filter(id => id !== userId);
+        alliance.r4 = alliance.r4.filter(id => id !== userId);
+
+        if (alliance.r5 === userId) {
+          alliance.r5 = "";
+        }
+
+        this.checkOrphanState(alliance);
+        AllianceRepo.set(allianceId, alliance);
+      },
+      { requireAllianceLock: true }
+    );
+  }
+
+  // -----------------------------
+  // DELETE REQUEST
   // -----------------------------
   static requestDelete(actorId: string, allianceId: string) {
     const alliance = AllianceRepo.get(allianceId);
@@ -72,7 +255,7 @@ export class AllianceService {
   }
 
   // -----------------------------
-  // DELETE CONFIRM (STEP 2)
+  // DELETE CONFIRM
   // -----------------------------
   static async confirmDelete(actorId: string, allianceId: string) {
     const pending = PendingDeletionRepo.get(allianceId);
@@ -96,9 +279,7 @@ export class AllianceService {
         AllianceRepo.delete(allianceId);
         PendingDeletionRepo.delete(allianceId);
       },
-      {
-        requireGlobalLock: true
-      }
+      { requireGlobalLock: true }
     );
   }
 
@@ -113,33 +294,5 @@ export class AllianceService {
 
     alliance.orphaned = false;
     return false;
-  }
-
-  // -----------------------------
-  // FORCE ORPHAN (system repair tool)
-  // -----------------------------
-  static async markOrphan(
-    actorId: string,
-    allianceId: string
-  ) {
-    const alliance = AllianceRepo.get(allianceId);
-    if (!alliance) throw new Error("Alliance not found");
-
-    await MutationGate.execute(
-      {
-        operation: "ALLIANCE_ORPHAN_MARK",
-        actor: actorId,
-        allianceId,
-        preState: alliance
-      },
-      async () => {
-        alliance.orphaned = true;
-        AllianceRepo.set(allianceId, alliance);
-      },
-      {
-        requireGlobalLock: true,
-        systemOverride: true
-      }
-    );
   }
 }
