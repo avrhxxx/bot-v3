@@ -1,22 +1,26 @@
-let active = false;
-let reason: string | null = null;
+class SafeModeState {
+  active: boolean = false;
+  reason: string | null = null;
+}
+
+const state = new SafeModeState();
 
 export class SafeMode {
-  static activate(r: string) {
-    active = true;
-    reason = r;
+  static activate(reason: string): void {
+    state.active = true;
+    state.reason = reason;
   }
 
-  static deactivate() {
-    active = false;
-    reason = null;
+  static deactivate(): void {
+    state.active = false;
+    state.reason = null;
   }
 
-  static isActive() {
-    return active;
+  static isActive(): boolean {
+    return state.active;
   }
 
-  static getReason() {
-    return reason;
+  static getReason(): string | null {
+    return state.reason;
   }
 }
