@@ -1,27 +1,42 @@
-import { HealthRepo } from "../data/Repositories";
+import { Database } from "../data/Database";
 
-type HealthState = "HEALTHY" | "WARNING" | "CRITICAL";
+export type HealthState = "HEALTHY" | "WARNING" | "CRITICAL";
+
+interface HealthRecord {
+  state: HealthState;
+  reason: string | null;
+}
+
+const KEY = "system-health";
 
 export class Health {
-  static get(): HealthState {
-    return HealthRepo.get("state") || "HEALTHY";
-  }
-
   static setHealthy() {
-    HealthRepo.set("state", "HEALTHY");
+    Database.system.set(KEY, {
+      state: "HEALTHY",
+      reason: null
+    } satisfies HealthRecord);
   }
 
   static setWarning(reason: string) {
-    HealthRepo.set("state", "WARNING");
-    HealthRepo.set("reason", reason);
+    Database.system.set(KEY, {
+      state: "WARNING",
+      reason
+    } satisfies HealthRecord);
   }
 
   static setCritical(reason: string) {
-    HealthRepo.set("state", "CRITICAL");
-    HealthRepo.set("reason", reason);
+    Database.system.set(KEY, {
+      state: "CRITICAL",
+      reason
+    } satisfies HealthRecord);
   }
 
-  static getReason(): string | undefined {
-    return HealthRepo.get("reason");
+  static get(): HealthRecord {
+    return (
+      Database.system.get(KEY) ?? {
+        state: "HEALTHY",
+        reason: null
+      }
+    );
   }
 }
