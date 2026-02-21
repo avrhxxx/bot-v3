@@ -3,6 +3,9 @@ export class Database {
   public ownership: Map<string, any> = new Map();
   public health: Map<string, any> = new Map();
   public pendingDeletions: Map<string, any> = new Map();
+
+  // SNAPSHOT MIRROR
+  public snapshots: Map<string, any> = new Map();
 }
 
 export const db = new Database();
