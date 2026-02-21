@@ -6,9 +6,6 @@ const BOT_OWNER_KEY = "BOT_OWNER";
 const DISCORD_OWNER_KEY = "DISCORD_OWNER";
 
 export class Ownership {
-  // -----------------------
-  // Initialization
-  // -----------------------
   static initialize(botOwnerId: string, discordOwnerId: string) {
     if (!OwnershipRepo.get(BOT_OWNER_KEY)) {
       OwnershipRepo.set(BOT_OWNER_KEY, botOwnerId);
@@ -19,9 +16,6 @@ export class Ownership {
     }
   }
 
-  // -----------------------
-  // Getters
-  // -----------------------
   static getBotOwner(): string | undefined {
     return OwnershipRepo.get(BOT_OWNER_KEY);
   }
@@ -38,9 +32,6 @@ export class Ownership {
     return this.getDiscordOwner() === userId;
   }
 
-  // -----------------------
-  // Transfer Bot Owner
-  // -----------------------
   static async transferBotOwner(
     actorId: string,
     newOwnerId: string,
@@ -50,7 +41,7 @@ export class Ownership {
       throw new Error("Only current Bot Owner can transfer ownership");
     }
 
-    if (SafeMode.isEnabled()) {
+    if (SafeMode.isActive()) {
       throw new Error("Cannot transfer during SAFE_MODE");
     }
 
@@ -58,28 +49,18 @@ export class Ownership {
       throw new Error("Cannot transfer unless system HEALTHY");
     }
 
-    const currentOwner = this.getBotOwner();
-
     await MutationGate.execute(
       {
         operation: "BOT_OWNER_TRANSFER",
         actor: actorId,
-        target: newOwnerId,
-        preState: { currentOwner }
+        requireGlobalLock: true
       },
       async () => {
         OwnershipRepo.set(BOT_OWNER_KEY, newOwnerId);
-      },
-      {
-        requireGlobalLock: true
       }
     );
   }
 
-  // -----------------------
-  // Discord Owner set
-  // Governance only
-  // -----------------------
   static async setDiscordOwner(
     actorId: string,
     newOwnerId: string
@@ -88,20 +69,14 @@ export class Ownership {
       throw new Error("Only Bot Owner can set Discord Owner");
     }
 
-    const currentOwner = this.getDiscordOwner();
-
     await MutationGate.execute(
       {
         operation: "DISCORD_OWNER_SET",
         actor: actorId,
-        target: newOwnerId,
-        preState: { currentOwner }
+        requireGlobalLock: true
       },
       async () => {
         OwnershipRepo.set(DISCORD_OWNER_KEY, newOwnerId);
-      },
-      {
-        requireGlobalLock: true
       }
     );
   }
