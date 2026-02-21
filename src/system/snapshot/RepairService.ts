@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { AllianceRepo, SnapshotRepo } from "../../data/Repositories";
 import { SnapshotService } from "./SnapshotService";
 import { Health } from "../Health";
@@ -21,12 +22,10 @@ export class RepairService {
       if (!snapshot || !alliance) continue;
 
       try {
-        // Minimal structural restore
         alliance.r4 = alliance.r4.slice(0, snapshot.r4Count);
         alliance.r3 = alliance.r3.slice(0, snapshot.r3Count);
         alliance.orphaned = snapshot.orphaned;
 
-        // Recreate snapshot after repair
         SnapshotService.createSnapshot(alliance);
 
         const valid = SnapshotService.verifySnapshot(allianceId);
@@ -35,22 +34,24 @@ export class RepairService {
           repairedCount++;
         }
       } catch (error: any) {
-        Journal.record({
+        Journal.create({
+          id: crypto.randomUUID(),
           operation: "REPAIR_FAILED",
           actor: "SYSTEM",
           allianceId,
           timestamp: Date.now(),
-          error: error.message
+          status: "ABORTED"
         });
       }
     }
 
     if (repairedCount > 0) {
-      Journal.record({
+      Journal.create({
+        id: crypto.randomUUID(),
         operation: "REPAIR_SUCCESS",
         actor: "SYSTEM",
         timestamp: Date.now(),
-        error: `Repaired ${repairedCount} alliance(s)`
+        status: "CONFIRMED"
       });
 
       Health.setHealthy();
