@@ -3,7 +3,7 @@
   "version": "3.0.0-beta",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist && tsc",
     "start": "npm run build && node dist/index.js"
   },
   "dependencies": {
