@@ -6,6 +6,9 @@ export class Database {
 
   // SNAPSHOT MIRROR
   public snapshots: Map<string, any> = new Map();
+
+  // JOURNAL STORAGE
+  public journal: Map<string, any> = new Map();
 }
 
 export const db = new Database();
