@@ -38,6 +38,7 @@ export class AllianceService {
           r5: actorId,
           r4: [],
           r3: [],
+          orphaned: false,
           createdAt: Date.now()
         };
 
@@ -97,6 +98,47 @@ export class AllianceService {
       },
       {
         requireGlobalLock: true
+      }
+    );
+  }
+
+  // -----------------------------
+  // ORPHAN CHECK
+  // -----------------------------
+  static checkOrphanState(alliance: Alliance): boolean {
+    if (!alliance.r5 && alliance.r4.length === 0 && alliance.r3.length === 0) {
+      alliance.orphaned = true;
+      return true;
+    }
+
+    alliance.orphaned = false;
+    return false;
+  }
+
+  // -----------------------------
+  // FORCE ORPHAN (system repair tool)
+  // -----------------------------
+  static async markOrphan(
+    actorId: string,
+    allianceId: string
+  ) {
+    const alliance = AllianceRepo.get(allianceId);
+    if (!alliance) throw new Error("Alliance not found");
+
+    await MutationGate.execute(
+      {
+        operation: "ALLIANCE_ORPHAN_MARK",
+        actor: actorId,
+        allianceId,
+        preState: alliance
+      },
+      async () => {
+        alliance.orphaned = true;
+        AllianceRepo.set(allianceId, alliance);
+      },
+      {
+        requireGlobalLock: true,
+        systemOverride: true
       }
     );
   }
