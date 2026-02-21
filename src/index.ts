@@ -1,3 +1,5 @@
+console.log("THIS IS NEW BUILD 123");
+
 import { IntegrityMonitor } from "./system/snapshot/IntegrityMonitor";
 import { Health } from "./system/Health";
 import { startDiscord } from "./discord/client";
