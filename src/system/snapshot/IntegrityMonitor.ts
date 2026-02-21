@@ -6,6 +6,7 @@ import { RepairService } from "./RepairService";
 
 export class IntegrityMonitor {
   private static interval: NodeJS.Timeout | null = null;
+  private static running = false;
 
   private static failureCount = 0;
   private static repairAttempts = 0;
@@ -14,8 +15,8 @@ export class IntegrityMonitor {
   static start(intervalMs: number = 10000) {
     if (this.interval) return;
 
-    this.interval = setInterval(() => {
-      this.runCheck();
+    this.interval = setInterval(async () => {
+      await this.runCheck();
     }, intervalMs);
   }
 
@@ -26,61 +27,64 @@ export class IntegrityMonitor {
     }
   }
 
-  private static runCheck() {
-    const corrupted = SnapshotService.verifyAll();
+  private static async runCheck() {
+    if (this.running) return; // prevent overlap
+    this.running = true;
 
-    // ✅ SYSTEM OK
-    if (corrupted.length === 0) {
-      this.failureCount = 0;
-      this.repairAttempts = 0;
+    try {
+      const corrupted = SnapshotService.verifyAll();
 
-      const current = Health.get();
-      if (current.state !== "HEALTHY") {
-        Health.setHealthy();
+      if (corrupted.length === 0) {
+        this.failureCount = 0;
+        this.repairAttempts = 0;
+
+        const current = Health.get();
+        if (current.state !== "HEALTHY") {
+          Health.setHealthy();
+        }
+
+        return;
       }
 
-      return;
-    }
+      this.failureCount++;
 
-    // ❌ SYSTEM NOT OK
-    this.failureCount++;
+      Journal.create({
+        operation: "INTEGRITY_SCAN_FAILED",
+        actor: "SYSTEM",
+        timestamp: Date.now(),
+        allianceId: undefined
+      });
 
-    Journal.create({
-      operation: "INTEGRITY_SCAN_FAILED",
-      actor: "SYSTEM",
-      timestamp: Date.now(),
-      allianceId: undefined
-    });
-
-    // 1️⃣ First failure → WARNING
-    if (this.failureCount === 1) {
-      Health.setWarning(
-        `Integrity issue detected in ${corrupted.length} alliance(s)`
-      );
-      return;
-    }
-
-    // 2️⃣ Second failure → CRITICAL + attempt repair
-    if (this.failureCount === 2) {
-      Health.setCritical(
-        `Integrity unstable – attempting repair`
-      );
-
-      if (this.repairAttempts < this.MAX_REPAIR_ATTEMPTS) {
-        this.repairAttempts++;
-        RepairService.attemptRepair();
+      if (this.failureCount === 1) {
+        Health.setWarning(
+          `Integrity issue detected in ${corrupted.length} alliance(s)`
+        );
+        return;
       }
 
-      return;
-    }
+      if (this.failureCount === 2) {
+        Health.setCritical(
+          `Integrity unstable – attempting repair`
+        );
 
-    // 3️⃣ Third failure → SafeMode
-    if (this.failureCount >= 3) {
-      Health.setCritical(
-        `Integrity escalation – SafeMode activated`
-      );
+        if (this.repairAttempts < this.MAX_REPAIR_ATTEMPTS) {
+          this.repairAttempts++;
+          await RepairService.attemptRepair();
+        }
 
-      SafeMode.activate("Integrity escalation threshold reached");
+        return;
+      }
+
+      if (this.failureCount >= 3) {
+        Health.setCritical(
+          `Integrity escalation – SafeMode activated`
+        );
+
+        SafeMode.activate("Integrity escalation threshold reached");
+      }
+
+    } finally {
+      this.running = false;
     }
   }
 }
