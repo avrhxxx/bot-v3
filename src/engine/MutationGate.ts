@@ -1,91 +1,70 @@
-import { GlobalLock } from "../locks/GlobalLock";
-import { AllianceLock } from "../locks/AllianceLock";
+import { SafeMode } from "../system/SafeMode";
 import { Journal } from "../journal/Journal";
 import { SnapshotService } from "../system/snapshot/SnapshotService";
-import { AllianceRepo } from "../data/Repositories";
 import { Health } from "../system/Health";
-import { SafeMode } from "../system/SafeMode";
 
-interface MutationContext {
-  operation: string;
-  actor: string;
+export interface MutationOptions {
   allianceId?: string;
-  preState?: any;
-}
-
-interface MutationOptions {
-  requireGlobalLock?: boolean;
-  requireAllianceLock?: boolean;
+  actor: string;
+  operation: string;
   systemOverride?: boolean;
 }
 
 export class MutationGate {
-  static async execute(
-    context: MutationContext,
-    mutation: () => Promise<void> | void,
-    options: MutationOptions = {}
-  ) {
+  static execute<T>(
+    options: MutationOptions,
+    handler: () => T
+  ): T {
     if (SafeMode.isActive() && !options.systemOverride) {
-      throw new Error("System is in Safe Mode");
+      throw new Error("System in SafeMode");
     }
 
-    const run = async () => {
-      try {
-        await mutation();
+    const journalEntry = Journal.create({
+      operation: options.operation,
+      actor: options.actor,
+      allianceId: options.allianceId,
+      timestamp: Date.now()
+    });
 
-        // AFTER SUCCESSFUL MUTATION
-        if (context.allianceId) {
-          const alliance = AllianceRepo.get(context.allianceId);
+    try {
+      const result = handler();
 
-          if (alliance) {
-            // Create snapshot
-            SnapshotService.createSnapshot(alliance);
+      if (options.allianceId) {
+        const alliance = SnapshotService.getAlliance(options.allianceId);
+        if (alliance) {
+          SnapshotService.createSnapshot(alliance);
 
-            // Verify integrity immediately
-            const valid = SnapshotService.verifySnapshot(alliance.id);
+          const valid = SnapshotService.verifySnapshot(
+            options.allianceId
+          );
 
-            if (!valid) {
-              Health.setCritical(
-                `Snapshot mismatch detected for alliance ${alliance.id}`
-              );
+          if (!valid) {
+            Health.setCritical(
+              "Immediate post-mutation integrity failure"
+            );
 
-              SafeMode.activate(
-                `Integrity failure on alliance ${alliance.id}`
-              );
+            Journal.updateStatus(
+              journalEntry.id,
+              "ABORTED",
+              "Integrity check failed"
+            );
 
-              throw new Error("Snapshot integrity failure");
-            }
+            throw new Error("Integrity check failed");
           }
         }
-
-        Journal.record({
-          operation: context.operation,
-          actor: context.actor,
-          allianceId: context.allianceId,
-          timestamp: Date.now()
-        });
-
-      } catch (error: any) {
-        Journal.record({
-          operation: "MUTATION_FAILED",
-          actor: context.actor,
-          allianceId: context.allianceId,
-          timestamp: Date.now(),
-          error: error.message
-        });
-
-        throw error;
       }
-    };
 
-    if (options.requireGlobalLock) {
-      return GlobalLock.run(run);
+      Journal.updateStatus(journalEntry.id, "EXECUTED");
+      Journal.updateStatus(journalEntry.id, "CONFIRMED");
+
+      return result;
+    } catch (error: any) {
+      Journal.updateStatus(
+        journalEntry.id,
+        "ABORTED",
+        error?.message
+      );
+      throw error;
     }
-
-    if (options.requireAllianceLock && context.allianceId) {
-      return AllianceLock.run(context.allianceId, run);
-    }
-
-    return run();
   }
 }
