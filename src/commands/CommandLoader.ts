@@ -13,16 +13,26 @@ export class CommandLoader {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
 
     for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
+      const fullPath = path.resolve(dir, entry.name);
 
       if (entry.isDirectory()) {
         await this.loadCommandsFromDir(fullPath);
-      } else if (entry.isFile() && entry.name.endsWith(".ts")) {
-        const module = await import(fullPath);
-        const command: Command = module[Object.keys(module)[0]]; // assumes export const <CommandName>
-        if (command && command.data) {
-          CommandRegistry.register(command);
-          console.log(`✅ Command loaded: ${command.data.name}`);
+      } else if (entry.isFile() && (entry.name.endsWith(".ts") || entry.name.endsWith(".js"))) {
+        try {
+          const module = await import(fullPath);
+          // Find exported command
+          const exportedCommand = Object.values(module).find(
+            (exp) => exp && (exp as Command).data
+          ) as Command | undefined;
+
+          if (exportedCommand) {
+            CommandRegistry.register(exportedCommand);
+            console.log(`✅ Command loaded: ${exportedCommand.data.name}`);
+          } else {
+            console.warn(`⚠️ No valid command found in ${fullPath}`);
+          }
+        } catch (err) {
+          console.error(`❌ Failed to load command from ${fullPath}:`, err);
         }
       }
     }
@@ -39,6 +49,8 @@ export class CommandLoader {
       const dir = path.join(baseDir, ns);
       if (fs.existsSync(dir)) {
         await this.loadCommandsFromDir(dir);
+      } else {
+        console.warn(`⚠️ Commands namespace folder missing: ${dir}`);
       }
     }
   }
