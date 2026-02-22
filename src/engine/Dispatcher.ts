@@ -30,7 +30,6 @@ export class Dispatcher {
       }
 
       const command = this.registry.get(interaction.commandName);
-
       if (!command) {
         await interaction.reply({
           content: "❌ Command not found.",
@@ -43,7 +42,6 @@ export class Dispatcher {
       if (command.ownerOnly) {
         const userId = interaction.user.id;
 
-        // ✅ Sprawdzamy zarówno BotOwner, jak i DiscordOwner
         if (!Ownership.isBotOwner(userId) && !Ownership.isDiscordOwner(userId)) {
           await interaction.reply({
             content: "⛔ This command is restricted to Bot or Discord Owner.",
