@@ -4,6 +4,7 @@ import { startDiscord } from "./discord/client";
 import { SnapshotService } from "./system/snapshot/SnapshotService";
 import { SafeMode } from "./system/SafeMode";
 import { AllianceRepo, SnapshotRepo } from "./data/Repositories";
+import { CommandLoader } from "./commands/CommandLoader"; // ✅ dodany import loadera komend
 
 async function bootstrap() {
   console.log("System booting...");
@@ -33,6 +34,10 @@ async function bootstrap() {
   }
 
   IntegrityMonitor.start(15000);
+
+  // ✅ 3️⃣ Load all commands before starting Discord
+  await CommandLoader.loadAllCommands();
+  console.log("All commands loaded successfully.");
 
   await startDiscord();
 
