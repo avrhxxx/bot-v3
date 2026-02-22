@@ -1,11 +1,17 @@
-// src/commands/alliance/updateTag.ts
+// File path: src/commands/alliance/updateTag.ts
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-export const UpdateTagCommand: Command = {
+/**
+ * UpdateTagCommand
+ * ----------------
+ * Allows the alliance leader to change the alliance's tag.
+ * - Tag must be exactly 3 characters: letters (A-Z) or numbers (0-9).
+ */
+export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("update_tag")
     .setDescription("Change your alliance tag (letters and numbers only)")
@@ -53,3 +59,5 @@ export const UpdateTagCommand: Command = {
     }
   }
 };
+
+export default Command;
