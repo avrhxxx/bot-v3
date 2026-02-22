@@ -1,11 +1,18 @@
-// src/commands/alliance/promote.ts
+// File path: src/commands/alliance/promote.ts
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-export const PromoteCommand: Command = {
+/**
+ * PromoteCommand
+ * ----------------
+ * Allows a leader or moderator to promote a member in the alliance.
+ * - Checks SafeMode and guild context.
+ * - Ensures the target member is in the same alliance and eligible for promotion.
+ */
+export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("promote")
     .setDescription("Promote a member to the next rank in your alliance")
@@ -31,8 +38,6 @@ export const PromoteCommand: Command = {
     }
 
     try {
-      // Moduł sojuszu sprawdza, czy wykonawca jest liderem
-      // oraz czy targetUser należy do sojuszu i jest niższej rangi
       const result = await AllianceSystem.promoteMember(userId, targetUser.id, interaction.guild.id);
       
       await interaction.reply({
@@ -47,3 +52,5 @@ export const PromoteCommand: Command = {
     }
   }
 };
+
+export default Command;
