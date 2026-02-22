@@ -13,59 +13,29 @@ export class AllianceSystem {
     guild: Guild;
     tag: string;
     leaderId: string;
-  }): Promise<{
-    roles: AllianceRoles;
-    channels: AllianceChannels;
-  }> {
+  }): Promise<{ roles: AllianceRoles; channels: AllianceChannels }> {
     const { guild, tag, leaderId } = params;
 
     const createdRoles: Role[] = [];
     const createdChannels: (CategoryChannel | TextChannel)[] = [];
 
     try {
-      // =====================
       // ROLES
-      // =====================
+      const r5 = await guild.roles.create({ name: `${tag} R5`, mentionable: false });
+      const r4 = await guild.roles.create({ name: `${tag} R4`, mentionable: false });
+      const r3 = await guild.roles.create({ name: `${tag} R3`, mentionable: false });
+      const identity = await guild.roles.create({ name: `[${tag}]`, mentionable: true });
 
-      const r5 = await guild.roles.create({
-        name: `${tag} R5`,
-        mentionable: false
-      });
-      createdRoles.push(r5);
+      createdRoles.push(r5, r4, r3, identity);
 
-      const r4 = await guild.roles.create({
-        name: `${tag} R4`,
-        mentionable: false
-      });
-      createdRoles.push(r4);
-
-      const r3 = await guild.roles.create({
-        name: `${tag} R3`,
-        mentionable: false
-      });
-      createdRoles.push(r3);
-
-      const identity = await guild.roles.create({
-        name: `[${tag}]`,
-        mentionable: true
-      });
-      createdRoles.push(identity);
-
-      // =====================
       // CATEGORY
-      // =====================
-
       const category = await guild.channels.create({
         name: `Alliance • ${tag}`,
         type: ChannelType.GuildCategory
       }) as CategoryChannel;
-
       createdChannels.push(category);
 
-      // =====================
       // CHANNELS
-      // =====================
-
       const leadership = await guild.channels.create({
         name: "leadership",
         type: ChannelType.GuildText,
@@ -92,76 +62,34 @@ export class AllianceSystem {
 
       createdChannels.push(leadership, officers, members, join);
 
-      // =====================
       // PERMISSIONS
-      // =====================
+      const everyoneId = guild.roles.everyone.id;
 
       await leadership.permissionOverwrites.set([
-        {
-          id: guild.roles.everyone.id,
-          deny: [PermissionFlagsBits.ViewChannel]
-        },
-        {
-          id: r5.id,
-          allow: [PermissionFlagsBits.ViewChannel]
-        }
+        { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] },
+        { id: r5.id, allow: [PermissionFlagsBits.ViewChannel] }
       ]);
 
       await officers.permissionOverwrites.set([
-        {
-          id: guild.roles.everyone.id,
-          deny: [PermissionFlagsBits.ViewChannel]
-        },
-        {
-          id: r5.id,
-          allow: [PermissionFlagsBits.ViewChannel]
-        },
-        {
-          id: r4.id,
-          allow: [PermissionFlagsBits.ViewChannel]
-        }
+        { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] },
+        { id: r5.id, allow: [PermissionFlagsBits.ViewChannel] },
+        { id: r4.id, allow: [PermissionFlagsBits.ViewChannel] }
       ]);
 
       await members.permissionOverwrites.set([
-        {
-          id: guild.roles.everyone.id,
-          deny: [PermissionFlagsBits.ViewChannel]
-        },
-        {
-          id: r5.id,
-          allow: [PermissionFlagsBits.ViewChannel]
-        },
-        {
-          id: r4.id,
-          allow: [PermissionFlagsBits.ViewChannel]
-        },
-        {
-          id: r3.id,
-          allow: [PermissionFlagsBits.ViewChannel]
-        }
+        { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] },
+        { id: r5.id, allow: [PermissionFlagsBits.ViewChannel] },
+        { id: r4.id, allow: [PermissionFlagsBits.ViewChannel] },
+        { id: r3.id, allow: [PermissionFlagsBits.ViewChannel] }
       ]);
 
       await join.permissionOverwrites.set([
-        {
-          id: guild.roles.everyone.id,
-          allow: [PermissionFlagsBits.ViewChannel]
-        }
+        { id: everyoneId, allow: [PermissionFlagsBits.ViewChannel] }
       ]);
 
-      // =====================
-      // ASSIGN LEADER (R5 + Identity ONLY)
-      // =====================
-
+      // ASSIGN LEADER
       const leader = await guild.members.fetch(leaderId);
-
-      await leader.roles.add([
-        r5.id,
-        identity.id
-      ]);
-
-      // =====================
-      // RETURN DOMAIN STRUCTURE
-      // =====================
+      await leader.roles.add([r5.id, identity.id]);
 
       return {
         roles: {
@@ -180,18 +108,9 @@ export class AllianceSystem {
       };
 
     } catch (error) {
-      // =====================
       // ROLLBACK
-      // =====================
-
-      for (const channel of createdChannels) {
-        try { await channel.delete(); } catch {}
-      }
-
-      for (const role of createdRoles) {
-        try { await role.delete(); } catch {}
-      }
-
+      for (const ch of createdChannels) { try { await ch.delete(); } catch {} }
+      for (const rl of createdRoles) { try { await rl.delete(); } catch {} }
       throw error;
     }
   }
