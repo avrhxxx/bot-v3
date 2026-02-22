@@ -9,7 +9,8 @@ const DISCORD_OWNER_KEY = "DISCORD_OWNER";
 export class Ownership {
   /**
    * Initialize ownership only if not already set.
-   * Must be called through setup command.
+   * MUST be called via /x sys setup command.
+   * User invoking must have Discord Administrator permission.
    */
   static async initialize(botOwnerId: string, discordOwnerId: string) {
     await MutationGate.execute(
