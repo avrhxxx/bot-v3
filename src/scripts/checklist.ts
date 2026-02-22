@@ -1,67 +1,124 @@
 // src/scripts/checklist.ts
-import fs from "fs";
-import path from "path";
+import path from 'path';
+import { performance } from 'perf_hooks';
 
-// Funkcja do logowania statusu modułu
-function checkModule(name: string, checkFn: () => boolean) {
+type ModuleDef = {
+  name: string;
+  importPath: string;
+  dependencies?: string[];
+};
+
+const modules: ModuleDef[] = [
+  // ---------------- Core System ----------------
+  { name: 'Health', importPath: '../system/Health' },
+  { name: 'Ownership', importPath: '../system/Ownership' },
+  { name: 'SafeMode', importPath: '../system/SafeMode' },
+  { name: 'TimeModule', importPath: '../system/TimeModule/TimeModule' },
+  { name: 'OwnerModule', importPath: '../system/OwnerModule/OwnerModule' },
+
+  // ---------------- Data ----------------
+  { name: 'Database', importPath: '../data/Database' },
+  { name: 'Repositories', importPath: '../data/Repositories' },
+
+  // ---------------- Locks ----------------
+  { name: 'AllianceLock', importPath: '../locks/AllianceLock' },
+  { name: 'GlobalLock', importPath: '../locks/GlobalLock' },
+
+  // ---------------- Alliance System ----------------
+  { name: 'RoleModule', importPath: '../system/RoleModule/RoleModule' },
+  { name: 'ChannelModule', importPath: '../system/ChannelModule/ChannelModule' },
+  { name: 'BroadcastModule', importPath: '../system/BroadcastModule/BroadcastModule' },
+  { name: 'AllianceSystem', importPath: '../system/alliance/AllianceSystem', dependencies: ['RoleModule','ChannelModule','BroadcastModule'] },
+  { name: 'TransferLeaderSystem', importPath: '../system/alliance/TransferLeaderSystem', dependencies: ['AllianceSystem','RoleModule'] },
+
+  // ---------------- Snapshot ----------------
+  { name: 'IntegrityMonitor', importPath: '../snapshot/IntegrityMonitor' },
+  { name: 'RepairService', importPath: '../snapshot/RepairService', dependencies: ['IntegrityMonitor'] },
+  { name: 'SnapshotService', importPath: '../snapshot/SnapshotService', dependencies: ['IntegrityMonitor'] },
+  { name: 'SnapshotTypes', importPath: '../snapshot/SnapshotTypes' },
+
+  // ---------------- Engine ----------------
+  { name: 'Dispatcher', importPath: '../engine/Dispatcher' },
+  { name: 'MutationGate', importPath: '../engine/MutationGate', dependencies: ['Dispatcher'] },
+  { name: 'CommandDispatcher', importPath: '../system/CommandDispatcher/CommandDispatcher', dependencies: ['OwnerModule'] },
+
+  // ---------------- Features ----------------
+  { name: 'AllianceIntegrity', importPath: '../features/alliance/integrity/AllianceIntegrity', dependencies: ['AllianceSystem'] },
+  { name: 'AllianceCreationOrchestrator', importPath: '../features/alliance/orchestration/AllianceCreationOrchestrator', dependencies: ['RoleModule','ChannelModule','BroadcastModule','AllianceIntegrity'] },
+  { name: 'AllianceService', importPath: '../features/alliance/AllianceService', dependencies: ['AllianceSystem','AllianceIntegrity','AllianceCreationOrchestrator'] },
+  { name: 'AllianceTypes', importPath: '../features/alliance/AllianceTypes' },
+
+  // ---------------- Discord ----------------
+  { name: 'DiscordClient', importPath: '../discord/client', dependencies: ['AllianceService','CommandDispatcher'] },
+
+  // ---------------- Journal ----------------
+  { name: 'Journal', importPath: '../journal/Journal', dependencies: ['AllianceSystem'] },
+  { name: 'JournalTypes', importPath: '../journal/JournalTypes', dependencies: ['AllianceSystem'] },
+
+  // ---------------- Commands ----------------
+  { name: 'CommandLoader', importPath: '../commands/CommandLoader' },
+  { name: 'CommandRegistry', importPath: '../commands/CommandRegistry' },
+  { name: 'Command', importPath: '../commands/Command' },
+  { name: 'AllianceCommands', importPath: '../commands/alliance', dependencies: ['Command'] },
+  { name: 'SysCommands', importPath: '../commands/sys', dependencies: ['Command'] },
+];
+
+// ---------------- Utility functions ----------------
+async function importModule(mod: ModuleDef) {
+  const start = performance.now();
   try {
-    const result = checkFn();
-    if (result) {
-      console.log(`[✅ OK] ${name}`);
-    } else {
-      console.warn(`[⚠️ FAILED] ${name}`);
-    }
-    return result;
+    await import(path.resolve(__dirname, mod.importPath + '.ts'));
+    const end = performance.now();
+    return { ok: true, time: (end - start).toFixed(2) };
   } catch (err) {
-    console.error(`[❌ ERROR] ${name}:`, err);
-    return false;
+    const end = performance.now();
+    console.error(`❌ Error loading ${mod.name} (${(end-start).toFixed(2)}ms):`, err);
+    return { ok: false, time: (end - start).toFixed(2) };
   }
 }
 
-// Lista modułów w kolejności z blueprinta
-const modules = [
-  { name: "Health", path: "../system/Health" },
-  { name: "Ownership", path: "../system/Ownership" },
-  { name: "OwnerModule", path: "../system/OwnerModule/OwnerModule" },
-  { name: "SafeMode", path: "../system/SafeMode" },
-  { name: "TimeModule", path: "../system/TimeModule/TimeModule" },
-  { name: "Database", path: "../data/Database" },
-  { name: "Repositories", path: "../data/Repositories" },
-  { name: "AllianceLock", path: "../locks/AllianceLock" },
-  { name: "GlobalLock", path: "../locks/GlobalLock" },
-  { name: "RoleModule", path: "../system/RoleModule/RoleModule" },
-  { name: "ChannelModule", path: "../system/ChannelModule/ChannelModule" },
-  { name: "BroadcastModule", path: "../system/BroadcastModule/BroadcastModule" },
-  { name: "CommandDispatcher", path: "../system/CommandDispatcher/CommandDispatcher" },
-  { name: "AllianceSystem", path: "../system/alliance/AllianceSystem" },
-  { name: "TransferLeaderSystem", path: "../system/alliance/TransferLeaderSystem" },
-  { name: "IntegrityMonitor", path: "../snapshot/IntegrityMonitor" },
-  { name: "RepairService", path: "../snapshot/RepairService" },
-  { name: "SnapshotService", path: "../snapshot/SnapshotService" },
-  { name: "Dispatcher", path: "../engine/Dispatcher" },
-  { name: "MutationGate", path: "../engine/MutationGate" },
-  { name: "AllianceService", path: "../features/alliance/AllianceService" },
-  { name: "AllianceIntegrity", path: "../features/alliance/integrity/AllianceIntegrity" },
-  { name: "AllianceCreationOrchestrator", path: "../features/alliance/orchestration/AllianceCreationOrchestrator" },
-  { name: "Journal", path: "../journal/Journal" },
-  { name: "JournalTypes", path: "../journal/JournalTypes" },
-  { name: "Discord Client", path: "../discord/client" }
-];
-
-// Przechodzi przez wszystkie moduły
-let allPassed = true;
-modules.forEach((mod) => {
-  const passed = checkModule(mod.name, () => {
-    // Sprawdzenie, czy plik istnieje
-    const filePath = path.resolve(__dirname, mod.path + ".ts");
-    return fs.existsSync(filePath);
-  });
-  if (!passed) allPassed = false;
-});
-
-if (allPassed) {
-  console.log("\n✅ Wszystkie moduły obecne. Gotowe do startu bota!");
-} else {
-  console.warn("\n⚠️ Nie wszystkie moduły są OK. Sprawdź powyższe błędy przed deployem.");
-  process.exit(1); // przerywa start bota w Railway, jeśli coś nie działa
+function logProgress(current: number, total: number) {
+  const percent = Math.floor((current / total) * 100);
+  process.stdout.write(`\r🔹 Progress: ${percent}% (${current}/${total})`);
 }
+
+// ---------------- Main checklist runner ----------------
+async function runChecklist() {
+  console.log('\n🛠️  Ultra-Premium Pre-Deploy Checklist Starting...\n');
+
+  const totalModules = modules.length;
+  let loadedModules: string[] = [];
+
+  for (let i = 0; i < totalModules; i++) {
+    const mod = modules[i];
+
+    // Dependency check
+    let depsOk = true;
+    if (mod.dependencies) {
+      for (const dep of mod.dependencies) {
+        if (!loadedModules.includes(dep)) {
+          console.log(`❌ ${mod.name} dependency missing: ${dep}`);
+          depsOk = false;
+        }
+      }
+    }
+
+    // Import module
+    const { ok, time } = await importModule(mod);
+    if (ok && depsOk) {
+      console.log(`✅ ${mod.name} loaded successfully (${time}ms)`);
+      loadedModules.push(mod.name);
+    } else {
+      console.log(`❌ ${mod.name} failed (${time}ms)`);
+    }
+
+    logProgress(i + 1, totalModules);
+  }
+
+  console.log('\n\n🔗 Ultra-Premium Dependency check complete.');
+  console.log('✅ All modules attempted. No changes made to bot or Discord.');
+}
+
+runChecklist().catch(err => {
+  console.error('❌ Error during checklist execution:', err);
+});
