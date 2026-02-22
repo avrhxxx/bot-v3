@@ -1,0 +1,87 @@
+bot-v3/
+│
+├── .gitignore                     # ignorowane pliki/ foldery
+├── package.json                    # zależności i skrypty Node
+├── tsconfig.json                   # konfiguracja TypeScript
+│
+├── blueprintsreadonlyitsrealtruthofrules/
+│   ├── memoryblueprint.txt         # canonical memory + blueprint
+│   ├── memorygithubrepoapilink.txt
+│   ├── memoryupdate1.txt ... memoryupdate11.txt
+│   └── specv3.0.txt                # specyfikacja produkcyjna v3.0
+│
+├── src/
+│   ├── index.ts                    # punkt wejścia aplikacji, inicjalizacja Discord + Health
+│   ├── deploy-commands.ts          # deploy slash komend Discord
+│   │
+│   ├── config/
+│   │   └── config.ts               # konfiguracja systemowa, env vars
+│   │
+│   ├── data/
+│   │   ├── Database.ts             # dostęp do DB / mock DB
+│   │   └── Repositories.ts         # repozytoria danych, domain read/write
+│   │
+│   ├── discord/
+│   │   └── client.ts               # inicjalizacja klienta Discord, entry point
+│   │
+│   ├── engine/
+│   │   ├── Dispatcher.ts           # główny dispatcher eventów + SafeMode / Health guard
+│   │   └── MutationGate.ts         # atomic execution, lock enforcement
+│   │
+│   ├── features/
+│   │   └── alliance/
+│   │       ├── AllianceService.ts              # core domain logic, nie mutuje Discord/DB
+│   │       ├── AllianceTypes.ts                # typy i interfejsy sojuszy
+│   │       ├── integrity/
+│   │       │   └── AllianceIntegrity.ts       # integracja i weryfikacja spójności
+│   │       └── orchestration/
+│   │           └── AllianceCreationOrchestrator.ts  # orchestracja tworzenia sojuszy
+│   │
+│   ├── commands/
+│   │   ├── Command.ts                           # abstrakcja komendy
+│   │   ├── CommandRegistry.ts                   # rejestracja komend
+│   │   ├── CommandLoader.ts                     # autoloader komend
+│   │   │
+│   │   ├── alliance/                            # komendy sojuszy
+│   │   │   ├── demote.ts
+│   │   │   ├── join.ts
+│   │   │   ├── kick.ts
+│   │   │   ├── leave.ts
+│   │   │   ├── promote.ts
+│   │   │   ├── transferLeader.ts
+│   │   │   ├── updateName.ts
+│   │   │   └── updateTag.ts
+│   │   │
+│   │   └── sys/                                # komendy systemowe / owner only
+│   │       ├── allianceCreate.ts
+│   │       ├── allianceDelete.ts
+│   │       ├── setLeader.ts
+│   │       └── setup.ts
+│   │
+│   ├── system/
+│   │   ├── Health.ts                            # state machine dla health
+│   │   ├── Ownership.ts                         # zarządzanie BotOwner / DiscordOwner
+│   │   ├── SafeMode.ts                           # blokada operacji krytycznych
+│   │   │
+│   │   ├── TimeModule/
+│   │   │   └── TimeModule.ts                     # MVP czasowe, schedulery
+│   │   │
+│   │   ├── alliance/
+│   │   │   ├── AllianceSystem.ts                # mutacje struktur sojuszy, atomic
+│   │   │   └── TransferLeaderSystem.ts          # transfer lidera + rollback
+│   │   │
+│   │   └── snapshot/
+│   │       ├── IntegrityMonitor.ts             # monitor integralności
+│   │       ├── RepairService.ts                # naprawa w MutationGate
+│   │       ├── SnapshotService.ts              # snapshoty / backupy
+│   │       └── SnapshotTypes.ts
+│   │
+│   ├── journal/
+│   │   ├── Journal.ts                           # audyt zmian
+│   │   └── JournalTypes.ts
+│   │
+│   └── locks/
+│       ├── AllianceLock.ts                      # lock specyficzny dla sojuszu
+│       └── GlobalLock.ts                        # lock globalny
+│
+└── tsconfig.json
