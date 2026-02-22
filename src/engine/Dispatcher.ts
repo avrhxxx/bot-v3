@@ -3,6 +3,7 @@ import { CommandRegistry } from "../commands/CommandRegistry";
 import { SafeMode } from "../system/SafeMode";
 import { Health } from "../system/Health";
 import { Journal } from "../journal/Journal";
+import { Ownership } from "../system/Ownership";
 
 export class Dispatcher {
   constructor(private registry: CommandRegistry) {}
@@ -36,6 +37,19 @@ export class Dispatcher {
           ephemeral: true
         });
         return;
+      }
+
+      // 3️⃣ OwnerGuard
+      if (command.ownerOnly) {
+        const userId = interaction.user.id;
+
+        if (!Ownership.isBotOwner(userId)) {
+          await interaction.reply({
+            content: "⛔ This command is restricted to Bot Owner.",
+            ephemeral: true
+          });
+          return;
+        }
       }
 
       await command.execute(interaction);
