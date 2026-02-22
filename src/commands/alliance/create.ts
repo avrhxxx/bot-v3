@@ -3,6 +3,7 @@ import { Command } from "../Command";
 import { Ownership } from "../../system/Ownership";
 import { MutationGate } from "../../engine/MutationGate";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
+import { AllianceRepo } from "../../data/Repositories";
 
 export const AllianceCreateCommand: Command = {
   data: new SlashCommandBuilder()
@@ -41,6 +42,15 @@ export const AllianceCreateCommand: Command = {
     if (!/^[A-Z0-9]{3}$/.test(tag)) {
       await interaction.reply({
         content: "❌ Alliance tag must be exactly 3 characters: letters (A-Z) or numbers (0-9) only.",
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Sprawdzenie unikalności tagu w repo
+    if (AllianceRepo.getByTag(tag)) {
+      await interaction.reply({
+        content: `❌ Alliance tag \`${tag}\` already exists. Please choose a different tag.`,
         ephemeral: true
       });
       return;
