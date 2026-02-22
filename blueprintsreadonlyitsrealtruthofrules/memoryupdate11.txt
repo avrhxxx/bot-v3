@@ -1,0 +1,117 @@
+─────────────────────────────
+BLUEPRINT KOMEND I MODUŁÓW
+─────────────────────────────
+
+1️⃣ KOMENDY CZŁONKOWSKIE (JOIN / LEAVE)
+─────────────────────────────
+join_ally
+• Dostępne dla każdego, kto nie należy do innego sojuszu.
+• Dedykowany kanał do użycia (uniknięcie spamu).
+• Weryfikacja hierarchii ról nie dotyczy.
+• Publiczne ogłoszenie w dedykowanym kanale sojuszu (broadcast module).
+• Moduły powiązane: RoleModule, ChannelModule, BroadcastModule.
+
+leave_ally
+• Każdy członek może opuścić sojusz.
+• Blokada opuszczenia, jeśli osoba jest liderem (wymagana komenda transfer_leader).
+• Publiczne ogłoszenie w dedykowanym kanale sojuszu.
+• Moduły powiązane: RoleModule, ChannelModule, BroadcastModule.
+
+─────────────────────────────
+2️⃣ KOMENDY LIDERA / MODERATORA
+─────────────────────────────
+promote / demote
+• Lider może awansować/degradować członków o jedną rangę naraz.
+• Moderator nie może awansować/degradować innych.
+• Log audytu zmian w dzienniku (JournalModule).
+• Moduły powiązane: RoleModule, MutationGate, JournalModule.
+
+kick
+• Lider i moderator mogą kickować członków, ale moderator nie może kickować lidera.
+• Blokada kickowania członków o wyższej randze niż wykonawca.
+• Publiczne ogłoszenie w dedykowanym kanale sojuszu.
+• Moduły powiązane: RoleModule, MutationGate, JournalModule, BroadcastModule.
+
+update_tag / update_name
+• Tylko lider.
+• update_tag: 3 znaki (litery + cyfry), unikalny.
+• update_name: tylko litery, unikalna.
+• Weryfikacja unikalności i długości.
+• Moduły powiązane: RoleModule, MutationGate, JournalModule.
+
+transfer_leader
+• Tylko lider.
+• Przekazanie liderowania innemu członkowi (R4 lub R3).
+• Weryfikacja hierarchii ról.
+• Potwierdzenie (confirm) przed wykonaniem.
+• Moduły powiązane: RoleModule, MutationGate, JournalModule, ChannelModule.
+
+─────────────────────────────
+3️⃣ KOMENDY SYSTEMOWE (SYSTEM LAYER / OWNER ONLY)
+─────────────────────────────
+setup
+• Tylko BotOwner.
+• Inicjalizacja systemu, nie może używać DiscordOwner.
+• Moduły powiązane: Ownership, SafeMode, Health.
+
+alliance_create
+• Tylko BotOwner / DiscordOwner.
+• Tworzenie nowego sojuszu.
+• Walidacja tagu i lidera.
+• Atomiczne wykonanie przez MutationGate.
+• Moduły powiązane: AllianceSystem, AllianceRepo, MutationGate, JournalModule, ChannelModule, RoleModule.
+
+alliance_delete
+• Tylko BotOwner / DiscordOwner.
+• Usunięcie sojuszu.
+• Atomiczne wykonanie przez MutationGate.
+• Moduły powiązane: AllianceSystem, AllianceRepo, MutationGate, JournalModule, ChannelModule, RoleModule.
+
+archive / restore / stats
+• Tylko system / BotOwner.
+• restore: weryfikacja integralności danych (kanały i role).
+• Log audytu w dzienniku.
+• Moduły powiązane: AllianceSystem, MutationGate, JournalModule, SnapshotService.
+
+─────────────────────────────
+4️⃣ WYCOFANE / DO PRZEMYŚLENIA
+─────────────────────────────
+invite / invade
+• invite: opcjonalne zaproszenia linkowe dla członków.
+• invade: wycofane, ryzykowne w sensie governance i bezpieczeństwa.
+
+─────────────────────────────
+5️⃣ ZASADY OGÓLNE / BEZPIECZEŃSTWO
+─────────────────────────────
+1. Walidacja ról i hierarchii
+   • Każda komenda weryfikuje role w sojuszu.
+   • Moderator nie może awansować/degradować lidera.
+2. Atomiczność zmian
+   • MutationGate dla promote/demote/kick/set_leader.
+3. Log audytu
+   • JournalModule dla wszystkich zmian w sojuszu.
+4. Bezpieczeństwo systemowe
+   • setup – wyłącznie BotOwner, DiscordOwner nie używa.
+5. Ephemeral / public reply
+   • Administracyjne: ephemeral = true.
+   • Join/Leave/Kick: publiczne z zachowaniem prywatności.
+6. Kanały dedykowane
+   • Join / powiadomienia: dedykowany kanał.
+   • Widoczność kanałów ustawiona przez ChannelModule.
+7. Moduły
+   • RoleModule – weryfikacja i przypisywanie ról.
+   • BroadcastModule – powiadomienia w sojuszu.
+   • ChannelModule – tworzenie, zarządzanie i widoczność kanałów.
+   • MutationGate – atomiczne zmiany i lock.
+   • JournalModule – log audytu.
+   • Ownership, Health, SafeMode – bezpieczeństwo systemowe.
+
+─────────────────────────────
+6️⃣ AUTOMATYCZNE ZASTĘPOWANIE LIDERA
+─────────────────────────────
+• Jeśli lider opuści serwer:
+   1. R4 z najdłuższym stażem → nowy lider.
+   2. Jeśli brak R4 → R3 z najdłuższym stażem → nowy lider.
+   3. Jeśli brak R3 → sojusz wygaszany (archiwizacja / disable).
+• Moduł powiązany: RoleModule + ChannelModule + BroadcastModule + AllianceSystem.
+─────────────────────────────
