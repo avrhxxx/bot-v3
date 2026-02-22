@@ -1,11 +1,17 @@
-// src/commands/alliance/demote.ts
+// File path: src/commands/alliance/demote.ts
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-export const DemoteCommand: Command = {
+/**
+ * DemoteCommand
+ * ----------------
+ * Demotes a member to a lower rank in the executing user's alliance.
+ * Requires that the command issuer has sufficient permissions.
+ */
+export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("demote")
     .setDescription("Demote a member to a lower rank in your alliance")
@@ -31,12 +37,9 @@ export const DemoteCommand: Command = {
     }
 
     try {
-      // Moduł sojuszu sprawdza, czy wykonawca jest liderem
-      // oraz czy targetUser należy do sojuszu i jest wyższej rangi niż minimalna
       const result = await AllianceSystem.demoteMember(userId, targetUser.id, interaction.guild.id);
-      
       await interaction.reply({
-        content: `✅ <@${targetUser.id}> has been demoted to ${result.newRank} in the alliance.`,
+        content: `✅ <@${targetUser.id}> has been demoted to **${result.newRank}** in the alliance.`,
         ephemeral: false
       });
     } catch (error: any) {
@@ -47,3 +50,5 @@ export const DemoteCommand: Command = {
     }
   }
 };
+
+export default Command;
