@@ -43,9 +43,10 @@ export class Dispatcher {
       if (command.ownerOnly) {
         const userId = interaction.user.id;
 
-        if (!Ownership.isBotOwner(userId)) {
+        // ✅ Sprawdzamy zarówno BotOwner, jak i DiscordOwner
+        if (!Ownership.isBotOwner(userId) && !Ownership.isDiscordOwner(userId)) {
           await interaction.reply({
-            content: "⛔ This command is restricted to Bot Owner.",
+            content: "⛔ This command is restricted to Bot or Discord Owner.",
             ephemeral: true
           });
           return;
