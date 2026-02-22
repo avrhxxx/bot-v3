@@ -1,37 +1,32 @@
 // src/commands/sys/setup.ts
 
-import { ChatInputCommandInteraction, PermissionFlagsBits } from "discord.js";
+import { ChatInputCommandInteraction } from "discord.js";
 import { Ownership } from "../../system/Ownership";
-import { Health } from "../../system/Health";
 import { SafeMode } from "../../system/SafeMode";
 
 export const SysSetupCommand = {
   name: "setup",
-  description: "Bootstrap system ownership (BotOwner + DiscordOwner)",
-  ownerOnly: true, // tylko właściciel bota może wywołać po inicjalizacji
+  description: "Bootstrap system ownership (BotOwner Only)",
+  ownerOnly: true, // tylko BotOwner może wywołać
   async execute(interaction: ChatInputCommandInteraction) {
     try {
-      // 1️⃣ Sprawdzenie uprawnień Discord Administrator
-      if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-        await interaction.reply({
-          content: "⛔ You need Discord Administrator permissions to run this command.",
-          ephemeral: true,
-        });
-        return;
-      }
+      const userId = interaction.user.id;
 
-      // 2️⃣ Sprawdzenie, czy BotOwner już istnieje
+      // ✅ Sprawdzenie, czy system już zainicjalizowany
       const existingBotOwner = Ownership.getBotOwner();
       if (existingBotOwner) {
-        await interaction.reply({
-          content: `⚠️ System already initialized. BotOwner: <@${existingBotOwner}>`,
-          ephemeral: true,
-        });
-        return;
+        // Tylko aktualny BotOwner może wywołać po inicjalizacji
+        if (existingBotOwner !== userId) {
+          await interaction.reply({
+            content: `⛔ Only the BotOwner can run this command.\nCurrent BotOwner: <@${existingBotOwner}>`,
+            ephemeral: true,
+          });
+          return;
+        }
       }
 
-      // 3️⃣ Inicjalizacja ownership
-      const botOwnerId = interaction.user.id;
+      // 1️⃣ Inicjalizacja ownership
+      const botOwnerId = userId;
       const discordOwnerId = interaction.guild?.ownerId;
 
       if (!discordOwnerId) {
@@ -44,7 +39,7 @@ export const SysSetupCommand = {
 
       await Ownership.initialize(botOwnerId, discordOwnerId);
 
-      // 4️⃣ Weryfikacja integralności po inicjalizacji
+      // 2️⃣ Weryfikacja integralności po inicjalizacji
       Ownership.enforceInvariant();
 
       await interaction.reply({
