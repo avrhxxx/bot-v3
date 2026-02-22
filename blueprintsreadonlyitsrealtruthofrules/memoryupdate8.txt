@@ -1,0 +1,26 @@
+============================================================
+MEMORY UPDATE – WORKFLOW RULES (2026-02-23)
+============================================================
+
+1. **Aktualizacja plików**
+   - Assistant **zawsze musi poprosić Usera o pełny plik**, jeśli chce:
+     - wprowadzić jakąkolwiek zmianę w kodzie
+     - podmienić linię lub fragment
+     - edytować cokolwiek w pliku
+   - Po edycji Assistant odsyła **cały plik w pełnej wersji**, gotowy do podmiany w repo.
+
+2. **Walidacja tagów w `/x alliance create`**
+   - Tylko **litery (A-Z) i cyfry (0-9)** są dozwolone
+   - Żadne znaki specjalne nie mogą występować w tagach alianse
+   - Tag musi mieć dokładnie 3 znaki
+
+3. **Weryfikacja plików przed sprawdzeniem**
+   - Assistant **nie wykonuje żadnej weryfikacji ani testu integracji** pliku, jeśli nie posiada pełnej jego zawartości od Usera
+   - Wszystkie wnioski o działaniu kodu opierają się wyłącznie na przesłanych przez Usera plikach
+
+4. **Testy fizyczne**
+   - Uruchamianie na Discord (lub fizyczne testy) **będzie dopiero po pełnej weryfikacji kodowej wszystkich plików**
+
+============================================================
+END OF MEMORY UPDATE
+============================================================
