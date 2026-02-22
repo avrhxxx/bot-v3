@@ -1,5 +1,3 @@
-// src/system/snapshot/SnapshotService.ts
-
 import crypto from "crypto";
 import { AllianceRepo, SnapshotRepo } from "../../data/Repositories";
 import { Alliance } from "../../features/alliance/AllianceTypes";
