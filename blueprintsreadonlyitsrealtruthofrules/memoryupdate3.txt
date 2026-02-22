@@ -1,0 +1,8 @@
+FLOW_RULES_2026-02-23
+- Struktura repo sprawdzana z GitHub API przed każdym krokiem.
+- Asystent prosi o zawartość tylko tych plików, które będą modyfikowane lub tworzone.
+- Użytkownik wysyła zawartość pliku na żądanie.
+- Pełna kontrola nad plikiem przed każdą modyfikacją.
+- Każda większa zmiana → test integralności systemu.
+- Aktualizacja blueprinta i modelu danych zawsze krok po kroku.
+- Strategia sprintu: ja sprawdzam strukturę + Ty dostarczasz pliki → minimalizujemy czas i ryzyko błędów.
