@@ -11,7 +11,7 @@ export const AllianceCreateCommand: Command = {
     .addStringOption(option =>
       option
         .setName("tag")
-        .setDescription("3-character unique alliance tag")
+        .setDescription("3-character unique alliance tag (letters and numbers only)")
         .setRequired(true)
     )
     .addUserOption(option =>
@@ -37,10 +37,10 @@ export const AllianceCreateCommand: Command = {
     const tag = interaction.options.getString("tag", true).toUpperCase();
     const leaderUser = interaction.options.getUser("leader", true);
 
-    // Walidacja tagu
+    // Walidacja tagu – tylko litery i cyfry
     if (!/^[A-Z0-9]{3}$/.test(tag)) {
       await interaction.reply({
-        content: "❌ Alliance tag must be exactly 3 alphanumeric characters.",
+        content: "❌ Alliance tag must be exactly 3 characters: letters (A-Z) or numbers (0-9) only.",
         ephemeral: true
       });
       return;
