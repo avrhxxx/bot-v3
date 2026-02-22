@@ -1,5 +1,3 @@
-// src/commands/sys/allianceDelete.ts
-
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { Ownership } from "../../system/Ownership";
@@ -19,7 +17,7 @@ export const AllianceDeleteCommand: Command = {
         .setRequired(true)
     ),
   ownerOnly: true,
-  systemLayer: true, // system-level protection
+  systemLayer: true,
 
   async execute(interaction: ChatInputCommandInteraction) {
     const userId = interaction.user.id;
@@ -46,8 +44,8 @@ export const AllianceDeleteCommand: Command = {
     }
 
     const tag = interaction.options.getString("tag", true).toUpperCase();
-
     const alliance = AllianceRepo.getByTag(tag);
+
     if (!alliance) {
       await interaction.reply({
         content: `❌ Alliance with tag \`${tag}\` does not exist.`,
@@ -64,7 +62,6 @@ export const AllianceDeleteCommand: Command = {
           requireGlobalLock: true
         },
         async () => {
-          // System-layer deletion (atomic)
           await AllianceSystem.deleteInfrastructure(alliance);
           AllianceRepo.delete(alliance.id);
         }
