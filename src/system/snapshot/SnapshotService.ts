@@ -30,16 +30,25 @@ export class SnapshotService {
   }
 
   static verifyAll(): string[] {
-    // 🔴 TEST 5 – wymuszone stałe uszkodzenie
-    return ["TEST_CORRUPTION"];
+    const corrupted: string[] = [];
+
+    const alliances = AllianceRepo.getAll();
+
+    for (const alliance of alliances) {
+      if (!this.verifySnapshot(alliance.id)) {
+        corrupted.push(alliance.id);
+      }
+    }
+
+    return corrupted;
   }
 
   private static calculateChecksum(alliance: Alliance): string {
     const raw = JSON.stringify({
       id: alliance.id,
       r5: alliance.r5,
-      r4: alliance.r4.sort(),
-      r3: alliance.r3.sort(),
+      r4: [...alliance.r4].sort(),
+      r3: [...alliance.r3].sort(),
       orphaned: alliance.orphaned
     });
 
