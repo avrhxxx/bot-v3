@@ -1,5 +1,3 @@
-// src/commands/sys/allianceCreate.ts
-
 import crypto from "crypto";
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
@@ -26,7 +24,7 @@ export const AllianceCreateCommand: Command = {
         .setRequired(true)
     ),
   ownerOnly: true,
-  systemLayer: true, // full system layer protection
+  systemLayer: true,
 
   async execute(interaction: ChatInputCommandInteraction) {
     const userId = interaction.user.id;
@@ -36,7 +34,6 @@ export const AllianceCreateCommand: Command = {
       return;
     }
 
-    // SafeMode block
     if (SafeMode.isActive()) {
       await interaction.reply({
         content: "⛔ System in SAFE_MODE – structural commands blocked.",
@@ -45,7 +42,6 @@ export const AllianceCreateCommand: Command = {
       return;
     }
 
-    // Verify BotOwner OR DiscordOwner
     if (!Ownership.isBotOwner(userId) && !Ownership.isDiscordOwner(userId)) {
       await interaction.reply({
         content: "⛔ Only Bot Owner or Discord Owner can execute this command.",
@@ -57,7 +53,6 @@ export const AllianceCreateCommand: Command = {
     const tag = interaction.options.getString("tag", true).toUpperCase();
     const leaderUser = interaction.options.getUser("leader", true);
 
-    // Validate tag
     if (!/^[A-Z0-9]{3}$/.test(tag)) {
       await interaction.reply({
         content: "❌ Alliance tag must be exactly 3 characters: letters (A-Z) or numbers (0-9) only.",
@@ -66,7 +61,6 @@ export const AllianceCreateCommand: Command = {
       return;
     }
 
-    // Check uniqueness
     if (AllianceRepo.getByTag(tag)) {
       await interaction.reply({
         content: `❌ Alliance tag \`${tag}\` already exists. Please choose a different tag.`,
@@ -75,7 +69,6 @@ export const AllianceCreateCommand: Command = {
       return;
     }
 
-    // Atomic execution through MutationGate
     try {
       const domainId = crypto.randomUUID();
 
@@ -92,7 +85,6 @@ export const AllianceCreateCommand: Command = {
             leaderId: leaderUser.id
           });
 
-          // Persist domain model
           AllianceRepo.set({
             id: domainId,
             guildId: interaction.guild!.id,
