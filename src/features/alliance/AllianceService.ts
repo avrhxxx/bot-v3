@@ -3,18 +3,39 @@ import {
   AllianceRepo,
   PendingDeletionRepo
 } from "../../data/Repositories";
-import { Alliance } from "./AllianceTypes";
+import {
+  Alliance,
+  AllianceRoles,
+  AllianceChannels
+} from "./AllianceTypes";
 import { Ownership } from "../../system/Ownership";
+import { AllianceIntegrity } from "./integrity/AllianceIntegrity";
 
 const MAX_MEMBERS = 100;
 const MAX_R4 = 10;
 
 export class AllianceService {
-  static async createAlliance(
-    actorId: string,
-    allianceId: string,
-    name: string
-  ) {
+  static async createAlliance(params: {
+    actorId: string;
+    guildId: string;
+    allianceId: string;
+    tag: string;
+    name: string;
+    leaderId: string;
+    roles: AllianceRoles;
+    channels: AllianceChannels;
+  }) {
+    const {
+      actorId,
+      guildId,
+      allianceId,
+      tag,
+      name,
+      leaderId,
+      roles,
+      channels
+    } = params;
+
     if (!Ownership.isDiscordOwner(actorId)) {
       throw new Error("Only Discord Owner can create alliance");
     }
@@ -33,13 +54,21 @@ export class AllianceService {
       async () => {
         const alliance: Alliance = {
           id: allianceId,
+          guildId,
+          tag,
           name,
-          r5: actorId,
-          r4: [],
-          r3: [],
+          members: {
+            r5: leaderId,
+            r4: [],
+            r3: []
+          },
+          roles,
+          channels,
           orphaned: false,
           createdAt: Date.now()
         };
+
+        AllianceIntegrity.validateMembersStructure(alliance);
 
         AllianceRepo.set(allianceId, alliance);
       }
@@ -55,7 +84,9 @@ export class AllianceService {
 
     if (alliance.orphaned) throw new Error("Alliance is orphaned");
 
-    if (actorId !== alliance.r5 && !alliance.r4.includes(actorId)) {
+    const { r5, r4, r3 } = alliance.members;
+
+    if (actorId !== r5 && !r4.includes(actorId)) {
       throw new Error("Insufficient permissions");
     }
 
@@ -67,6 +98,8 @@ export class AllianceService {
       throw new Error("Member limit reached");
     }
 
+    AllianceIntegrity.ensureUserNotInAlliance(userId);
+
     await MutationGate.execute(
       {
         operation: "ALLIANCE_ADD_MEMBER",
@@ -75,8 +108,11 @@ export class AllianceService {
         requireAllianceLock: true
       },
       async () => {
-        alliance.r3.push(userId);
+        alliance.members.r3.push(userId);
+
+        AllianceIntegrity.validateMembersStructure(alliance);
         this.checkOrphanState(alliance);
+
         AllianceRepo.set(allianceId, alliance);
       }
     );
@@ -89,15 +125,15 @@ export class AllianceService {
   ) {
     const alliance = this.getAllianceOrThrow(allianceId);
 
-    if (actorId !== alliance.r5) {
+    if (actorId !== alliance.members.r5) {
       throw new Error("Only R5 can promote");
     }
 
-    if (!alliance.r3.includes(userId)) {
+    if (!alliance.members.r3.includes(userId)) {
       throw new Error("User not in R3");
     }
 
-    if (alliance.r4.length >= MAX_R4) {
+    if (alliance.members.r4.length >= MAX_R4) {
       throw new Error("R4 limit reached");
     }
 
@@ -109,8 +145,13 @@ export class AllianceService {
         requireAllianceLock: true
       },
       async () => {
-        alliance.r3 = alliance.r3.filter(id => id !== userId);
-        alliance.r4.push(userId);
+        alliance.members.r3 =
+          alliance.members.r3.filter(id => id !== userId);
+
+        alliance.members.r4.push(userId);
+
+        AllianceIntegrity.validateMembersStructure(alliance);
+
         AllianceRepo.set(allianceId, alliance);
       }
     );
@@ -127,9 +168,11 @@ export class AllianceService {
       throw new Error("User not member");
     }
 
-    const actorIsR5 = actorId === alliance.r5;
-    const actorIsR4 = alliance.r4.includes(actorId);
-    const targetIsR4 = alliance.r4.includes(userId);
+    const { r5, r4 } = alliance.members;
+
+    const actorIsR5 = actorId === r5;
+    const actorIsR4 = r4.includes(actorId);
+    const targetIsR4 = r4.includes(userId);
 
     if (!actorIsR5 && !actorIsR4) {
       throw new Error("Insufficient permissions");
@@ -151,14 +194,19 @@ export class AllianceService {
         requireAllianceLock: true
       },
       async () => {
-        alliance.r3 = alliance.r3.filter(id => id !== userId);
-        alliance.r4 = alliance.r4.filter(id => id !== userId);
+        alliance.members.r3 =
+          alliance.members.r3.filter(id => id !== userId);
 
-        if (alliance.r5 === userId) {
-          alliance.r5 = "";
+        alliance.members.r4 =
+          alliance.members.r4.filter(id => id !== userId);
+
+        if (alliance.members.r5 === userId) {
+          alliance.members.r5 = "";
         }
 
+        AllianceIntegrity.validateMembersStructure(alliance);
         this.checkOrphanState(alliance);
+
         AllianceRepo.set(allianceId, alliance);
       }
     );
@@ -171,7 +219,7 @@ export class AllianceService {
   ) {
     const alliance = this.getAllianceOrThrow(allianceId);
 
-    if (actorId !== alliance.r5) {
+    if (actorId !== alliance.members.r5) {
       throw new Error("Only R5 can transfer leadership");
     }
 
@@ -187,11 +235,16 @@ export class AllianceService {
         requireAllianceLock: true
       },
       async () => {
-        alliance.r4 = alliance.r4.filter(id => id !== newLeaderId);
-        alliance.r3 = alliance.r3.filter(id => id !== newLeaderId);
+        alliance.members.r4 =
+          alliance.members.r4.filter(id => id !== newLeaderId);
 
-        alliance.r3.push(alliance.r5);
-        alliance.r5 = newLeaderId;
+        alliance.members.r3 =
+          alliance.members.r3.filter(id => id !== newLeaderId);
+
+        alliance.members.r3.push(alliance.members.r5);
+        alliance.members.r5 = newLeaderId;
+
+        AllianceIntegrity.validateMembersStructure(alliance);
 
         AllianceRepo.set(allianceId, alliance);
       }
@@ -243,20 +296,24 @@ export class AllianceService {
 
   private static isMember(alliance: Alliance, userId: string): boolean {
     return (
-      alliance.r5 === userId ||
-      alliance.r4.includes(userId) ||
-      alliance.r3.includes(userId)
+      alliance.members.r5 === userId ||
+      alliance.members.r4.includes(userId) ||
+      alliance.members.r3.includes(userId)
     );
   }
 
   private static getTotalMembers(alliance: Alliance): number {
-    return 1 + alliance.r4.length + alliance.r3.length;
+    return (
+      1 +
+      alliance.members.r4.length +
+      alliance.members.r3.length
+    );
   }
 
   private static checkOrphanState(alliance: Alliance) {
     alliance.orphaned =
-      !alliance.r5 &&
-      alliance.r4.length === 0 &&
-      alliance.r3.length === 0;
+      !alliance.members.r5 &&
+      alliance.members.r4.length === 0 &&
+      alliance.members.r3.length === 0;
   }
 }
