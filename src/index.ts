@@ -1,4 +1,4 @@
-console.log("THIS IS NEW BUILD 124 - TEST 2 (SafeMode)");
+console.log("THIS IS NEW BUILD 124");
 
 import { IntegrityMonitor } from "./system/snapshot/IntegrityMonitor";
 import { Health } from "./system/Health";
@@ -21,9 +21,6 @@ async function bootstrap() {
     SafeMode.activate("Boot integrity failure");
     console.log("Boot integrity failure. SafeMode activated.");
   }
-
-  // 🔴 TEST 2 — wymuszony SafeMode
-  SafeMode.activate("Manual TEST 2 activation");
 
   IntegrityMonitor.start(15000);
 
