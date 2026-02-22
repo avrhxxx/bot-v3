@@ -1,19 +1,4 @@
-// File: src/commands/loader/CommandLoader.ts
-
-/**
- * Lokalizacja pliku: src/commands/loader/CommandLoader.ts
- *
- * CommandLoader
- * ----------------
- * Dynamiczny loader wszystkich komend w katalogu src/commands.
- * Każda komenda zdefiniowana jako Command (z data + execute) zostanie zarejestrowana
- * w CommandRegistry.
- *
- * Zasady Beta:
- * - Nie importujemy ręcznie plików komend.
- * - Każda komenda musi być w formacie eksportu const/default Command.
- * - Loader ignoruje siebie samego i tylko pliki .ts.
- */
+// File path: src/commands/loader/CommandLoader.ts
 
 import fs from "fs";
 import path from "path";
@@ -21,41 +6,27 @@ import { Command } from "../Command";
 import { CommandRegistry } from "../CommandRegistry";
 
 export class CommandLoader {
-  /**
-   * Ładuje wszystkie komendy z katalogu src/commands i rejestruje je.
-   */
   static async loadAllCommands(): Promise<void> {
-    const commandsDir = path.resolve(__dirname, ".."); // katalog 'commands'
+    const commandsDir = path.resolve(__dirname, ".."); 
 
-    // Funkcja rekursywna do zbierania wszystkich plików .ts
     const walkDir = (dir: string): string[] => {
       let results: string[] = [];
       const list = fs.readdirSync(dir, { withFileTypes: true });
-
       for (const item of list) {
         const fullPath = path.resolve(dir, item.name);
-        if (item.isDirectory()) {
-          results = results.concat(walkDir(fullPath));
-        } else if (
-          item.isFile() &&
-          item.name.endsWith(".ts") &&
-          item.name !== "CommandLoader.ts"
-        ) {
-          results.push(fullPath);
-        }
+        if (item.isDirectory()) results = results.concat(walkDir(fullPath));
+        else if (item.isFile() && item.name.endsWith(".ts") && item.name !== "CommandLoader.ts") results.push(fullPath);
       }
       return results;
     };
 
     const files = walkDir(commandsDir);
 
-    // Import każdej komendy i rejestracja
     for (const file of files) {
       try {
         const importedModule = await import(file);
         const exportedCommand: Command | undefined =
-          importedModule?.default ||
-          Object.values(importedModule).find((exp) => (exp as Command)?.data);
+          importedModule?.default || Object.values(importedModule).find((exp) => (exp as Command)?.data);
 
         if (exportedCommand && exportedCommand.data) {
           CommandRegistry.register(exportedCommand);
