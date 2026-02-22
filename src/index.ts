@@ -3,10 +3,22 @@ import { Health } from "./system/Health";
 import { startDiscord } from "./discord/client";
 import { SnapshotService } from "./system/snapshot/SnapshotService";
 import { SafeMode } from "./system/SafeMode";
+import { AllianceRepo, SnapshotRepo } from "./data/Repositories";
 
 async function bootstrap() {
   console.log("System booting...");
 
+  // ✅ 1️⃣ Ensure initial snapshots exist
+  const alliances = AllianceRepo.getAll();
+
+  for (const alliance of alliances) {
+    const existing = SnapshotRepo.get(alliance.id);
+    if (!existing) {
+      SnapshotService.createSnapshot(alliance);
+    }
+  }
+
+  // ✅ 2️⃣ Now verify
   const corrupted = SnapshotService.verifyAll();
 
   if (corrupted.length === 0) {
