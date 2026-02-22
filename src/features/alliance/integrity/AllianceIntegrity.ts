@@ -12,7 +12,6 @@ export class AllianceIntegrity {
     }
 
     const normalized = tag.toUpperCase();
-
     const regex = /^[A-Z0-9]{3}$/;
 
     if (!regex.test(normalized)) {
@@ -27,7 +26,6 @@ export class AllianceIntegrity {
    */
   static ensureTagUnique(guildId: string, tag: string): void {
     const normalized = tag.toUpperCase();
-
     const alliances = AllianceRepo.getAll();
 
     const exists = alliances.find(
@@ -48,10 +46,11 @@ export class AllianceIntegrity {
     const alliances = AllianceRepo.getAll();
 
     const found = alliances.find((a: Alliance) => {
-      if (a.members.r5 === userId) return true;
-      if (a.members.r4.includes(userId)) return true;
-      if (a.members.r3.includes(userId)) return true;
-      return false;
+      return (
+        a.members.r5 === userId ||
+        a.members.r4.includes(userId) ||
+        a.members.r3.includes(userId)
+      );
     });
 
     if (found) {
@@ -60,7 +59,7 @@ export class AllianceIntegrity {
   }
 
   /**
-   * Ensures user does not have multiple ranks in the same alliance
+   * Ensures user does not hold multiple ranks in the same alliance
    */
   static ensureRoleExclusivity(alliance: Alliance, userId: string): void {
     let count = 0;
@@ -77,11 +76,37 @@ export class AllianceIntegrity {
   }
 
   /**
-   * Ensures there is only one R5 (leader)
+   * Ensures structure consistency:
+   * - exactly one R5
+   * - no duplicates across r4/r3
+   * - no R5 inside r4/r3
    */
-  static ensureSingleR5(alliance: Alliance): void {
-    if (!alliance.members.r5) {
+  static validateMembersStructure(alliance: Alliance): void {
+    const { r5, r4, r3 } = alliance.members;
+
+    if (!r5) {
       throw new Error("Alliance must have exactly one R5 leader.");
+    }
+
+    if (r4.includes(r5) || r3.includes(r5)) {
+      throw new Error("R5 cannot exist in R4 or R3.");
+    }
+
+    const uniqueR4 = new Set(r4);
+    const uniqueR3 = new Set(r3);
+
+    if (uniqueR4.size !== r4.length) {
+      throw new Error("Duplicate users detected in R4.");
+    }
+
+    if (uniqueR3.size !== r3.length) {
+      throw new Error("Duplicate users detected in R3.");
+    }
+
+    for (const user of r4) {
+      if (r3.includes(user)) {
+        throw new Error("User cannot exist in both R4 and R3.");
+      }
     }
   }
 }
