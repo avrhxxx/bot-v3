@@ -39,7 +39,9 @@ export class IntegrityMonitor {
         this.repairAttempts = 0;
 
         const current = Health.get();
-        if (current.state !== "HEALTHY") {
+
+        // 🔒 CRITICAL nie może być nadpisany automatycznie
+        if (current.state === "WARNING") {
           Health.setHealthy();
         }
 
