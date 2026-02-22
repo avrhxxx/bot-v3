@@ -15,6 +15,7 @@ const MAX_MEMBERS = 100;
 const MAX_R4 = 10;
 
 export class AllianceService {
+  // ----------------- CREATE -----------------
   static async createAlliance(params: {
     actorId: string;
     guildId: string;
@@ -55,17 +56,17 @@ export class AllianceService {
         AllianceRepo.set(allianceId, alliance);
 
         // Audit
-        db.journal.set(`${Date.now()}-${allianceId}`, {
+        this.logAudit(allianceId, {
           operation: "CREATE_ALLIANCE",
           actor: actorId,
           allianceId,
-          timestamp: Date.now(),
-          snapshot: { ...alliance }
+          timestamp: Date.now()
         });
       }
     );
   }
 
+  // ----------------- MEMBERS -----------------
   static async addMember(actorId: string, allianceId: string, userId: string) {
     const alliance = this.getAllianceOrThrow(allianceId);
 
@@ -87,13 +88,11 @@ export class AllianceService {
         this.checkOrphanState(alliance);
         AllianceRepo.set(allianceId, alliance);
 
-        db.journal.set(`${Date.now()}-${allianceId}`, {
+        this.logAudit(allianceId, {
           operation: "ADD_MEMBER",
           actor: actorId,
           allianceId,
-          userId,
-          timestamp: Date.now(),
-          snapshot: { ...alliance }
+          timestamp: Date.now()
         });
       }
     );
@@ -114,13 +113,11 @@ export class AllianceService {
         AllianceIntegrity.ensureRoleExclusivity(alliance, userId);
         AllianceRepo.set(allianceId, alliance);
 
-        db.journal.set(`${Date.now()}-${allianceId}`, {
+        this.logAudit(allianceId, {
           operation: "PROMOTE_TO_R4",
           actor: actorId,
           allianceId,
-          userId,
-          timestamp: Date.now(),
-          snapshot: { ...alliance }
+          timestamp: Date.now()
         });
       }
     );
@@ -150,18 +147,17 @@ export class AllianceService {
         this.checkOrphanState(alliance);
         AllianceRepo.set(allianceId, alliance);
 
-        db.journal.set(`${Date.now()}-${allianceId}`, {
+        this.logAudit(allianceId, {
           operation: "REMOVE_MEMBER",
           actor: actorId,
           allianceId,
-          userId,
-          timestamp: Date.now(),
-          snapshot: { ...alliance }
+          timestamp: Date.now()
         });
       }
     );
   }
 
+  // ----------------- LEADERSHIP -----------------
   static async transferLeadership(actorId: string, allianceId: string, newLeaderId: string) {
     const alliance = this.getAllianceOrThrow(allianceId);
 
@@ -179,18 +175,17 @@ export class AllianceService {
         AllianceIntegrity.ensureSingleR5(alliance);
         AllianceRepo.set(allianceId, alliance);
 
-        db.journal.set(`${Date.now()}-${allianceId}`, {
+        this.logAudit(allianceId, {
           operation: "TRANSFER_LEADERSHIP",
           actor: actorId,
           allianceId,
-          newLeaderId,
-          timestamp: Date.now(),
-          snapshot: { ...alliance }
+          timestamp: Date.now()
         });
       }
     );
   }
 
+  // ----------------- DELETION -----------------
   static requestDelete(actorId: string, allianceId: string) {
     if (!Ownership.isDiscordOwner(actorId)) throw new Error("Only Discord Owner can delete alliance");
     if (PendingDeletionRepo.get(allianceId)) throw new Error("Deletion already pending");
@@ -198,7 +193,7 @@ export class AllianceService {
     const pending: PendingDeletionRecord = { requestedBy: actorId, requestedAt: Date.now() };
     PendingDeletionRepo.set(allianceId, pending);
 
-    db.journal.set(`${Date.now()}-${allianceId}`, {
+    this.logAudit(allianceId, {
       operation: "REQUEST_DELETE",
       actor: actorId,
       allianceId,
@@ -217,7 +212,7 @@ export class AllianceService {
         AllianceRepo.delete(allianceId);
         PendingDeletionRepo.delete(allianceId);
 
-        db.journal.set(`${Date.now()}-${allianceId}`, {
+        this.logAudit(allianceId, {
           operation: "DELETE_ALLIANCE",
           actor: actorId,
           allianceId,
@@ -244,5 +239,10 @@ export class AllianceService {
 
   private static checkOrphanState(alliance: Alliance) {
     alliance.orphaned = !alliance.members.r5 && alliance.members.r4.length === 0 && alliance.members.r3.length === 0;
+  }
+
+  private static logAudit(allianceId: string, entry: Omit<{ id: string } & Record<string, any>, "id">) {
+    const id = `${Date.now()}-${allianceId}`;
+    db.journal.set(id, { id, ...entry });
   }
 }
