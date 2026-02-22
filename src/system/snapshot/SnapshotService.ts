@@ -3,27 +3,21 @@
 import crypto from "crypto";
 import { AllianceRepo, SnapshotRepo } from "../../data/Repositories";
 import { Alliance } from "../../features/alliance/AllianceTypes";
-import { SnapshotRecord } from "./SnapshotTypes";
 
 export class SnapshotService {
   static createSnapshot(alliance: Alliance) {
     const checksum = this.calculateChecksum(alliance);
 
-    const snapshot: SnapshotRecord = {
+    SnapshotRepo.set(alliance.id, {
       allianceId: alliance.id,
       checksum,
-      memberCount:
-        (alliance.members.r5 ? 1 : 0) +
-        alliance.members.r4.length +
-        alliance.members.r3.length,
+      memberCount: (alliance.members.r5 ? 1 : 0) + alliance.members.r4.length + alliance.members.r3.length,
       r4Count: alliance.members.r4.length,
       r3Count: alliance.members.r3.length,
       orphaned: alliance.orphaned,
       createdAt: alliance.createdAt,
       snapshotAt: Date.now()
-    };
-
-    SnapshotRepo.set(alliance.id, snapshot);
+    });
   }
 
   static verifySnapshot(allianceId: string): boolean {
@@ -39,7 +33,6 @@ export class SnapshotService {
 
   static verifyAll(): string[] {
     const corrupted: string[] = [];
-
     const alliances = AllianceRepo.getAll();
 
     for (const alliance of alliances) {
