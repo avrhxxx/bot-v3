@@ -4,7 +4,8 @@ import { startDiscord } from "./discord/client";
 import { SnapshotService } from "./system/snapshot/SnapshotService";
 import { SafeMode } from "./system/SafeMode";
 import { AllianceRepo, SnapshotRepo } from "./data/Repositories";
-import { CommandLoader } from "./commands/CommandLoader"; // ✅ dodany import loadera komend
+import { CommandLoader } from "./commands/CommandLoader"; // ✅ loader komend
+import { TimeModule } from "./system/TimeModule/TimeModule"; // ✅ TimeModule import
 
 async function bootstrap() {
   console.log("System booting...");
@@ -19,7 +20,7 @@ async function bootstrap() {
     }
   }
 
-  // ✅ 2️⃣ Now verify
+  // ✅ 2️⃣ Verify integrity
   const corrupted = SnapshotService.verifyAll();
 
   if (corrupted.length === 0) {
@@ -33,15 +34,20 @@ async function bootstrap() {
     console.log("Boot integrity failure. SafeMode activated.");
   }
 
+  // ✅ 3️⃣ Start IntegrityMonitor
   IntegrityMonitor.start(15000);
+  console.log("Integrity Monitor started.");
 
-  // ✅ 3️⃣ Load all commands before starting Discord
+  // ✅ 4️⃣ Load all commands before Discord
   await CommandLoader.loadAllCommands();
   console.log("All commands loaded successfully.");
 
-  await startDiscord();
+  // ✅ 5️⃣ Start TimeModule
+  TimeModule.getInstance().start(1000); // tick co 1 sekundę
+  console.log("⏱ TimeModule started with 1s tick rate");
 
-  console.log("Integrity Monitor started.");
+  // ✅ 6️⃣ Start Discord client
+  await startDiscord();
 }
 
 bootstrap().catch((err) => {
