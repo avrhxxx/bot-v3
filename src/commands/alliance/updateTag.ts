@@ -36,21 +36,17 @@ export const Command: Command = {
       return;
     }
 
-    // Walidacja tagu
     if (!/^[A-Z0-9]{3}$/.test(newTag)) {
       await interaction.reply({ content: "❌ Tag must be exactly 3 characters: letters (A-Z) or numbers (0-9).", ephemeral: true });
       return;
     }
 
     try {
-      // Moduł sojuszu sprawdza, czy użytkownik ma prawo zmienić tag
       await AllianceSystem.updateTag(userId, interaction.guild.id, newTag);
-
       await interaction.reply({
         content: `✅ Alliance tag has been updated to \`${newTag}\`.`,
         ephemeral: false
       });
-
     } catch (error: any) {
       await interaction.reply({
         content: `❌ Failed to update tag: ${error.message}`,
