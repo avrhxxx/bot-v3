@@ -1,5 +1,6 @@
 // src/commands/sys/allianceCreate.ts
 
+import crypto from "crypto";
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { Ownership } from "../../system/Ownership";
@@ -29,6 +30,11 @@ export const AllianceCreateCommand: Command = {
 
   async execute(interaction: ChatInputCommandInteraction) {
     const userId = interaction.user.id;
+
+    if (!interaction.guild) {
+      await interaction.reply({ content: "❌ Cannot create alliance outside a guild.", ephemeral: true });
+      return;
+    }
 
     // SafeMode block
     if (SafeMode.isActive()) {
@@ -71,6 +77,8 @@ export const AllianceCreateCommand: Command = {
 
     // Atomic execution through MutationGate
     try {
+      const domainId = crypto.randomUUID();
+
       const result = await MutationGate.execute(
         {
           operation: "ALLIANCE_CREATE",
@@ -86,7 +94,7 @@ export const AllianceCreateCommand: Command = {
 
           // Persist domain model
           AllianceRepo.set({
-            id: crypto.randomUUID(),
+            id: domainId,
             guildId: interaction.guild!.id,
             tag,
             name: `Alliance ${tag}`,
