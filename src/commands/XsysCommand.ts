@@ -7,6 +7,9 @@ export class XsysCommand implements Command {
     .setDescription("System diagnostic information");
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
-    throw new Error("TEST ERROR");
+    await interaction.reply({
+      content: "🧠 System operational.",
+      ephemeral: true
+    });
   }
 }
