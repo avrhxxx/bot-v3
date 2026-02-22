@@ -39,9 +39,8 @@ export const Command: Command = {
 
     try {
       const result = await AllianceSystem.promoteMember(userId, targetUser.id, interaction.guild.id);
-      
       await interaction.reply({
-        content: `✅ <@${targetUser.id}> has been promoted to ${result.newRank} in the alliance.`,
+        content: `✅ <@${targetUser.id}> has been promoted to **${result.newRank}** in the alliance.`,
         ephemeral: false
       });
     } catch (error: any) {
