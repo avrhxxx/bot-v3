@@ -1,6 +1,8 @@
+// src/data/Repositories.ts
+
 import { db } from "./Database";
 import { Alliance } from "../features/alliance/AllianceTypes";
-import { SnapshotRecord, OwnershipRecord, HealthState } from "../system/snapshot/SnapshotTypes";
+import { SnapshotRecord, OwnershipRecord, HealthStateType } from "../system/snapshot/SnapshotTypes";
 
 // ---------------------------
 // ALLIANCE REPO
@@ -51,10 +53,10 @@ export const OwnershipRepo = {
 // HEALTH REPO
 // ---------------------------
 export const HealthRepo = {
-  get(key: string): HealthState | undefined {
+  get(key: string): HealthStateType | undefined {
     return db.health.get(key);
   },
-  set(key: string, value: HealthState): void {
+  set(key: string, value: HealthStateType): void {
     db.health.set(key, value);
   }
 };
@@ -73,3 +75,8 @@ export const PendingDeletionRepo = {
     db.pendingDeletions.delete(id);
   }
 };
+
+// ---------------------------
+// Export db for direct access (required by some services)
+// ---------------------------
+export { db };
