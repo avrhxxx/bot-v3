@@ -1,5 +1,3 @@
-// src/commands/sys/setLeader.ts
-
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { Ownership } from "../../system/Ownership";
