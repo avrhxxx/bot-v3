@@ -324,3 +324,334 @@ END OF PRODUCTION SPEC v3.0
 DESIGN FROZEN
 READY FOR IMPLEMENTATION
 ========================================================
+
+# MEMORY SNAPSHOT — 2026-02-22
+
+## 1️⃣ ARCHITECTURE STATUS
+
+Projekt: bot-v3 (Discord production architecture)  
+Status: Core Engine Stable – Feature Layer Sprint
+
+### Stabilne i przetestowane:
+
+- MutationGate (global + alliance lock)
+- Dispatcher (SafeMode + Health guard + global error boundary)
+- SnapshotService
+- IntegrityMonitor (async, overlap-safe)
+- RepairService (wrapped in MutationGate)
+- Boot verification hardened
+- SafeMode
+- Health (CRITICAL block działa)
+- Journal (COMMAND_EXECUTION_FAILED działa)
+- GlobalLock
+- AllianceLock
+
+### Testy zaliczone:
+
+- TEST 1 – Boot Clean Start ✅
+- TEST 2 – SafeMode Block ✅
+- TEST 3 – CRITICAL Block ✅
+- TEST 4 – Forced Command Error ✅
+- TEST 5 – Integrity Escalation ✅
+
+Architektura = ENGINE READY.
+
+
+## 2️⃣ FEATURE LAYER – DEMO SCOPE
+
+Cel: Minimalny workflow sojuszu do prezentacji.
+
+Zakres:
+
+- Tworzenie sojuszu
+- Tworzenie kanałów Discord
+- Tworzenie ról:
+  - r5 (owner)
+  - r4 (officer)
+  - r3 (member)
+- Rola: Indefiy sojuszu
+  - brak hierarchii
+  - brak permisji
+  - tylko ping role
+- Tworzenie sojuszu tylko:
+  - Bot Owner
+  - Discord Server Owner
+- Hierarchia:
+  r5 > r4 > r3  
+  Indefiy = poza hierarchią
+
+Po implementacji:
+- Pełny test integralności plików
+- Test całego bota
+
+
+## 3️⃣ USER WORK MODE
+
+- Użytkownik się uczy.
+- Wymagane: krok po kroku:
+  - który folder
+  - który plik
+  - pełna zawartość pliku
+- Zawsze sprawdzamy pełny plik przed modyfikacją.
+- Po każdej większej zmianie → test integralności.
+- Repo najpierw aktualizujemy blueprintem, potem model danych.
+
+
+## 4️⃣ AKTUALNY SZKIELET REPO
+
+bot-v3/
+│
+├── src/
+│   │
+│   ├── commands/
+│   │
+│   ├── config/
+│   │
+│   ├── data/
+│   │   ├── Database.ts
+│   │   └── Repositories.ts
+│   │
+│   ├── discord/
+│   │   └── client.ts
+│   │
+│   ├── engine/
+│   │   ├── Dispatcher.ts
+│   │   └── MutationGate.ts
+│   │
+│   ├── features/
+│   │   └── alliance/
+│   │       ├── AllianceService.ts
+│   │       └── AllianceTypes.ts
+│   │
+│   ├── journal/
+│   │
+│   ├── locks/
+│   │
+│   ├── system/
+│   │   ├── snapshot/
+│   │   │   ├── IntegrityMonitor.ts
+│   │   │   ├── RepairService.ts
+│   │   │   ├── SnapshotService.ts
+│   │   │   └── SnapshotTypes.ts
+│   │   │
+│   │   ├── Health.ts
+│   │   ├── Ownership.ts
+│   │   └── SafeMode.ts
+│   │
+│   ├── deploy-commands.ts
+│   └── index.ts
+│
+├── .gitignore
+├── blueprint text
+├── package.json
+└── tsconfig.json
+
+# MEMORY SNAPSHOT — 2026-02-22
+
+## 1️⃣ ARCHITECTURE STATUS
+
+Projekt: bot-v3 (Discord production architecture)  
+Status: Core Engine Stable – Feature Layer Sprint
+
+### Stabilne i przetestowane:
+
+- MutationGate (global + alliance lock)
+- Dispatcher (SafeMode + Health guard + global error boundary)
+- SnapshotService
+- IntegrityMonitor (async, overlap-safe)
+- RepairService (wrapped in MutationGate)
+- Boot verification hardened
+- SafeMode
+- Health (CRITICAL block działa)
+- Journal (COMMAND_EXECUTION_FAILED działa)
+- GlobalLock
+- AllianceLock
+
+### Testy zaliczone:
+
+- TEST 1 – Boot Clean Start ✅
+- TEST 2 – SafeMode Block ✅
+- TEST 3 – CRITICAL Block ✅
+- TEST 4 – Forced Command Error ✅
+- TEST 5 – Integrity Escalation ✅
+
+Architektura = ENGINE READY.
+
+
+## 2️⃣ FEATURE LAYER – DEMO SCOPE
+
+Cel: Minimalny workflow sojuszu do prezentacji.
+
+Zakres:
+
+- Tworzenie sojuszu
+- Tworzenie kanałów Discord
+- Tworzenie ról:
+  - r5 (owner)
+  - r4 (officer)
+  - r3 (member)
+- Rola: Indefiy sojuszu
+  - brak hierarchii
+  - brak permisji
+  - tylko ping role
+- Tworzenie sojuszu tylko:
+  - Bot Owner
+  - Discord Server Owner
+- Hierarchia:
+  r5 > r4 > r3  
+  Indefiy = poza hierarchią
+
+Po implementacji:
+- Pełny test integralności plików
+- Test całego bota
+
+
+## 3️⃣ USER WORK MODE
+
+- Użytkownik się uczy.
+- Wymagane: krok po kroku:
+  - który folder
+  - który plik
+  - pełna zawartość pliku
+- Zawsze sprawdzamy pełny plik przed modyfikacją.
+- Po każdej większej zmianie → test integralności.
+- Repo najpierw aktualizujemy blueprintem, potem model danych.
+
+
+## 4️⃣ AKTUALNY SZKIELET REPO
+
+bot-v3/
+│
+├── src/
+│   │
+│   ├── commands/
+│   │
+│   ├── config/
+│   │
+│   ├── data/
+│   │   ├── Database.ts
+│   │   └── Repositories.ts
+│   │
+│   ├── discord/
+│   │   └── client.ts
+│   │
+│   ├── engine/
+│   │   ├── Dispatcher.ts
+│   │   └── MutationGate.ts
+│   │
+│   ├── features/
+│   │   └── alliance/
+│   │       ├── AllianceService.ts
+│   │       └── AllianceTypes.ts
+│   │
+│   ├── journal/
+│   │
+│   ├── locks/
+│   │
+│   ├── system/
+│   │   ├── snapshot/
+│   │   │   ├── IntegrityMonitor.ts
+│   │   │   ├── RepairService.ts
+│   │   │   ├── SnapshotService.ts
+│   │   │   └── SnapshotTypes.ts
+│   │   │
+│   │   ├── Health.ts
+│   │   ├── Ownership.ts
+│   │   └── SafeMode.ts
+│   │
+│   ├── deploy-commands.ts
+│   └── index.ts
+│
+├── .gitignore
+├── blueprint text
+├── package.json
+└── tsconfig.json
+
+ZRZUT PAMIECI 21.02 22:24
+
+=== BOT-V3 ARCHITECTURE SCAN SUMMARY (CORE ISSUES) ===
+
+BOOT FLOW
+----------
+1. index.ts ustawia Health = HEALTHY bez weryfikacji.
+2. Brak initial integrity check przed uruchomieniem Discorda.
+3. Brak Ownership.initialize() w boot.
+4. Brak journal replay przy starcie.
+5. Brak restore SafeMode przy restarcie.
+6. IntegrityMonitor startuje po 15s – istnieje okno ryzyka.
+
+HEALTH SYSTEM
+--------------
+1. Health nie jest state machine (dowolne przejścia stanów).
+2. Brak walidacji przejść (CRITICAL → HEALTHY bez kontroli).
+3. Health.set* omija MutationGate.
+4. Health.get() domyślnie zwraca HEALTHY.
+5. Brak powiązania CRITICAL ↔ SafeMode.
+6. Stan Health jest w RAM (brak persistence).
+
+SAFEMODE
+---------
+1. SafeMode jest zwykłą flagą w RAM.
+2. Brak integracji z Health.
+3. deactivate() bez kontroli roli/stanu.
+4. Brak logowania aktywacji/dezaktywacji.
+5. Restart usuwa SafeMode.
+
+OWNERSHIP
+----------
+1. initialize() nie używa MutationGate.
+2. Bot Owner i Discord Owner nie są faktycznie immutable.
+3. transferBotOwner ufa zewnętrznemu healthState.
+4. Brak automatycznego SafeMode przy utracie Bot Owner.
+5. Ownership w RAM (brak persistence).
+
+DISPATCHER / DISCORD ENTRY
+---------------------------
+1. Brak globalnego try/catch wokół dispatch.
+2. Brak sprawdzenia SafeMode przed wykonaniem komendy.
+3. Brak sprawdzenia Health przed wykonaniem komendy.
+4. Brak centralnego error boundary.
+5. Brak rate limiting / throttling.
+
+MUTATION / LOCKS
+-----------------
+1. Walidacje w AllianceService wykonywane przed lockiem.
+2. Repozytoria zwracają referencje do live obiektów.
+3. Brak enforced usage MutationGate (można mutować repo bez silnika).
+
+SNAPSHOT SYSTEM
+----------------
+1. SnapshotService tworzy snapshot po mutacji (brak pre-state compare).
+2. Brak strukturalnych invariant checks.
+3. Tylko jeden snapshot per alliance (brak historii).
+
+INTEGRITY MONITOR
+------------------
+1. Zmienia Health bez state machine.
+2. Wywołuje Repair bez locków.
+3. SafeMode.activate bez globalnej ochrony.
+4. Brak izolacji w trakcie aktywnej mutacji.
+
+REPAIR SERVICE
+---------------
+1. Mutuje live obiekty bez MutationGate.
+2. Brak global lock.
+3. Brak transactional boundary.
+4. Brak rollback.
+5. SafeMode.deactivate() bez walidacji.
+6. Health.setHealthy() bez sprawdzenia przyczyny CRITICAL.
+
+CONFIG
+-------
+1. Brak walidacji zmiennych środowiskowych.
+2. Brak centralnej konfiguracji systemowej.
+
+PERSISTENCE
+------------
+1. Cały system działa w RAM.
+2. Brak crash recovery.
+3. Brak journal replay.
+4. Brak trwałej warstwy danych.
+
+=== END OF SUMMARY ===
+
