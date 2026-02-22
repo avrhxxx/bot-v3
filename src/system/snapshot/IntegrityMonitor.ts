@@ -28,7 +28,7 @@ export class IntegrityMonitor {
   }
 
   private static async runCheck() {
-    if (this.running) return; // prevent overlap
+    if (this.running) return;
     this.running = true;
 
     try {
@@ -40,7 +40,7 @@ export class IntegrityMonitor {
 
         const current = Health.get();
 
-        // 🔒 CRITICAL nie może być nadpisany automatycznie
+        // CRITICAL nie może być nadpisany automatycznie
         if (current.state === "WARNING") {
           Health.setHealthy();
         }
@@ -71,7 +71,13 @@ export class IntegrityMonitor {
 
         if (this.repairAttempts < this.MAX_REPAIR_ATTEMPTS) {
           this.repairAttempts++;
-          await RepairService.attemptRepair();
+
+          try {
+            await RepairService.attemptRepair();
+          } catch (error) {
+            console.error("Repair attempt failed:", error);
+            // NIE crashujemy procesu
+          }
         }
 
         return;
@@ -85,6 +91,9 @@ export class IntegrityMonitor {
         SafeMode.activate("Integrity escalation threshold reached");
       }
 
+    } catch (error) {
+      console.error("IntegrityMonitor fatal error:", error);
+      // Dodatkowe zabezpieczenie przed crash
     } finally {
       this.running = false;
     }
