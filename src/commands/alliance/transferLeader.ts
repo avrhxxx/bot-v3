@@ -23,13 +23,12 @@ export const Command: Command = {
         .setRequired(true)
     ),
   ownerOnly: false,
-  systemLayer: false, // komenda sojusznicza
+  systemLayer: false,
 
   async execute(interaction: ChatInputCommandInteraction) {
     const userId = interaction.user.id;
     const newLeader = interaction.options.getUser("new_leader", true);
 
-    // 1️⃣ Sprawdzenie, czy użytkownik jest liderem
     const alliance = await AllianceSystem.getAllianceByMember(userId);
     if (!alliance) {
       await interaction.reply({ content: "❌ You are not in an alliance.", ephemeral: true });
@@ -41,13 +40,11 @@ export const Command: Command = {
       return;
     }
 
-    // 2️⃣ Sprawdzenie, czy nowy lider należy do tego samego sojuszu
     if (!AllianceSystem.isMember(alliance, newLeader.id)) {
       await interaction.reply({ content: "❌ The selected user is not a member of your alliance.", ephemeral: true });
       return;
     }
 
-    // 3️⃣ Atomiczne wykonanie transferu
     try {
       await MutationGate.execute(
         { operation: "TRANSFER_LEADER", actor: userId, requireGlobalLock: false },
