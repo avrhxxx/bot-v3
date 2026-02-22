@@ -3,9 +3,6 @@ import { AllianceRepo, SnapshotRepo } from "../../data/Repositories";
 import { Alliance } from "../../features/alliance/AllianceTypes";
 
 export class SnapshotService {
-  // -----------------------------
-  // CREATE SNAPSHOT
-  // -----------------------------
   static createSnapshot(alliance: Alliance) {
     const checksum = this.calculateChecksum(alliance);
 
@@ -21,9 +18,6 @@ export class SnapshotService {
     });
   }
 
-  // -----------------------------
-  // VERIFY SNAPSHOT
-  // -----------------------------
   static verifySnapshot(allianceId: string): boolean {
     const alliance = AllianceRepo.get(allianceId);
     const snapshot = SnapshotRepo.get(allianceId);
@@ -35,26 +29,11 @@ export class SnapshotService {
     return currentChecksum === snapshot.checksum;
   }
 
-  // -----------------------------
-  // FULL VERIFY ALL
-  // -----------------------------
   static verifyAll(): string[] {
-    const corrupted: string[] = [];
-
-    const alliances = AllianceRepo.getAll();
-
-    for (const alliance of alliances) {
-      if (!this.verifySnapshot(alliance.id)) {
-        corrupted.push(alliance.id);
-      }
-    }
-
-    return corrupted;
+    // 🔴 TEST 5 – wymuszone stałe uszkodzenie
+    return ["TEST_CORRUPTION"];
   }
 
-  // -----------------------------
-  // CHECKSUM
-  // -----------------------------
   private static calculateChecksum(alliance: Alliance): string {
     const raw = JSON.stringify({
       id: alliance.id,
