@@ -1,0 +1,22 @@
+============================================================
+MEMORY UPDATE – NEW WORKFLOW RULES
+============================================================
+
+2026-02-23
+
+1. **Aktualizacja plików**
+   - Assistant **zawsze musi poprosić Usera o pełny plik**, jeśli chce:
+     - wprowadzić jakąkolwiek zmianę w kodzie
+     - podmienić linię lub fragment
+     - edytować cokolwiek w pliku
+   - Po edycji Assistant odsyła **cały plik w pełnej wersji**, gotowy do podmiany w repo.
+
+2. **Walidacja tagów w `/x alliance create`**
+   - Tylko **litery i cyfry** są dozwolone
+   - Żadne znaki specjalne nie mogą występować w tagach alianse
+
+3. Te zasady stają się obowiązkową częścią workflow Beta i memory.
+
+============================================================
+END OF MEMORY UPDATE
+============================================================
