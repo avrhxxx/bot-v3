@@ -76,7 +76,6 @@ export class IntegrityMonitor {
             await RepairService.attemptRepair();
           } catch (error) {
             console.error("Repair attempt failed:", error);
-            // NIE crashujemy procesu
           }
         }
 
@@ -93,7 +92,6 @@ export class IntegrityMonitor {
 
     } catch (error) {
       console.error("IntegrityMonitor fatal error:", error);
-      // Dodatkowe zabezpieczenie przed crash
     } finally {
       this.running = false;
     }
