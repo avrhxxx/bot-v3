@@ -1,16 +1,15 @@
+// src/features/alliance/AllianceService.ts
+
 import { MutationGate } from "../../engine/MutationGate";
-import {
-  AllianceRepo,
-  PendingDeletionRepo,
-  db
-} from "../../data/Repositories";
-import {
-  Alliance,
-  AllianceRoles,
-  AllianceChannels
-} from "./AllianceTypes";
+import { AllianceRepo, PendingDeletionRepo, db } from "../../data/Repositories";
+import { Alliance, AllianceRoles, AllianceChannels } from "./AllianceTypes";
 import { Ownership } from "../../system/Ownership";
 import { AllianceIntegrity } from "./integrity/AllianceIntegrity";
+
+export interface PendingDeletionRecord {
+  requestedBy: string;
+  requestedAt: number;
+}
 
 const MAX_MEMBERS = 100;
 const MAX_R4 = 10;
@@ -26,47 +25,24 @@ export class AllianceService {
     roles: AllianceRoles;
     channels: AllianceChannels;
   }) {
-    const {
-      actorId,
-      guildId,
-      allianceId,
-      tag,
-      name,
-      leaderId,
-      roles,
-      channels
-    } = params;
+    const { actorId, guildId, allianceId, tag, name, leaderId, roles, channels } = params;
 
-    if (!Ownership.isDiscordOwner(actorId)) {
-      throw new Error("Only Discord Owner can create alliance");
-    }
-
-    if (AllianceRepo.get(allianceId)) {
-      throw new Error("Alliance already exists");
-    }
+    if (!Ownership.isDiscordOwner(actorId)) throw new Error("Only Discord Owner can create alliance");
+    if (AllianceRepo.get(allianceId)) throw new Error("Alliance already exists");
 
     AllianceIntegrity.validateTag(tag);
     AllianceIntegrity.ensureTagUnique(guildId, tag);
     AllianceIntegrity.ensureUserNotInAlliance(leaderId);
 
     await MutationGate.execute(
-      {
-        operation: "ALLIANCE_CREATE",
-        actor: actorId,
-        allianceId,
-        requireGlobalLock: true
-      },
+      { operation: "ALLIANCE_CREATE", actor: actorId, allianceId, requireGlobalLock: true },
       async () => {
         const alliance: Alliance = {
           id: allianceId,
           guildId,
           tag: tag.toUpperCase(),
           name,
-          members: {
-            r5: leaderId,
-            r4: [],
-            r3: []
-          },
+          members: { r5: leaderId, r4: [], r3: [] },
           roles,
           channels,
           orphaned: false,
@@ -90,40 +66,27 @@ export class AllianceService {
     );
   }
 
-  static async addMember(
-    actorId: string,
-    allianceId: string,
-    userId: string
-  ) {
+  static async addMember(actorId: string, allianceId: string, userId: string) {
     const alliance = this.getAllianceOrThrow(allianceId);
 
     if (alliance.orphaned) throw new Error("Alliance is orphaned");
 
     const { r5, r4 } = alliance.members;
 
-    if (actorId !== r5 && !r4.includes(actorId)) {
-      throw new Error("Insufficient permissions");
-    }
-
+    if (actorId !== r5 && !r4.includes(actorId)) throw new Error("Insufficient permissions");
     if (this.isMember(alliance, userId)) throw new Error("Already member");
     if (this.getTotalMembers(alliance) >= MAX_MEMBERS) throw new Error("Member limit reached");
 
     AllianceIntegrity.ensureUserNotInAlliance(userId);
 
     await MutationGate.execute(
-      {
-        operation: "ALLIANCE_ADD_MEMBER",
-        actor: actorId,
-        allianceId,
-        requireAllianceLock: true
-      },
+      { operation: "ALLIANCE_ADD_MEMBER", actor: actorId, allianceId, requireAllianceLock: true },
       async () => {
         alliance.members.r3.push(userId);
         AllianceIntegrity.ensureRoleExclusivity(alliance, userId);
         this.checkOrphanState(alliance);
         AllianceRepo.set(allianceId, alliance);
 
-        // Audit
         db.journal.set(`${Date.now()}-${allianceId}`, {
           operation: "ADD_MEMBER",
           actor: actorId,
@@ -144,19 +107,13 @@ export class AllianceService {
     if (alliance.members.r4.length >= MAX_R4) throw new Error("R4 limit reached");
 
     await MutationGate.execute(
-      {
-        operation: "ALLIANCE_PROMOTE_R4",
-        actor: actorId,
-        allianceId,
-        requireAllianceLock: true
-      },
+      { operation: "ALLIANCE_PROMOTE_R4", actor: actorId, allianceId, requireAllianceLock: true },
       async () => {
         alliance.members.r3 = alliance.members.r3.filter(id => id !== userId);
         alliance.members.r4.push(userId);
         AllianceIntegrity.ensureRoleExclusivity(alliance, userId);
         AllianceRepo.set(allianceId, alliance);
 
-        // Audit
         db.journal.set(`${Date.now()}-${allianceId}`, {
           operation: "PROMOTE_TO_R4",
           actor: actorId,
@@ -184,12 +141,7 @@ export class AllianceService {
     if (targetIsR4 && !actorIsR5) throw new Error("Only R5 can remove R4");
 
     await MutationGate.execute(
-      {
-        operation: "ALLIANCE_REMOVE_MEMBER",
-        actor: actorId,
-        allianceId,
-        requireAllianceLock: true
-      },
+      { operation: "ALLIANCE_REMOVE_MEMBER", actor: actorId, allianceId, requireAllianceLock: true },
       async () => {
         alliance.members.r3 = alliance.members.r3.filter(id => id !== userId);
         alliance.members.r4 = alliance.members.r4.filter(id => id !== userId);
@@ -198,7 +150,6 @@ export class AllianceService {
         this.checkOrphanState(alliance);
         AllianceRepo.set(allianceId, alliance);
 
-        // Audit
         db.journal.set(`${Date.now()}-${allianceId}`, {
           operation: "REMOVE_MEMBER",
           actor: actorId,
@@ -218,12 +169,7 @@ export class AllianceService {
     if (!this.isMember(alliance, newLeaderId)) throw new Error("New leader must be member");
 
     await MutationGate.execute(
-      {
-        operation: "ALLIANCE_TRANSFER_LEADERSHIP",
-        actor: actorId,
-        allianceId,
-        requireAllianceLock: true
-      },
+      { operation: "ALLIANCE_TRANSFER_LEADERSHIP", actor: actorId, allianceId, requireAllianceLock: true },
       async () => {
         alliance.members.r4 = alliance.members.r4.filter(id => id !== newLeaderId);
         alliance.members.r3 = alliance.members.r3.filter(id => id !== newLeaderId);
@@ -233,7 +179,6 @@ export class AllianceService {
         AllianceIntegrity.ensureSingleR5(alliance);
         AllianceRepo.set(allianceId, alliance);
 
-        // Audit
         db.journal.set(`${Date.now()}-${allianceId}`, {
           operation: "TRANSFER_LEADERSHIP",
           actor: actorId,
@@ -250,9 +195,9 @@ export class AllianceService {
     if (!Ownership.isDiscordOwner(actorId)) throw new Error("Only Discord Owner can delete alliance");
     if (PendingDeletionRepo.get(allianceId)) throw new Error("Deletion already pending");
 
-    PendingDeletionRepo.set(allianceId, { requestedBy: actorId, requestedAt: Date.now() });
+    const pending: PendingDeletionRecord = { requestedBy: actorId, requestedAt: Date.now() };
+    PendingDeletionRepo.set(allianceId, pending);
 
-    // Audit
     db.journal.set(`${Date.now()}-${allianceId}`, {
       operation: "REQUEST_DELETE",
       actor: actorId,
@@ -262,22 +207,16 @@ export class AllianceService {
   }
 
   static async confirmDelete(actorId: string, allianceId: string) {
-    const pending = PendingDeletionRepo.get(allianceId);
+    const pending = PendingDeletionRepo.get(allianceId) as PendingDeletionRecord;
     if (!pending) throw new Error("No deletion request found");
     if (pending.requestedBy !== actorId) throw new Error("Only original requester can confirm");
 
     await MutationGate.execute(
-      {
-        operation: "ALLIANCE_DELETE",
-        actor: actorId,
-        allianceId,
-        requireGlobalLock: true
-      },
+      { operation: "ALLIANCE_DELETE", actor: actorId, allianceId, requireGlobalLock: true },
       async () => {
         AllianceRepo.delete(allianceId);
         PendingDeletionRepo.delete(allianceId);
 
-        // Audit
         db.journal.set(`${Date.now()}-${allianceId}`, {
           operation: "DELETE_ALLIANCE",
           actor: actorId,
@@ -296,11 +235,7 @@ export class AllianceService {
   }
 
   private static isMember(alliance: Alliance, userId: string): boolean {
-    return (
-      alliance.members.r5 === userId ||
-      alliance.members.r4.includes(userId) ||
-      alliance.members.r3.includes(userId)
-    );
+    return alliance.members.r5 === userId || alliance.members.r4.includes(userId) || alliance.members.r3.includes(userId);
   }
 
   private static getTotalMembers(alliance: Alliance): number {
@@ -308,9 +243,6 @@ export class AllianceService {
   }
 
   private static checkOrphanState(alliance: Alliance) {
-    alliance.orphaned =
-      !alliance.members.r5 &&
-      alliance.members.r4.length === 0 &&
-      alliance.members.r3.length === 0;
+    alliance.orphaned = !alliance.members.r5 && alliance.members.r4.length === 0 && alliance.members.r3.length === 0;
   }
 }
