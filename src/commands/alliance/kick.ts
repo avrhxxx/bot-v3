@@ -1,11 +1,16 @@
-// src/commands/alliance/kick.ts
+// File path: src/commands/alliance/kick.ts
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-export const KickCommand: Command = {
+/**
+ * KickCommand
+ * ----------------
+ * Allows a user to kick a member from their alliance according to rank permissions.
+ */
+export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("kick")
     .setDescription("Kick a member from your alliance")
@@ -31,9 +36,6 @@ export const KickCommand: Command = {
     }
 
     try {
-      // Moduł sojuszu sprawdza hierarchię:
-      // - Lider może kickować każdego oprócz siebie
-      // - Moderator może kickować tylko członków niższych rang
       const result = await AllianceSystem.kickMember(userId, targetUser.id, interaction.guild.id);
       
       await interaction.reply({
@@ -48,3 +50,5 @@ export const KickCommand: Command = {
     }
   }
 };
+
+export default Command;
