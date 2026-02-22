@@ -26,7 +26,7 @@ export const AllianceCreateCommand: Command = {
         .setRequired(true)
     ),
   ownerOnly: true,
-  systemLayer: true, // NEW FLAG – full system layer protection
+  systemLayer: true, // full system layer protection
 
   async execute(interaction: ChatInputCommandInteraction) {
     const userId = interaction.user.id;
@@ -45,10 +45,10 @@ export const AllianceCreateCommand: Command = {
       return;
     }
 
-    // Verify BotOwner
-    if (!Ownership.isBotOwner(userId)) {
+    // Verify BotOwner OR DiscordOwner
+    if (!Ownership.isBotOwner(userId) && !Ownership.isDiscordOwner(userId)) {
       await interaction.reply({
-        content: "⛔ Only Bot Owner can execute this command.",
+        content: "⛔ Only Bot Owner or Discord Owner can execute this command.",
         ephemeral: true
       });
       return;
