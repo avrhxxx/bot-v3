@@ -1,11 +1,18 @@
-// src/commands/alliance/leave.ts
+// File path: src/commands/alliance/leave.ts
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-export const LeaveCommand: Command = {
+/**
+ * LeaveCommand
+ * ----------------
+ * Allows a user to leave their current alliance.
+ * - Prevents leaving if user is leader (requires transfer first).
+ * - Checks SafeMode and guild context.
+ */
+export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("leave")
     .setDescription("Leave your current alliance"),
@@ -24,8 +31,6 @@ export const LeaveCommand: Command = {
     }
 
     try {
-      // Moduł sojuszu sprawdzi, czy użytkownik należy do sojuszu
-      // oraz blokuje opuszczenie, jeśli jest liderem (wymagana transfer_leader)
       const result = await AllianceSystem.leaveAlliance(userId, interaction.guild.id);
       await interaction.reply({
         content: `✅ You have left the alliance \`${result.tag}\`.`,
@@ -39,3 +44,5 @@ export const LeaveCommand: Command = {
     }
   }
 };
+
+export default Command;
