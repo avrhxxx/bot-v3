@@ -39,8 +39,6 @@ export class IntegrityMonitor {
         this.repairAttempts = 0;
 
         const current = Health.get();
-
-        // CRITICAL nie może być nadpisany automatycznie
         if (current.state === "WARNING") {
           Health.setHealthy();
         }
@@ -58,16 +56,12 @@ export class IntegrityMonitor {
       });
 
       if (this.failureCount === 1) {
-        Health.setWarning(
-          `Integrity issue detected in ${corrupted.length} alliance(s)`
-        );
+        Health.setWarning(`Integrity issue detected in ${corrupted.length} alliance(s)`);
         return;
       }
 
       if (this.failureCount === 2) {
-        Health.setCritical(
-          `Integrity unstable – attempting repair`
-        );
+        Health.setCritical(`Integrity unstable – attempting repair`);
 
         if (this.repairAttempts < this.MAX_REPAIR_ATTEMPTS) {
           this.repairAttempts++;
@@ -83,10 +77,7 @@ export class IntegrityMonitor {
       }
 
       if (this.failureCount >= 3) {
-        Health.setCritical(
-          `Integrity escalation – SafeMode activated`
-        );
-
+        Health.setCritical(`Integrity escalation – SafeMode activated`);
         SafeMode.activate("Integrity escalation threshold reached");
       }
 
