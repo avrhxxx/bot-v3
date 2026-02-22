@@ -1,3 +1,5 @@
+// File path: src/system/alliance/AllianceSystem.ts
+
 import {
   Guild,
   ChannelType,
@@ -6,14 +8,20 @@ import {
   CategoryChannel,
   TextChannel
 } from "discord.js";
+
 import { AllianceRoles, AllianceChannels } from "../../features/alliance/AllianceTypes";
 
 export class AllianceSystem {
+
+  /**
+   * Creates roles and channels for a new alliance.
+   */
   static async createInfrastructure(params: {
     guild: Guild;
     tag: string;
     leaderId: string;
   }): Promise<{ roles: AllianceRoles; channels: AllianceChannels }> {
+
     const { guild, tag, leaderId } = params;
 
     const createdRoles: Role[] = [];
@@ -33,6 +41,7 @@ export class AllianceSystem {
         name: `Alliance • ${tag}`,
         type: ChannelType.GuildCategory
       }) as CategoryChannel;
+
       createdChannels.push(category);
 
       // CHANNELS
@@ -108,10 +117,25 @@ export class AllianceSystem {
       };
 
     } catch (error) {
-      // ROLLBACK
       for (const ch of createdChannels) { try { await ch.delete(); } catch {} }
       for (const rl of createdRoles) { try { await rl.delete(); } catch {} }
       throw error;
     }
   }
+
+  // =========================================================
+  // TEMPORARY STUB METHODS (to fix build)
+  // =========================================================
+
+  static async updateTag(): Promise<void> { throw new Error("Not implemented yet"); }
+  static async updateName(): Promise<void> { throw new Error("Not implemented yet"); }
+  static async joinAlliance(): Promise<void> { throw new Error("Not implemented yet"); }
+  static async leaveAlliance(): Promise<void> { throw new Error("Not implemented yet"); }
+  static async promoteMember(): Promise<void> { throw new Error("Not implemented yet"); }
+  static async demoteMember(): Promise<void> { throw new Error("Not implemented yet"); }
+  static async kickMember(): Promise<void> { throw new Error("Not implemented yet"); }
+  static async transferLeader(): Promise<void> { throw new Error("Not implemented yet"); }
+  static async setLeaderSystem(): Promise<void> { throw new Error("Not implemented yet"); }
+  static async deleteInfrastructure(): Promise<void> { throw new Error("Not implemented yet"); }
+
 }
