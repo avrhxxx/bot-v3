@@ -1,10 +1,12 @@
+// File path: src/commands/sys/setLeader.ts
+
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { Ownership } from "../../system/Ownership";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-export const SetLeaderCommand: Command = {
+export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("set_leader")
     .setDescription("System command: Assign a leader to a newly created alliance")
@@ -41,17 +43,11 @@ export const SetLeaderCommand: Command = {
 
     try {
       await AllianceSystem.setLeaderSystem(tag, newLeader.id);
-
-      await interaction.reply({
-        content: `✅ <@${newLeader.id}> has been assigned as the leader of alliance \`${tag}\`.`,
-        ephemeral: false
-      });
-
+      await interaction.reply({ content: `✅ <@${newLeader.id}> has been assigned as the leader of alliance \`${tag}\`.`, ephemeral: false });
     } catch (error: any) {
-      await interaction.reply({
-        content: `❌ Failed to set leader: ${error.message}`,
-        ephemeral: true
-      });
+      await interaction.reply({ content: `❌ Failed to set leader: ${error.message}`, ephemeral: true });
     }
   }
 };
+
+export default Command;
