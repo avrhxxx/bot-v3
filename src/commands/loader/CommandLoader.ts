@@ -1,6 +1,8 @@
-// src/commands/loader/CommandLoader.ts
+// File: src/commands/loader/CommandLoader.ts
 
 /**
+ * Lokalizacja pliku: src/commands/loader/CommandLoader.ts
+ *
  * CommandLoader
  * ----------------
  * Dynamiczny loader wszystkich komend w katalogu src/commands.
@@ -23,14 +25,15 @@ export class CommandLoader {
    * Ładuje wszystkie komendy z katalogu src/commands i rejestruje je.
    */
   static async loadAllCommands(): Promise<void> {
-    const commandsDir = path.join(__dirname, ".."); // katalog 'commands'
+    const commandsDir = path.resolve(__dirname, ".."); // katalog 'commands'
 
     // Funkcja rekursywna do zbierania wszystkich plików .ts
     const walkDir = (dir: string): string[] => {
       let results: string[] = [];
       const list = fs.readdirSync(dir, { withFileTypes: true });
-      list.forEach(item => {
-        const fullPath = path.join(dir, item.name);
+
+      for (const item of list) {
+        const fullPath = path.resolve(dir, item.name);
         if (item.isDirectory()) {
           results = results.concat(walkDir(fullPath));
         } else if (
@@ -40,7 +43,7 @@ export class CommandLoader {
         ) {
           results.push(fullPath);
         }
-      });
+      }
       return results;
     };
 
@@ -49,17 +52,22 @@ export class CommandLoader {
     // Import każdej komendy i rejestracja
     for (const file of files) {
       try {
-        const imported = await import(file);
-        // komenda może być default export lub named export
-        const command: Command = imported?.default || imported?.[Object.keys(imported)[0]];
-        if (command && command.data) {
-          CommandRegistry.register(command);
+        const importedModule = await import(file);
+        const exportedCommand: Command | undefined =
+          importedModule?.default ||
+          Object.values(importedModule).find((exp) => (exp as Command)?.data);
+
+        if (exportedCommand && exportedCommand.data) {
+          CommandRegistry.register(exportedCommand);
+          console.log(`✅ Command loaded: ${exportedCommand.data.name} (${file})`);
+        } else {
+          console.warn(`⚠️ No valid command found in ${file}`);
         }
       } catch (err) {
-        console.error(`❌ Failed to load command from file ${file}:`, err);
+        console.error(`❌ Failed to load command from ${file}:`, err);
       }
     }
 
-    console.log(`✅ Loaded ${CommandRegistry.count()} commands.`);
+    console.log(`✅ Loaded ${CommandRegistry.count()} commands in total.`);
   }
 }
