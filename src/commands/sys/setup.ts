@@ -1,3 +1,5 @@
+// File path: src/commands/sys/setup.ts
+
 import { ChatInputCommandInteraction } from "discord.js";
 import { Ownership } from "../../system/Ownership";
 import { SafeMode } from "../../system/SafeMode";
@@ -23,10 +25,7 @@ export const SysSetupCommand = {
       const discordOwnerId = interaction.guild?.ownerId;
 
       if (!discordOwnerId) {
-        await interaction.reply({
-          content: "❌ Cannot determine Discord server owner.",
-          ephemeral: true
-        });
+        await interaction.reply({ content: "❌ Cannot determine Discord server owner.", ephemeral: true });
         return;
       }
 
@@ -40,11 +39,9 @@ export const SysSetupCommand = {
     } catch (error: any) {
       console.error("SysSetupCommand error:", error);
       SafeMode.activate("SYS_SETUP_FAILURE");
-
-      await interaction.reply({
-        content: `❌ Failed to initialize system: ${error.message}`,
-        ephemeral: true
-      });
+      await interaction.reply({ content: `❌ Failed to initialize system: ${error.message}`, ephemeral: true });
     }
   }
 };
+
+export default SysSetupCommand;
