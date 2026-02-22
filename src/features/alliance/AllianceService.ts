@@ -44,6 +44,10 @@ export class AllianceService {
       throw new Error("Alliance already exists");
     }
 
+    AllianceIntegrity.validateTag(tag);
+    AllianceIntegrity.ensureTagUnique(guildId, tag);
+    AllianceIntegrity.ensureUserNotInAlliance(leaderId);
+
     await MutationGate.execute(
       {
         operation: "ALLIANCE_CREATE",
@@ -55,7 +59,7 @@ export class AllianceService {
         const alliance: Alliance = {
           id: allianceId,
           guildId,
-          tag,
+          tag: tag.toUpperCase(),
           name,
           members: {
             r5: leaderId,
@@ -68,7 +72,8 @@ export class AllianceService {
           createdAt: Date.now()
         };
 
-        AllianceIntegrity.validateMembersStructure(alliance);
+        AllianceIntegrity.ensureSingleR5(alliance);
+        AllianceIntegrity.ensureRoleExclusivity(alliance, leaderId);
 
         AllianceRepo.set(allianceId, alliance);
       }
@@ -82,9 +87,11 @@ export class AllianceService {
   ) {
     const alliance = this.getAllianceOrThrow(allianceId);
 
-    if (alliance.orphaned) throw new Error("Alliance is orphaned");
+    if (alliance.orphaned) {
+      throw new Error("Alliance is orphaned");
+    }
 
-    const { r5, r4, r3 } = alliance.members;
+    const { r5, r4 } = alliance.members;
 
     if (actorId !== r5 && !r4.includes(actorId)) {
       throw new Error("Insufficient permissions");
@@ -110,7 +117,7 @@ export class AllianceService {
       async () => {
         alliance.members.r3.push(userId);
 
-        AllianceIntegrity.validateMembersStructure(alliance);
+        AllianceIntegrity.ensureRoleExclusivity(alliance, userId);
         this.checkOrphanState(alliance);
 
         AllianceRepo.set(allianceId, alliance);
@@ -150,7 +157,7 @@ export class AllianceService {
 
         alliance.members.r4.push(userId);
 
-        AllianceIntegrity.validateMembersStructure(alliance);
+        AllianceIntegrity.ensureRoleExclusivity(alliance, userId);
 
         AllianceRepo.set(allianceId, alliance);
       }
@@ -204,7 +211,6 @@ export class AllianceService {
           alliance.members.r5 = "";
         }
 
-        AllianceIntegrity.validateMembersStructure(alliance);
         this.checkOrphanState(alliance);
 
         AllianceRepo.set(allianceId, alliance);
@@ -244,7 +250,7 @@ export class AllianceService {
         alliance.members.r3.push(alliance.members.r5);
         alliance.members.r5 = newLeaderId;
 
-        AllianceIntegrity.validateMembersStructure(alliance);
+        AllianceIntegrity.ensureSingleR5(alliance);
 
         AllianceRepo.set(allianceId, alliance);
       }
@@ -304,7 +310,7 @@ export class AllianceService {
 
   private static getTotalMembers(alliance: Alliance): number {
     return (
-      1 +
+      (alliance.members.r5 ? 1 : 0) +
       alliance.members.r4.length +
       alliance.members.r3.length
     );
