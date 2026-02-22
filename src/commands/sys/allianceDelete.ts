@@ -1,3 +1,5 @@
+// File path: src/commands/sys/allianceDelete.ts
+
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { Ownership } from "../../system/Ownership";
@@ -6,7 +8,7 @@ import { AllianceRepo } from "../../data/Repositories";
 import { SafeMode } from "../../system/SafeMode";
 import { AllianceSystem } from "../../features/alliance/AllianceSystem";
 
-export const AllianceDeleteCommand: Command = {
+export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("alliance_delete")
     .setDescription("Delete an existing alliance (Owner Only, System Layer)")
@@ -28,18 +30,12 @@ export const AllianceDeleteCommand: Command = {
     }
 
     if (SafeMode.isActive()) {
-      await interaction.reply({
-        content: "⛔ System in SAFE_MODE – structural commands blocked.",
-        ephemeral: true
-      });
+      await interaction.reply({ content: "⛔ System in SAFE_MODE – structural commands blocked.", ephemeral: true });
       return;
     }
 
     if (!Ownership.isBotOwner(userId) && !Ownership.isDiscordOwner(userId)) {
-      await interaction.reply({
-        content: "⛔ Only Bot Owner or Discord Owner can execute this command.",
-        ephemeral: true
-      });
+      await interaction.reply({ content: "⛔ Only Bot Owner or Discord Owner can execute this command.", ephemeral: true });
       return;
     }
 
@@ -47,37 +43,25 @@ export const AllianceDeleteCommand: Command = {
     const alliance = AllianceRepo.getByTag(tag);
 
     if (!alliance) {
-      await interaction.reply({
-        content: `❌ Alliance with tag \`${tag}\` does not exist.`,
-        ephemeral: true
-      });
+      await interaction.reply({ content: `❌ Alliance with tag \`${tag}\` does not exist.`, ephemeral: true });
       return;
     }
 
     try {
       await MutationGate.execute(
-        {
-          operation: "ALLIANCE_DELETE",
-          actor: userId,
-          requireGlobalLock: true
-        },
+        { operation: "ALLIANCE_DELETE", actor: userId, requireGlobalLock: true },
         async () => {
           await AllianceSystem.deleteInfrastructure(alliance);
           AllianceRepo.delete(alliance.id);
         }
       );
 
-      await interaction.reply({
-        content: `✅ Alliance with tag \`${tag}\` has been deleted successfully.`,
-        ephemeral: false
-      });
-
+      await interaction.reply({ content: `✅ Alliance with tag \`${tag}\` has been deleted successfully.`, ephemeral: false });
     } catch (error: any) {
       console.error("Alliance deletion error:", error);
-      await interaction.reply({
-        content: `❌ Failed to delete alliance: ${error.message}`,
-        ephemeral: true
-      });
+      await interaction.reply({ content: `❌ Failed to delete alliance: ${error.message}`, ephemeral: true });
     }
   }
 };
+
+export default Command;
