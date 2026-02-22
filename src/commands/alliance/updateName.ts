@@ -36,21 +36,17 @@ export const Command: Command = {
       return;
     }
 
-    // Walidacja nazwy: tylko litery i spacje, 1–32 znaki
     if (!/^[A-Za-z\s]{1,32}$/.test(newName)) {
       await interaction.reply({ content: "❌ Name can only contain letters (A-Z) and spaces, max 32 characters.", ephemeral: true });
       return;
     }
 
     try {
-      // Moduł sojuszu sprawdza, czy użytkownik jest liderem
       await AllianceSystem.updateName(userId, interaction.guild.id, newName);
-
       await interaction.reply({
         content: `✅ Alliance name has been updated to \`${newName}\`.`,
         ephemeral: false
       });
-
     } catch (error: any) {
       await interaction.reply({
         content: `❌ Failed to update name: ${error.message}`,
