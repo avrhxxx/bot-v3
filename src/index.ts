@@ -1,5 +1,3 @@
-// src/index.ts
-
 import { IntegrityMonitor } from "./system/snapshot/IntegrityMonitor";
 import { Health } from "./system/Health";
 import { startDiscord } from "./discord/client";
@@ -11,8 +9,11 @@ import { TimeModule } from "./system/TimeModule/TimeModule";
 import path from "path";
 import { performance } from "perf_hooks";
 
-const TEST_MODE = process.env.TEST_MODE === "true";
-const CHECK_PROCESS = process.env.CHECK_PROCESS === "true"; // <-- zmiana nazwy
+// -------------------------
+// Check process environment detection
+// -------------------------
+// W Railway: NODE_ENV=production w runtime, NODE_ENV=build przy deploy/build
+const RUN_CHECK_PROCESS = process.env.NODE_ENV === "build";
 
 // -------------------------
 // Modules for check process
@@ -115,53 +116,8 @@ async function runCheckProcess() {
 async function bootstrap() {
   console.log("System booting...");
 
-  // 🧪 TEST MODE
-  if (TEST_MODE) {
-    console.log("=== TEST MODE ENABLED ===");
-
-    const { AllianceService } = await import("./features/alliance/AllianceService");
-    const { AllianceRepo } = await import("./data/Repositories");
-    const { db } = await import("./data/Repositories");
-    const { Ownership } = await import("./system/Ownership");
-
-    (Ownership as any).isDiscordOwner = () => true;
-
-    try {
-      await AllianceService.createAlliance({
-        actorId: "OWNER_TEST_ID",
-        guildId: "GUILD_TEST_ID",
-        allianceId: "ALLIANCE_1",
-        tag: "ABC",
-        name: "Test Alliance",
-        leaderId: "LEADER_TEST_ID",
-        roles: {
-          r5RoleId: "R5_ROLE",
-          r4RoleId: "R4_ROLE",
-          r3RoleId: "R3_ROLE",
-          identityRoleId: "IDENTITY_ROLE"
-        },
-        channels: {
-          categoryId: "CATEGORY_ID",
-          leadershipChannelId: "LEAD_CHANNEL",
-          officersChannelId: "OFFICER_CHANNEL",
-          membersChannelId: "MEMBERS_CHANNEL",
-          joinChannelId: "JOIN_CHANNEL"
-        }
-      });
-
-      console.log("✅ Alliance created successfully");
-      console.log("Alliance:", AllianceRepo.get("ALLIANCE_1"));
-      console.log("Journal:", db.journal);
-
-    } catch (err) {
-      console.error("❌ TEST ERROR:", err);
-    }
-
-    process.exit(0);
-  }
-
-  // 🛠️ CHECK PROCESS
-  if (CHECK_PROCESS) {
+  // 🛠️ CHECK PROCESS ONLY DURING DEPLOY/BUILD
+  if (RUN_CHECK_PROCESS) {
     await runCheckProcess();
   }
 
