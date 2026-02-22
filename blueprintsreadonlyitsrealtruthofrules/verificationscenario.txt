@@ -1,0 +1,78 @@
+Proponowana kolejność weryfikacji plików – Beta workflow
+
+1️⃣ CORE SYSTEM / BOOT LAYER
+
+Krytyczne dla uruchomienia bota – sprawdzamy integralność Health, SafeMode, Ownership.
+	1.	src/config/config.ts – konfiguracja systemowa, env vars.
+	2.	src/data/Database.ts – dostęp do bazy danych / mock DB.
+	3.	src/data/Repositories.ts – repozytoria danych.
+	4.	src/system/Health.ts – state machine health, CRITICAL ↔ SAFE_MODE.
+	5.	src/system/SafeMode.ts – blokady operacji krytycznych.
+	6.	src/system/Ownership.ts – inicjalizacja BotOwner / DiscordOwner + transfery.
+	7.	src/locks/GlobalLock.ts – globalny lock, używany w MutationGate / Ownership.
+	8.	src/engine/MutationGate.ts – atomic execution i lock enforcement.
+	9.	src/engine/Dispatcher.ts – dispatcher eventów + SafeMode / Health guard + ownerOnly check.
+
+⸻
+
+2️⃣ JOURNAL / SNAPSHOT / LOCKS
+
+Atomicity i logowanie mutacji – integralność operacji.
+	10.	src/journal/Journal.ts – log audytu.
+	11.	src/journal/JournalTypes.ts – typy dla Journal.
+	12.	src/locks/AllianceLock.ts – lock specyficzny dla sojuszu.
+	13.	src/system/snapshot/SnapshotTypes.ts – typy snapshotów.
+	14.	src/system/snapshot/SnapshotService.ts – tworzenie backupów / snapshotów.
+	15.	src/system/snapshot/IntegrityMonitor.ts – monitor integralności.
+	16.	src/system/snapshot/RepairService.ts – naprawa w MutationGate.
+
+⸻
+
+3️⃣ FEATURE LAYER – ALLIANCE DOMAIN
+
+Core domain logic – tylko odczyt danych / domain pure.
+	17.	src/features/alliance/AllianceTypes.ts – typy i interfejsy sojuszy.
+	18.	src/features/alliance/AllianceService.ts – core domain logic, bez mutacji Discord.
+	19.	src/features/alliance/integrity/AllianceIntegrity.ts – sprawdzanie spójności.
+	20.	src/features/alliance/orchestration/AllianceCreationOrchestrator.ts – orchestracja tworzenia sojuszy.
+
+⸻
+
+4️⃣ SYSTEM LAYER – ALLIANCE MUTATIONS
+
+Mutacje strukturalne sojuszy – atomiczne, z lock i journal.
+	21.	src/system/alliance/AllianceSystem.ts – tworzenie/edytowanie/deleting sojuszy.
+	22.	src/system/alliance/TransferLeaderSystem.ts – transfer lidera + rollback.
+
+⸻
+
+5️⃣ COMMANDS – SYSTEM / OWNER ONLY
+
+Pierwsze komendy do weryfikacji właściciela i bootstrapa.
+	23.	src/commands/sys/setup.ts – /x sys setup.
+	24.	src/commands/sys/allianceCreate.ts – /x alliance create.
+	25.	src/commands/sys/allianceDelete.ts – /x alliance delete.
+	26.	src/commands/sys/setLeader.ts – setLeader.
+
+⸻
+
+6️⃣ COMMANDS – ALLIANCE / MEMBER COMMANDS
+
+Komendy członkowskie i lidera – dopiero po zweryfikowaniu system layer i domain layer.
+	27.	src/commands/alliance/join.ts – join_ally.
+	28.	src/commands/alliance/leave.ts – leave_ally.
+	29.	src/commands/alliance/promote.ts – promote.
+	30.	src/commands/alliance/demote.ts – demote.
+	31.	src/commands/alliance/kick.ts – kick.
+	32.	src/commands/alliance/transferLeader.ts – transfer lidera w command layer.
+	33.	src/commands/alliance/updateTag.ts – update tag.
+	34.	src/commands/alliance/updateName.ts – update name.
+
+⸻
+
+7️⃣ DISCORD / ENTRY POINT
+
+Ostatnie do sprawdzenia integracji startowej.
+	35.	src/discord/client.ts – inicjalizacja klienta Discord.
+	36.	src/index.ts – punkt wejścia, boot bota.
+	37.	src/deploy-commands.ts – deploy slash komend.
