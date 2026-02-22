@@ -1,5 +1,3 @@
-console.log("THIS IS NEW BUILD 124 - TEST 3 (CRITICAL)");
-
 import { IntegrityMonitor } from "./system/snapshot/IntegrityMonitor";
 import { Health } from "./system/Health";
 import { startDiscord } from "./discord/client";
@@ -21,9 +19,6 @@ async function bootstrap() {
     SafeMode.activate("Boot integrity failure");
     console.log("Boot integrity failure. SafeMode activated.");
   }
-
-  // 🔴 TEST 3 — wymuszony stan CRITICAL
-  Health.setCritical("Manual TEST 3 activation");
 
   IntegrityMonitor.start(15000);
 
