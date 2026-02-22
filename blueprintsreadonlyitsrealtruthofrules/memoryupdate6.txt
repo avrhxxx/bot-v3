@@ -1,0 +1,20 @@
+============================================================
+MEMORY UPDATE – RULE: VERIFY FILE CONTENT FIRST
+============================================================
+
+2026-02-23
+
+Nowa obowiązkowa zasada workflow:
+
+1. **Zasada weryfikacji plików**:
+   - Assistant **nie może weryfikować ani oceniać** pliku, którego zawartości nie widzi.
+   - Aby sprawdzić plik, Assistant **musi poprosić Usera o przesłanie pełnej zawartości pliku**.
+   - Dopiero po otrzymaniu pełnej zawartości pliku można wykonać statyczną weryfikację oraz sprawdzić integrację z innymi modułami.
+
+2. Zastosowanie:
+   - Dotyczy wszystkich plików w repo, zarówno OwnerModule, AllianceModule, jak i innych modułów systemu.
+   - Wszelkie wcześniejsze “domysły” lub statyczne weryfikacje bez kodu są **nieważne** i nie będą traktowane jako zatwierdzone.
+
+============================================================
+END OF MEMORY UPDATE
+============================================================
