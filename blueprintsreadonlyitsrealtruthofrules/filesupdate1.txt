@@ -1,0 +1,56 @@
+
+GITHUB FILES 22 Feb 2026 14:32 
+
+/
+├─ .gitignore
+├─ package.json
+├─ tsconfig.json
+├─ blueprintsreadonlyitsrealtruthofrules/
+│  ├─ memoryblueprint.txt
+│  ├─ memorygithubrepoapilink.txt
+│  ├─ memoryupdate1.txt … memoryupdate8.txt
+│  └─ specv3.0.txt
+├─ src/
+│  ├─ index.ts
+│  ├─ deploy-commands.ts
+│  ├─ commands/
+│  │  ├─ Command.ts
+│  │  ├─ CommandRegistry.ts
+│  │  └─ sys/
+│  │     ├─ allianceCreate.ts
+│  │     └─ setup.ts
+│  ├─ config/
+│  │  └─ config.ts
+│  ├─ data/
+│  │  ├─ Database.ts
+│  │  └─ Repositories.ts
+│  ├─ discord/
+│  │  └─ client.ts
+│  ├─ engine/
+│  │  ├─ Dispatcher.ts
+│  │  └─ MutationGate.ts
+│  ├─ features/
+│  │  └─ alliance/
+│  │     ├─ AllianceService.ts
+│  │     ├─ AllianceTypes.ts
+│  │     ├─ integrity/
+│  │     │  └─ AllianceIntegrity.ts
+│  │     └─ orchestration/
+│  │        └─ AllianceCreationOrchestrator.ts
+│  ├─ journal/
+│  │  ├─ Journal.ts
+│  │  └─ JournalTypes.ts
+│  ├─ locks/
+│  │  ├─ AllianceLock.ts
+│  │  └─ GlobalLock.ts
+│  └─ system/
+│     ├─ Health.ts
+│     ├─ Ownership.ts
+│     ├─ SafeMode.ts
+│     ├─ alliance/
+│     │  └─ AllianceSystem.ts
+│     └─ snapshot/
+│        ├─ IntegrityMonitor.ts
+│        ├─ RepairService.ts
+│        ├─ SnapshotService.ts
+│        └─ SnapshotTypes.ts
