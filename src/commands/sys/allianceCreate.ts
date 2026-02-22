@@ -1,3 +1,5 @@
+// File path: src/commands/sys/allianceCreate.ts
+
 import crypto from "crypto";
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
@@ -7,7 +9,7 @@ import { AllianceSystem } from "../../features/alliance/AllianceSystem";
 import { AllianceRepo } from "../../data/Repositories";
 import { SafeMode } from "../../system/SafeMode";
 
-export const AllianceCreateCommand: Command = {
+export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("alliance_create")
     .setDescription("Create a new alliance (Owner Only, System Layer)")
@@ -117,3 +119,5 @@ export const AllianceCreateCommand: Command = {
     }
   }
 };
+
+export default Command;
