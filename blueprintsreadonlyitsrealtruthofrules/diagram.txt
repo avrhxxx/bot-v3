@@ -5,7 +5,8 @@ graph TD
     Ownership["Ownership.ts"]
     SafeMode["SafeMode.ts"]
     TimeModule["TimeModule/TimeModule.ts"]
-    
+    OwnerModule["OwnerModule/OwnerModule.ts"]  %% nowy
+
     subgraph ALLIANCE_SYS ["alliance"]
       AllianceSystem["AllianceSystem.ts"]
       TransferLeaderSystem["TransferLeaderSystem.ts"]
@@ -23,7 +24,7 @@ graph TD
         CommandDispatcherTS["CommandDispatcher.ts"]
       end
     end
-    
+
     subgraph SNAPSHOT ["snapshot"]
       IntegrityMonitor["IntegrityMonitor.ts"]
       RepairService["RepairService.ts"]
@@ -154,3 +155,7 @@ graph TD
   IntegrityMonitor --> Database
   RepairService --> IntegrityMonitor
   SnapshotService --> IntegrityMonitor
+
+  %% OwnerModule connections
+  OwnerModule --> CommandDispatcherTS
+  setup --> OwnerModule
