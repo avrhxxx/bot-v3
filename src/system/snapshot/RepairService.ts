@@ -12,7 +12,7 @@ export class RepairService {
         operation: "SYSTEM_REPAIR",
         actor: "SYSTEM",
         requireGlobalLock: true,
-        systemOverride: true // ✅ pozwala działać w SafeMode
+        systemOverride: true
       },
       async () => {
         const corrupted = SnapshotService.verifyAll();
