@@ -1,11 +1,16 @@
-// src/commands/alliance/join.ts
+// File path: src/commands/alliance/join.ts
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-export const JoinCommand: Command = {
+/**
+ * JoinCommand
+ * ----------------
+ * Allows a user to join an alliance if they are not already in one.
+ */
+export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("join")
     .setDescription("Join an alliance (only if not already in one)"),
@@ -23,7 +28,6 @@ export const JoinCommand: Command = {
       return;
     }
 
-    // Tutaj logika dołączenia do sojuszu
     try {
       const result = await AllianceSystem.joinAlliance(userId, interaction.guild.id);
       await interaction.reply({
@@ -38,3 +42,5 @@ export const JoinCommand: Command = {
     }
   }
 };
+
+export default Command;
