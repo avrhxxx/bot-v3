@@ -1,21 +1,29 @@
+// src/system/snapshot/SnapshotService.ts
+
 import crypto from "crypto";
 import { AllianceRepo, SnapshotRepo } from "../../data/Repositories";
 import { Alliance } from "../../features/alliance/AllianceTypes";
+import { SnapshotRecord } from "./SnapshotTypes";
 
 export class SnapshotService {
   static createSnapshot(alliance: Alliance) {
     const checksum = this.calculateChecksum(alliance);
 
-    SnapshotRepo.set(alliance.id, {
+    const snapshot: SnapshotRecord = {
       allianceId: alliance.id,
       checksum,
-      memberCount: 1 + alliance.r4.length + alliance.r3.length,
-      r4Count: alliance.r4.length,
-      r3Count: alliance.r3.length,
+      memberCount:
+        (alliance.members.r5 ? 1 : 0) +
+        alliance.members.r4.length +
+        alliance.members.r3.length,
+      r4Count: alliance.members.r4.length,
+      r3Count: alliance.members.r3.length,
       orphaned: alliance.orphaned,
       createdAt: alliance.createdAt,
       snapshotAt: Date.now()
-    });
+    };
+
+    SnapshotRepo.set(alliance.id, snapshot);
   }
 
   static verifySnapshot(allianceId: string): boolean {
@@ -46,9 +54,9 @@ export class SnapshotService {
   private static calculateChecksum(alliance: Alliance): string {
     const raw = JSON.stringify({
       id: alliance.id,
-      r5: alliance.r5,
-      r4: [...alliance.r4].sort(),
-      r3: [...alliance.r3].sort(),
+      r5: alliance.members.r5,
+      r4: [...alliance.members.r4].sort(),
+      r3: [...alliance.members.r3].sort(),
       orphaned: alliance.orphaned
     });
 
