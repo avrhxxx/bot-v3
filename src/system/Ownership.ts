@@ -7,11 +7,6 @@ const BOT_OWNER_KEY = "BOT_OWNER";
 const DISCORD_OWNER_KEY = "DISCORD_OWNER";
 
 export class Ownership {
-  /**
-   * Initialize ownership only if not already set.
-   * MUST be called via /x sys setup command.
-   * User invoking must have Discord Administrator permission.
-   */
   static async initialize(botOwnerId: string, discordOwnerId: string) {
     await MutationGate.execute(
       {
@@ -48,10 +43,6 @@ export class Ownership {
     return this.getDiscordOwner() === userId;
   }
 
-  /**
-   * Transfer Bot Ownership.
-   * System must be HEALTHY and not in SafeMode.
-   */
   static async transferBotOwner(actorId: string, newOwnerId: string) {
     if (!this.isBotOwner(actorId)) {
       throw new Error("Only current Bot Owner can transfer ownership");
@@ -62,7 +53,6 @@ export class Ownership {
     }
 
     const health = Health.get();
-
     if (health.state !== "HEALTHY") {
       throw new Error("Cannot transfer unless system is HEALTHY");
     }
@@ -79,9 +69,6 @@ export class Ownership {
     );
   }
 
-  /**
-   * Set Discord Owner (only Bot Owner can assign).
-   */
   static async setDiscordOwner(actorId: string, newOwnerId: string) {
     if (!this.isBotOwner(actorId)) {
       throw new Error("Only Bot Owner can set Discord Owner");
@@ -99,10 +86,6 @@ export class Ownership {
     );
   }
 
-  /**
-   * Hard invariant check.
-   * If BotOwner missing → escalate to SafeMode.
-   */
   static enforceInvariant() {
     const botOwner = OwnershipRepo.get(BOT_OWNER_KEY);
 
