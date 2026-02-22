@@ -1,11 +1,17 @@
-// src/commands/alliance/updateName.ts
+// File path: src/commands/alliance/updateName.ts
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-export const UpdateNameCommand: Command = {
+/**
+ * UpdateNameCommand
+ * -----------------
+ * Allows the alliance leader to change the alliance's name.
+ * - Name must contain only letters (A-Z, a-z) and spaces, max 32 characters.
+ */
+export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("update_name")
     .setDescription("Change your alliance name (letters only)")
@@ -30,7 +36,7 @@ export const UpdateNameCommand: Command = {
       return;
     }
 
-    // Walidacja nazwy: tylko litery, min 1, max 32 znaki
+    // Walidacja nazwy: tylko litery i spacje, 1–32 znaki
     if (!/^[A-Za-z\s]{1,32}$/.test(newName)) {
       await interaction.reply({ content: "❌ Name can only contain letters (A-Z) and spaces, max 32 characters.", ephemeral: true });
       return;
@@ -53,3 +59,5 @@ export const UpdateNameCommand: Command = {
     }
   }
 };
+
+export default Command;
