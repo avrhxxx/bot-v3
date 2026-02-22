@@ -37,7 +37,6 @@ export class RepairService {
             SnapshotService.createSnapshot(alliance);
 
             const valid = SnapshotService.verifySnapshot(allianceId);
-
             if (valid) {
               repairedCount++;
             }
