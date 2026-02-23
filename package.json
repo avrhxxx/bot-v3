@@ -4,7 +4,7 @@
   "main": "dist/index.js",
   "scripts": {
     "generate-imports": "ts-node src/scripts/GenerateImports.ts",
-    "build": "npm run generate-imports && rm -rf dist && tsc",
+    "build": "if [ \"$GENERATE_IMPORTS\" = \"true\" ]; then npm run generate-imports; fi && rm -rf dist && tsc",
     "start": "npm run build && node dist/index.js"
   },
   "dependencies": {
