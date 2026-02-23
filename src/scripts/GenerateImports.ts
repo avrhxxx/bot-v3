@@ -1,57 +1,77 @@
-// src/scripts/GenerateImports.ts
+// File: src/scripts/GenerateImports.ts
 import * as fs from "fs";
 import * as path from "path";
 
 const SRC_DIR = path.resolve(__dirname, "../");
-const OUTPUT_FILE = path.resolve(SRC_DIR, "Imports.ts");
-const EXCLUDE_FOLDERS = ["blueprintsreadonlyitsrealtruthofrules", "node_modules", ".git"];
-const EXCLUDE_FILES = ["GenerateImports.ts"]; // sam siebie pomijamy
+const OUTPUT_FILE = path.join(SRC_DIR, "Imports.ts");
+const EXCLUDE_FOLDERS = ["blueprintsreadonlyitsrealtruthofrules", "dist", "node_modules"];
 
-function isExcluded(filePath: string): boolean {
-  return EXCLUDE_FOLDERS.some(folder => filePath.includes(folder));
+interface ExportedSymbol {
+  name: string;
+  source: string;
 }
 
-function scanDir(dir: string): string[] {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  let files: string[] = [];
+function isDirectory(filePath: string) {
+  return fs.existsSync(filePath) && fs.statSync(filePath).isDirectory();
+}
 
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-
-    if (isExcluded(fullPath)) continue;
-
-    if (entry.isDirectory()) {
-      files = files.concat(scanDir(fullPath));
-    } else if (entry.isFile() && entry.name.endsWith(".ts") && !EXCLUDE_FILES.includes(entry.name)) {
-      files.push(fullPath);
+function getAllFiles(dir: string): string[] {
+  let results: string[] = [];
+  const list = fs.readdirSync(dir);
+  list.forEach(file => {
+    const filePath = path.join(dir, file);
+    if (EXCLUDE_FOLDERS.some(f => filePath.includes(f))) return;
+    if (isDirectory(filePath)) {
+      results = results.concat(getAllFiles(filePath));
+    } else if (file.endsWith(".ts") && !file.endsWith(".d.ts")) {
+      results.push(filePath);
     }
+  });
+  return results;
+}
+
+function extractExports(filePath: string): ExportedSymbol[] {
+  const content = fs.readFileSync(filePath, "utf-8");
+  const exportRegex = /export\s+(?:class|const|interface|enum|function|type)\s+(\w+)/g;
+  const symbols: ExportedSymbol[] = [];
+  let match;
+  while ((match = exportRegex.exec(content)) !== null) {
+    const name = match[1];
+    symbols.push({
+      name,
+      source: filePath,
+    });
   }
-
-  return files;
+  return symbols;
 }
 
-function formatImport(filePath: string): string {
-  // Tworzymy ścieżkę względną od src/
-  let relativePath = "./" + path.relative(SRC_DIR, filePath).replace(/\\/g, "/");
-  if (relativePath.endsWith(".ts")) relativePath = relativePath.slice(0, -3);
-
-  // Tworzymy unikalną nazwę zmiennej
-  const varName = relativePath
-    .replace(/[^a-zA-Z0-9]/g, "_")
-    .replace(/^_+/, "");
-
-  return `import * as ${varName} from "${relativePath}";`;
+function relativeImport(from: string, to: string) {
+  let rel = path.relative(path.dirname(from), to).replace(/\\/g, "/");
+  if (!rel.startsWith(".")) rel = "./" + rel;
+  return rel.replace(/\.ts$/, "");
 }
 
-function generateImports() {
-  const files = scanDir(SRC_DIR);
-  const imports = files.map(formatImport).join("\n");
+// ---------------- GENERATE ----------------
+const allFiles = getAllFiles(SRC_DIR);
+const exportedSymbols: ExportedSymbol[] = [];
 
-  const content = `// AUTO-GENERATED IMPORTS - DO NOT EDIT MANUALLY\n${imports}\n`;
+allFiles.forEach(file => {
+  exportedSymbols.push(...extractExports(file));
+});
 
-  fs.writeFileSync(OUTPUT_FILE, content, { encoding: "utf-8" });
-  console.log(`✅ Imports generated: ${OUTPUT_FILE}`);
+// Usunięcie duplikatów po nazwie symbolu
+const uniqueExports = exportedSymbols.reduce<Record<string, string>>((acc, sym) => {
+  if (!acc[sym.name]) {
+    acc[sym.name] = sym.source;
+  }
+  return acc;
+}, {});
+
+let importsContent = "// THIS FILE IS AUTO-GENERATED. DO NOT EDIT MANUALLY.\n\n";
+
+for (const [name, source] of Object.entries(uniqueExports)) {
+  importsContent += `export { ${name} } from "${relativeImport(OUTPUT_FILE, source)}";\n`;
 }
 
-// Uruchomienie generatora
-generateImports();
+fs.writeFileSync(OUTPUT_FILE, importsContent, "utf-8");
+console.log(`✅ Imports generated: ${OUTPUT_FILE}`);
