@@ -3,7 +3,8 @@
   "version": "3.0.0-beta",
   "main": "dist/index.js",
   "scripts": {
-    "build": "rm -rf dist && tsc",
+    "generate-imports": "ts-node src/scripts/GenerateImports.ts",
+    "build": "npm run generate-imports && rm -rf dist && tsc",
     "start": "npm run build && node dist/index.js"
   },
   "dependencies": {
