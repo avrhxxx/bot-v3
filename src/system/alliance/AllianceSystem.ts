@@ -9,7 +9,8 @@ import {
   TextChannel
 } from "discord.js";
 
-import { AllianceRoles, AllianceChannels } from "../../features/alliance/AllianceTypes";
+// Poprawiony import typów z nowego folderu system/alliance
+import { AllianceRoles, AllianceChannels } from "./AllianceTypes";
 
 export class AllianceSystem {
 
