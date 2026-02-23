@@ -1,4 +1,4 @@
-// src/system/alliance/AllianceService.ts
+// File path: src/system/alliance/AllianceService.ts
 
 /**
  * Moduł: AllianceService
@@ -31,12 +31,8 @@ const MAX_MEMBERS = 100;
 const MAX_R4 = 10;
 
 export class AllianceService {
+
   // ----------------- CREATE -----------------
-  /**
-   * Tworzy nowy sojusz.
-   * Wywołanie tylko przez Discord Owner.
-   * Integracja: MutationGate, AllianceIntegrity, AllianceRepo, logAudit
-   */
   static async createAlliance(params: {
     actorId: string;
     guildId: string;
@@ -46,51 +42,27 @@ export class AllianceService {
     leaderId: string;
     roles: AllianceRoles;
     channels: AllianceChannels;
-  }) { 
-    // implementacja zgodnie z blueprintem
+  }): Promise<Alliance> {
+    // tymczasowa implementacja do buildu
+    return {} as Alliance;
   }
 
   // ----------------- MEMBERS -----------------
-  /**
-   * Dodaje członka do sojuszu (R3)
-   * Integracja: MembershipModule, MutationGate, AllianceIntegrity
-   */
-  static async addMember(actorId: string, allianceId: string, userId: string) { /* implementacja */ }
-
-  /**
-   * Promuje członka do R4
-   * Integracja: RoleModule, MutationGate, AllianceIntegrity
-   */
-  static async promoteToR4(actorId: string, allianceId: string, userId: string) { /* implementacja */ }
-
-  /**
-   * Usuwa członka z sojuszu (R3/R4/R5)
-   * Integracja: MembershipModule, RoleModule, MutationGate, AllianceIntegrity
-   */
-  static async removeMember(actorId: string, allianceId: string, userId: string) { /* implementacja */ }
+  static async addMember(actorId: string, allianceId: string, userId: string): Promise<void> { /* stub */ }
+  static async promoteToR4(actorId: string, allianceId: string, userId: string): Promise<void> { /* stub */ }
+  static async removeMember(actorId: string, allianceId: string, userId: string): Promise<void> { /* stub */ }
 
   // ----------------- LEADERSHIP -----------------
-  /**
-   * Transfer lidera
-   * Integracja: TransferLeaderSystem, MutationGate, AllianceIntegrity
-   */
-  static async transferLeadership(actorId: string, allianceId: string, newLeaderId: string) { /* implementacja */ }
+  static async transferLeadership(actorId: string, allianceId: string, newLeaderId: string): Promise<void> { /* stub */ }
 
   // ----------------- DELETION -----------------
-  /**
-   * Zgłoszenie usunięcia sojuszu (Discord Owner)
-   */
-  static requestDelete(actorId: string, allianceId: string) { /* implementacja */ }
-
-  /**
-   * Potwierdzenie usunięcia sojuszu
-   */
-  static async confirmDelete(actorId: string, allianceId: string) { /* implementacja */ }
+  static requestDelete(actorId: string, allianceId: string): void { /* stub */ }
+  static async confirmDelete(actorId: string, allianceId: string): Promise<void> { /* stub */ }
 
   // ----------------- HELPERS -----------------
-  private static getAllianceOrThrow(id: string): Alliance { /* implementacja */ }
-  private static isMember(alliance: Alliance, userId: string): boolean { /* implementacja */ }
-  private static getTotalMembers(alliance: Alliance): number { /* implementacja */ }
-  private static checkOrphanState(alliance: Alliance) { /* implementacja */ }
-  private static logAudit(allianceId: string, entry: Omit<{ id: string } & Record<string, any>, "id">) { /* implementacja */ }
+  private static getAllianceOrThrow(id: string): Alliance { return {} as Alliance; }
+  private static isMember(alliance: Alliance, userId: string): boolean { return false; }
+  private static getTotalMembers(alliance: Alliance): number { return 0; }
+  private static checkOrphanState(alliance: Alliance): void { /* stub */ }
+  private static logAudit(allianceId: string, entry: Omit<{ id: string } & Record<string, any>, "id">): void { /* stub */ }
 }
