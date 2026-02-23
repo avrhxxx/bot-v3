@@ -1,77 +1,43 @@
-// File: src/scripts/GenerateImports.ts
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from 'fs';
+import * as path from 'path';
 
-const SRC_DIR = path.resolve(__dirname, "../");
-const OUTPUT_FILE = path.join(SRC_DIR, "Imports.ts");
-const EXCLUDE_FOLDERS = ["blueprintsreadonlyitsrealtruthofrules", "dist", "node_modules"];
+const srcDir = path.join(__dirname, '..', 'commands'); // folder, w którym są Twoje komendy
+const outputFile = path.join(__dirname, '..', 'Imports.ts');
 
-interface ExportedSymbol {
-  name: string;
-  source: string;
-}
+const files: string[] = [];
 
-function isDirectory(filePath: string) {
-  return fs.existsSync(filePath) && fs.statSync(filePath).isDirectory();
-}
-
-function getAllFiles(dir: string): string[] {
-  let results: string[] = [];
-  const list = fs.readdirSync(dir);
-  list.forEach(file => {
-    const filePath = path.join(dir, file);
-    if (EXCLUDE_FOLDERS.some(f => filePath.includes(f))) return;
-    if (isDirectory(filePath)) {
-      results = results.concat(getAllFiles(filePath));
-    } else if (file.endsWith(".ts") && !file.endsWith(".d.ts")) {
-      results.push(filePath);
+// Rekurencyjne zbieranie wszystkich .ts w folderze
+function walkDir(dir: string) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walkDir(fullPath);
+    } else if (entry.isFile() && entry.name.endsWith('.ts') && entry.name !== 'Imports.ts') {
+      files.push(fullPath);
     }
-  });
-  return results;
-}
-
-function extractExports(filePath: string): ExportedSymbol[] {
-  const content = fs.readFileSync(filePath, "utf-8");
-  const exportRegex = /export\s+(?:class|const|interface|enum|function|type)\s+(\w+)/g;
-  const symbols: ExportedSymbol[] = [];
-  let match;
-  while ((match = exportRegex.exec(content)) !== null) {
-    const name = match[1];
-    symbols.push({
-      name,
-      source: filePath,
-    });
   }
-  return symbols;
 }
 
-function relativeImport(from: string, to: string) {
-  let rel = path.relative(path.dirname(from), to).replace(/\\/g, "/");
-  if (!rel.startsWith(".")) rel = "./" + rel;
-  return rel.replace(/\.ts$/, "");
-}
+walkDir(srcDir);
 
-// ---------------- GENERATE ----------------
-const allFiles = getAllFiles(SRC_DIR);
-const exportedSymbols: ExportedSymbol[] = [];
+// Tworzymy unikalne exporty
+const exportsSet = new Set<string>();
+const lines: string[] = [];
 
-allFiles.forEach(file => {
-  exportedSymbols.push(...extractExports(file));
-});
+for (const file of files) {
+  // Tworzymy względną ścieżkę względem folderu src
+  const relativePath = './' + path.relative(path.join(__dirname, '..'), file).replace(/\\/g, '/').replace(/\.ts$/, '');
 
-// Usunięcie duplikatów po nazwie symbolu
-const uniqueExports = exportedSymbols.reduce<Record<string, string>>((acc, sym) => {
-  if (!acc[sym.name]) {
-    acc[sym.name] = sym.source;
+  // Nazwa modułu – użyjemy nazwy pliku bez rozszerzenia
+  const moduleName = path.basename(file, '.ts');
+
+  if (!exportsSet.has(moduleName)) {
+    lines.push(`export * as ${moduleName} from '${relativePath}';`);
+    exportsSet.add(moduleName);
   }
-  return acc;
-}, {});
-
-let importsContent = "// THIS FILE IS AUTO-GENERATED. DO NOT EDIT MANUALLY.\n\n";
-
-for (const [name, source] of Object.entries(uniqueExports)) {
-  importsContent += `export { ${name} } from "${relativeImport(OUTPUT_FILE, source)}";\n`;
 }
 
-fs.writeFileSync(OUTPUT_FILE, importsContent, "utf-8");
-console.log(`✅ Imports generated: ${OUTPUT_FILE}`);
+fs.writeFileSync(outputFile, lines.join('\n') + '\n');
+
+console.log(`✅ Imports generated: ${outputFile}`);
