@@ -1,8 +1,7 @@
 // src/system/alliance/AllianceService.ts
 
 /**
- * Blueprint AllianceService – nowy moduł systemowy
- *
+ * Moduł: AllianceService
  * Cel: centralny serwis logiki sojuszu w systemie.
  * Integruje się z:
  * - MembershipModule – join/leave
@@ -10,13 +9,18 @@
  * - BroadcastModule – powiadomienia do kanału announce
  * - TransferLeaderSystem – transfer lidera
  * - AllianceIntegrity – monitorowanie spójności
+ * - Ownership – weryfikacja uprawnień (Discord Owner / Bot Owner)
+ * - MutationGate – atomowe operacje
  */
 
 import { MutationGate } from "../../engine/MutationGate";
-import { AllianceRepo, PendingDeletionRepo, db } from "../../data/Repositories";
+import { AllianceRepo, PendingDeletionRepo } from "../../data/Repositories";
 import { Alliance, AllianceRoles, AllianceChannels } from "./AllianceTypes";
 import { Ownership } from "../Ownership";
 import { AllianceIntegrity } from "./integrity/AllianceIntegrity";
+import { BroadcastModule } from "./BroadcastModule";
+import { RoleModule } from "./RoleModule";
+import { TransferLeaderSystem } from "./TransferLeaderSystem";
 
 export interface PendingDeletionRecord {
   requestedBy: string;
@@ -42,11 +46,13 @@ export class AllianceService {
     leaderId: string;
     roles: AllianceRoles;
     channels: AllianceChannels;
-  }) { /* implementacja */ }
+  }) { 
+    // implementacja zgodnie z blueprintem
+  }
 
   // ----------------- MEMBERS -----------------
   /**
-   * Dodaje członka do sojuszu
+   * Dodaje członka do sojuszu (R3)
    * Integracja: MembershipModule, MutationGate, AllianceIntegrity
    */
   static async addMember(actorId: string, allianceId: string, userId: string) { /* implementacja */ }
@@ -58,7 +64,7 @@ export class AllianceService {
   static async promoteToR4(actorId: string, allianceId: string, userId: string) { /* implementacja */ }
 
   /**
-   * Usuwa członka z sojuszu
+   * Usuwa członka z sojuszu (R3/R4/R5)
    * Integracja: MembershipModule, RoleModule, MutationGate, AllianceIntegrity
    */
   static async removeMember(actorId: string, allianceId: string, userId: string) { /* implementacja */ }
