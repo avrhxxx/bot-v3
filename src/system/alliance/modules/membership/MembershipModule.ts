@@ -1,8 +1,8 @@
-// File path: src/system/alliance/modules/MembershipModule.ts
+// File path: src/system/alliance/modules/membership/MembershipModule.ts
 
 import { AllianceService } from "../AllianceService";
-import { RoleModule, AllianceRoles } from "../RoleModule";
-import { BroadcastModule } from "../BroadcastModule";
+import { RoleModule, AllianceRoles } from "../modules/role/RoleModule";
+import { BroadcastModule } from "../modules/broadcast/BroadcastModule";
 import { TransferLeaderSystem } from "../TransferLeaderSystem";
 import { AllianceIntegrity } from "../integrity/AllianceIntegrity";
 import { MutationGate } from "../../../engine/MutationGate";
