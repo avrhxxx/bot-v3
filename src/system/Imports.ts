@@ -2,13 +2,14 @@
 // AUTOGENEROWANY PLIK IMPORTÓW
 // Nie edytować ręcznie – używaj generatora, aby aktualizować importy.
 
+// Core system
 export * from "../config/config";
 export * from "../data/Database";
 export * from "../data/Repositories";
 export * from "../discord/client";
 
-// UWAGA: Dispatcher już eksportuje MutationGate i MutationOptions,
-// więc nie eksportujemy ich osobno, aby uniknąć konfliktu TS2308.
+// Dispatcher eksportuje MutationGate i MutationOptions
+// Nie eksportujemy ich osobno, aby uniknąć konfliktu TS2308
 export * from "../engine/Dispatcher";
 
 // Commands
@@ -29,9 +30,9 @@ export * from "../commands/alliance/updateTag";
 // System core
 export * from "./Health";
 export * from "./SafeMode";
-export * from "./Ownership/Ownership"; // ✅ poprawiona ścieżka (plik w folderze Ownership/)
-export * from "./Ownership/OwnerRoleManager"; // ✅ import OwnerRoleManager
-export * from "./Ownership/OwnerModule"; // ✅ poprawiona ścieżka OwnerModule
+export * from "./Ownership/Ownership"; 
+export * from "./Ownership/OwnerRoleManager"; 
+export * from "./Ownership/OwnerModule"; 
 export * from "./TimeModule/TimeModule";
 
 // Alliance core
