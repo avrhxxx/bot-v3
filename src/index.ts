@@ -1,39 +1,36 @@
-/**
- * ============================================
- * FILE: src/index.ts
- * LAYER: BOOTSTRAP / ENTRYPOINT
- * ============================================
- *
- * GŁÓWNY PUNKT WEJŚCIA BOTA "bot-v3"
- *
- * ODPOWIEDZIALNOŚĆ:
- * - Inicjalizacja wszystkich modułów systemu
- * - Weryfikacja integralności danych sojuszy
- * - Uruchomienie SnapshotService, TimeModule, SafeMode
- * - Załadowanie wszystkich komend
- * - Uruchomienie klienta Discord.js
- *
- * ZALEŻNOŚCI:
- * - system/snapshot/* (IntegrityMonitor, SnapshotService)
- * - system/* (Health, SafeMode, Ownership, TimeModule, OwnerModule)
- * - data/* (Database, Repositories)
- * - engine/* (Dispatcher, MutationGate)
- * - commands/* (CommandLoader, CommandRegistry)
- * - system/alliance/* (AllianceService, AllianceSystem, TransferLeaderSystem)
- *
- * FILPATCH:
- * - Obsługa zależności modułów w kolejności ładowania
- * - Placeholdery dla modułów, które mogą być async inicjalizowane w późniejszym kroku
- * - Zachowanie pełnej logiki bootstrappingu i integracji
- *
- * UWAGA ARCHITEKTONICZNA:
- * - NODE_ENV=build → w Railway deploy/build
- * - NODE_ENV=production → runtime
- * - GENERATE_IMPORTS i CHECK_PROCESS wpływają na ładowanie modułów i pre-check
- * - Operacje mutacyjne wykonuje Orchestrator i MutationGate
- *
- * ============================================
- */
+// ============================================
+// FILE: src/index.ts
+// LAYER: BOOTSTRAP / ENTRYPOINT
+// ============================================
+//
+// GŁÓWNY PUNKT WEJŚCIA BOTA "bot-v3"
+//
+// ODPOWIEDZIALNOŚĆ:
+// - Inicjalizacja wszystkich modułów systemu
+// - Weryfikacja integralności danych sojuszy
+// - Uruchomienie SnapshotService, TimeModule, SafeMode
+// - Załadowanie wszystkich komend
+// - Uruchomienie klienta Discord.js
+//
+// ZALEŻNOŚCI:
+// - system/snapshot/* (IntegrityMonitor, SnapshotService)
+// - system/* (Health, SafeMode, Ownership, TimeModule, OwnerModule)
+// - data/* (Database, Repositories)
+// - engine/* (Dispatcher, MutationGate)
+// - commands/* (CommandLoader, CommandRegistry)
+// - system/alliance/* (AllianceService, AllianceSystem, TransferLeaderSystem)
+//
+// FILPATCH:
+// - Obsługa zależności modułów w kolejności ładowania
+// - Placeholdery dla modułów, które mogą być async inicjalizowane w późniejszym kroku
+// - Zachowanie pełnej logiki bootstrappingu i integracji
+//
+// UWAGA ARCHITEKTONICZNA:
+// - NODE_ENV=build → w Railway deploy/build
+// - NODE_ENV=production → runtime
+// - Operacje mutacyjne wykonuje Orchestrator i MutationGate
+//
+// ============================================
 
 import path from "path";
 import { performance } from "perf_hooks";
@@ -53,12 +50,6 @@ import { OwnerRoleManager } from "./system/Ownership/OwnerRoleManager";
 import { OwnerModule } from "./system/Ownership/OwnerModule";
 
 // -------------------------
-// ENVIRONMENT CHECK
-// -------------------------
-const RUN_CHECK_PROCESS = process.env.CHECK_PROCESS === "true";
-const GENERATE_IMPORTS = process.env.GENERATE_IMPORTS === "true";
-
-// -------------------------
 // SET BOT & DISCORD OWNERS FROM ENV
 // -------------------------
 const BOT_OWNER_ID = process.env.BOT_OWNER_ID;
@@ -68,11 +59,10 @@ if (!BOT_OWNER_ID || !DISCORD_OWNER_ID) {
   console.error("❌ BOT_OWNER_ID or DISCORD_OWNER_ID environment variable is missing.");
   SafeMode.activate("OWNERSHIP_NOT_SET");
 } else {
-  // Bez używania setup – zapisujemy ID od razu w repo
   OwnershipRepo.set("BOT_OWNER", BOT_OWNER_ID);
   OwnershipRepo.set("DISCORD_OWNER", DISCORD_OWNER_ID);
   Ownership.enforceInvariant();
-  OwnerModule.init([BOT_OWNER_ID]); // zainicjalizuj OwnerModule
+  OwnerModule.init([BOT_OWNER_ID]);
   console.log(`✅ Ownership initialized from environment: BOT_OWNER=${BOT_OWNER_ID}, DISCORD_OWNER=${DISCORD_OWNER_ID}`);
 }
 
@@ -124,53 +114,11 @@ async function importModule(mod: ModuleDef) {
   }
 }
 
-function logProgress(current: number, total: number) {
-  const percent = Math.floor((current / total) * 100);
-  process.stdout.write(`\r🔹 Progress: ${percent}% (${current}/${total})`);
-}
-
-async function runCheckProcess() {
-  console.log('\n🛠️  Pre-Boot Check Process Starting...\n');
-  const totalModules = modules.length;
-  let loadedModules: string[] = [];
-
-  for (let i = 0; i < totalModules; i++) {
-    const mod = modules[i];
-    let depsOk = true;
-
-    if (mod.dependencies) {
-      for (const dep of mod.dependencies) {
-        if (!loadedModules.includes(dep)) {
-          console.log(`❌ ${mod.name} dependency missing: ${dep}`);
-          depsOk = false;
-        }
-      }
-    }
-
-    const { ok, time } = await importModule(mod);
-    if (ok && depsOk) {
-      console.log(`✅ ${mod.name} loaded successfully (${time}ms)`);
-      loadedModules.push(mod.name);
-    } else {
-      console.log(`❌ ${mod.name} failed (${time}ms)`);
-    }
-
-    logProgress(i + 1, totalModules);
-  }
-
-  console.log('\n🔗 Check Process complete.');
-  console.log('✅ All modules attempted. Boot will continue normally.\n');
-}
-
 // -------------------------
 // MAIN BOOTSTRAP
 // -------------------------
 async function bootstrap() {
   console.log("System booting...");
-
-  if (RUN_CHECK_PROCESS) {
-    await runCheckProcess();
-  }
 
   // Inicjalizacja snapshotów sojuszy
   const alliances = AllianceRepo.getAll();
