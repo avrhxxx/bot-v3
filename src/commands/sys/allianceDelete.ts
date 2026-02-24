@@ -47,7 +47,7 @@ export const Command: Command = {
   systemLayer: true,
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const userId = interaction.user.id;
+    const userId: string = interaction.user.id;
 
     if (!interaction.guild) {
       await interaction.reply({ content: "❌ Cannot delete alliance outside a guild.", ephemeral: true });
@@ -64,8 +64,8 @@ export const Command: Command = {
       return;
     }
 
-    const tagInput = interaction.options.getString("tag")?.toUpperCase();
-    const nameInput = interaction.options.getString("name");
+    const tagInput: string | undefined = interaction.options.getString("tag")?.toUpperCase();
+    const nameInput: string | undefined = interaction.options.getString("name");
 
     if (!tagInput && !nameInput) {
       await interaction.reply({
@@ -76,11 +76,9 @@ export const Command: Command = {
     }
 
     // Find alliance by tag or name
-    let alliance;
-    if (tagInput) {
-      alliance = AllianceRepo.getByTag(tagInput);
-    } else if (nameInput) {
-      alliance = AllianceRepo.getByName(nameInput);
+    let alliance = tagInput ? AllianceRepo.getByTag(tagInput, interaction.guild.id) : undefined;
+    if (!alliance && nameInput) {
+      alliance = AllianceRepo.getByName(nameInput, interaction.guild.id);
     }
 
     if (!alliance) {
@@ -95,8 +93,8 @@ export const Command: Command = {
       await MutationGate.execute(
         { operation: "ALLIANCE_DELETE", actor: userId, requireGlobalLock: true },
         async () => {
-          await AllianceSystem.deleteInfrastructure(alliance);
-          AllianceRepo.delete(alliance.id);
+          await AllianceSystem.deleteInfrastructure(alliance!);
+          AllianceRepo.delete(alliance!.id);
         }
       );
 
