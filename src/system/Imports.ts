@@ -1,20 +1,35 @@
 // File: src/system/Imports.ts
-// AUTOGENEROWANY PLIK IMPORTÓW
-// Nie edytować ręcznie – używaj generatora, aby aktualizować importy.
+// ============================================
+// CENTRALNY PLIK IMPORTÓW
+// - Ręcznie zarządzany, bez generatora
+// - Wszystkie kluczowe moduły, komendy i systemy
+// - Aktualizacja wymaga ręcznej edycji przy dodawaniu nowych plików
+// ============================================
 
+// Config
 export * from "../config/config";
+
+// Data
 export * from "../data/Database";
 export * from "../data/Repositories";
+
+// Discord client
 export * from "../discord/client";
+
+// Engine
 export * from "../engine/Dispatcher";
+export * from "../engine/MutationGate";
 
 // Commands
 export * from "../commands/Command";
 export * from "../commands/CommandRegistry";
 export * from "../commands/loader/CommandLoader";
 
-// Commands alliance
+// Commands – Alliance
+export * from "../commands/alliance/accept";
+export * from "../commands/alliance/broadcast";
 export * from "../commands/alliance/demote";
+export * from "../commands/alliance/deny";
 export * from "../commands/alliance/join";
 export * from "../commands/alliance/kick";
 export * from "../commands/alliance/leave";
@@ -22,6 +37,11 @@ export * from "../commands/alliance/promote";
 export * from "../commands/alliance/transferLeader";
 export * from "../commands/alliance/updateName";
 export * from "../commands/alliance/updateTag";
+
+// Commands – System
+export * from "../commands/sys/allianceCreate";
+export * from "../commands/sys/allianceDelete";
+export * from "../commands/sys/setLeader";
 
 // System core
 export * from "./Health";
@@ -37,7 +57,6 @@ export * from "./alliance/AllianceSystem";
 export * from "./alliance/AllianceTypes";
 export * from "./alliance/SystemInitializer";
 export * from "./alliance/TransferLeaderSystem";
-export * from "./alliance/CommandDispatcher/CommandDispatcher";
 export * from "./alliance/orchestrator/AllianceOrchestrator";
 
 // Alliance modules
@@ -53,7 +72,6 @@ export * from "./alliance/integrity/AllianceIntegrity";
 export * from "./snapshot/IntegrityMonitor";
 export * from "./snapshot/RepairService";
 export * from "./snapshot/SnapshotService";
-export * from "./snapshot/SnapshotTypes";
 
 // Journal
 export * from "../journal/Journal";
