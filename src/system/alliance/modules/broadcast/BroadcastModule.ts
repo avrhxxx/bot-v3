@@ -4,21 +4,21 @@
  * LAYER: SYSTEM (Alliance Broadcast Module)
  * ============================================
  *
- * ODPOWIEDZIALNOŚĆ:
- * - Obsługa zdarzeń sojuszu (join, leave, promocje, democje, custom messages)
- * - Emitowanie eventów dla modułów zewnętrznych
- * - Integracja z ChannelModule dla kanałów announce, welcome i staff-room
- * - Wysyłanie powiadomień do staff-room przy wniosku o dołączenie
- * - Powiadomienia do welcome channel przy zaakceptowaniu członka
- * - Obsługa opcjonalnych pingów ról/użytkowników w wiadomościach
+ * RESPONSIBILITY:
+ * - Handle alliance events (join, leave, promotion, demotion, custom messages)
+ * - Emit events for external modules
+ * - Integrate with ChannelModule for announce, welcome, and staff-room channels
+ * - Notify staff-room on join requests
+ * - Notify welcome channel when a member is approved
+ * - Support optional role/user pings in messages
  *
- * ZALEŻNOŚCI:
- * - AllianceService (pobranie sojuszu)
- * - ChannelModule (kanały announce, welcome, staff-room)
+ * DEPENDENCIES:
+ * - AllianceService (fetch alliance data)
+ * - ChannelModule (channels: announce, welcome, staff-room)
  *
- * UWAGA:
- * - Emituje zdarzenia w postaci listenerów
- * - Nie modyfikuje bezpośrednio ról ani kanałów
+ * NOTE:
+ * - Emits events via listeners
+ * - Does not directly modify roles or channels
  *
  * ============================================
  */
@@ -140,22 +140,23 @@ export class BroadcastModule {
   static formatMessage(event: string, payload: BroadcastPayload): string {
     switch(event) {
       case "joinRequest":
-        return `📝 Użytkownik <@${payload.userId}> zgłosił chęć dołączenia do sojuszu.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
+        return `📝 User <@${payload.userId}> requested to join the alliance.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
       case "join":
-        return `🎉 <@${payload.userId}> dołączył do sojuszu! Powitajmy nowego członka!${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
+        return `🎉 <@${payload.userId}> joined the alliance! Welcome the new member!${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
       case "leave":
-        return `❌ <@${payload.userId}> opuścił sojusz.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
+        return `❌ <@${payload.userId}> left the alliance.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
       case "leadershipChange":
-        return `👑 Lider sojuszu zmienił się z <@${payload.oldLeaderId}> na <@${payload.newLeaderId}>.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
+        return `👑 Leadership changed from <@${payload.oldLeaderId}> to <@${payload.newLeaderId}>.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
       case "rollback":
-        return `⚠️ Rollback operacji w sojuszu: ${payload.message}${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
+        return `⚠️ Rollback operation in the alliance: ${payload.message}${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
       case "customMessage":
         return `${payload.message}${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
       case "promotion":
-        return `⬆️ Użytkownik <@${payload.userId}> został awansowany do rangi ${payload.newRole}!${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
+        return `⬆️ User <@${payload.userId}> was promoted to ${payload.newRole}!${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
       case "demotion":
-        return `⬇️ Użytkownik <@${payload.userId}> został zdegradowany do rangi ${payload.newRole}.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
+        return `⬇️ User <@${payload.userId}> was demoted to ${payload.newRole}.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
       default:
         return `${event}: ${JSON.stringify(payload)}`;
     }
-  
+  }
+}
