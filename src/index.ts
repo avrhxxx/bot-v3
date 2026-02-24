@@ -46,7 +46,11 @@ import { SafeMode } from "./system/SafeMode";
 import { AllianceRepo, SnapshotRepo, OwnershipRepo } from "./data/Repositories";
 import { CommandLoader } from "./commands/loader/CommandLoader";
 import { TimeModule } from "./system/TimeModule/TimeModule";
-import { Ownership } from "./system/Ownership";
+
+// -------- NOWY FOLDER OWNERSHIP --------
+import { Ownership } from "./system/Ownership/Ownership";
+import { OwnerRoleManager } from "./system/Ownership/OwnerRoleManager";
+import { OwnerModule } from "./system/Ownership/OwnerModule";
 
 // -------------------------
 // ENVIRONMENT CHECK
@@ -68,6 +72,7 @@ if (!BOT_OWNER_ID || !DISCORD_OWNER_ID) {
   OwnershipRepo.set("BOT_OWNER", BOT_OWNER_ID);
   OwnershipRepo.set("DISCORD_OWNER", DISCORD_OWNER_ID);
   Ownership.enforceInvariant();
+  OwnerModule.init([BOT_OWNER_ID]); // zainicjalizuj OwnerModule
   console.log(`✅ Ownership initialized from environment: BOT_OWNER=${BOT_OWNER_ID}, DISCORD_OWNER=${DISCORD_OWNER_ID}`);
 }
 
@@ -77,10 +82,10 @@ if (!BOT_OWNER_ID || !DISCORD_OWNER_ID) {
 type ModuleDef = { name: string; importPath: string; dependencies?: string[] };
 const modules: ModuleDef[] = [
   { name: 'Health', importPath: './system/Health' },
-  { name: 'Ownership', importPath: './system/Ownership' },
+  { name: 'Ownership', importPath: './system/Ownership/Ownership' },
   { name: 'SafeMode', importPath: './system/SafeMode' },
   { name: 'TimeModule', importPath: './system/TimeModule/TimeModule' },
-  { name: 'OwnerModule', importPath: './system/OwnerModule/OwnerModule' },
+  { name: 'OwnerModule', importPath: './system/Ownership/OwnerModule' },
   { name: 'Database', importPath: './data/Database' },
   { name: 'Repositories', importPath: './data/Repositories' },
   { name: 'AllianceLock', importPath: './locks/AllianceLock' },
@@ -95,7 +100,6 @@ const modules: ModuleDef[] = [
   { name: 'SnapshotService', importPath: './system/snapshot/SnapshotService', dependencies: ['IntegrityMonitor'] },
   { name: 'Dispatcher', importPath: './engine/Dispatcher' },
   { name: 'MutationGate', importPath: './engine/MutationGate', dependencies: ['Dispatcher'] },
-  // CommandDispatcher został usunięty
   { name: 'AllianceIntegrity', importPath: './system/alliance/integrity/AllianceIntegrity', dependencies: ['AllianceSystem'] },
   { name: 'AllianceOrchestrator', importPath: './system/alliance/orchestrator/AllianceOrchestrator', dependencies: ['RoleModule','ChannelModule','BroadcastModule','AllianceIntegrity'] },
   { name: 'AllianceService', importPath: './system/alliance/AllianceService', dependencies: ['AllianceSystem','AllianceIntegrity','AllianceOrchestrator'] },
@@ -197,7 +201,14 @@ async function bootstrap() {
   await CommandLoader.loadAllCommands();
   console.log("All commands loaded successfully.");
 
-  await startDiscord();
+  // START DISCORD CLIENT
+  const client = await startDiscord();
+  console.log("Discord client started.");
+
+  // ----------- SYNC OWNER ROLES -----------
+  await OwnerRoleManager.syncRoles(client);
+  console.log("Owner roles synchronized.");
+
   console.log("System boot completed. Discord client running.");
 }
 
