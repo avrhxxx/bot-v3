@@ -123,7 +123,13 @@ export const Command: Command = {
     try {
       const domainId = crypto.randomUUID();
 
-      const result = await MutationGate.execute(
+      // Typowanie zwracanej wartości dla TS
+      type InfraResult = {
+        roles: { r5RoleId: string; [key: string]: string };
+        channels: { categoryId: string; [key: string]: string };
+      };
+
+      const result: InfraResult = await MutationGate.execute(
         {
           operation: "ALLIANCE_CREATE",
           actor: userId,
