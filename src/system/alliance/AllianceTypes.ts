@@ -19,10 +19,11 @@
  * ============================================
  */
 
-export interface AllianceMembers {
-  r5: string;        // Leader (exactly one)
-  r4: string[];      // Moderators
-  r3: string[];      // Members
+export type AllianceRole = "R3" | "R4" | "R5";
+
+export interface AllianceMember {
+  userId: string;
+  role: AllianceRole;
 }
 
 export interface AllianceRoles {
@@ -51,7 +52,7 @@ export interface Alliance {
   tag: string;                     // Dokładnie 3 alfanumeryczne znaki
   name: string;                    // Pełna nazwa sojuszu
 
-  members: AllianceMembers;
+  members: AllianceMember[];       // Tablica członków sojuszu
   roles: AllianceRoles;
   channels: AllianceChannels;
 
@@ -60,3 +61,9 @@ export interface Alliance {
 
   pendingJoins?: { userId: string; requestedAt: number }[];
 }
+
+/**
+ * ============================================
+ * FILEPATH: src/system/alliance/AllianceTypes.ts
+ * ============================================
+ */
