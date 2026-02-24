@@ -1,4 +1,20 @@
-// src/system/alliance/orchestrator/AllianceOrchestrator.ts
+/**
+ * ============================================
+ * FILE: src/system/alliance/orchestrator/AllianceOrchestrator.ts
+ * LAYER: APPLICATION (Orchestration Layer)
+ * ============================================
+ *
+ * ODPOWIEDZIALNOŚĆ:
+ * - Spinanie modułów w operacje atomowe
+ * - Wywoływanie MutationGate
+ * - Brak logiki domenowej (tylko koordynacja)
+ *
+ * ZASADA:
+ * - Tutaj wykonujemy runAtomically
+ * - Moduły wykonują czystą logikę
+ *
+ * ============================================
+ */
 
 import { MembershipModule } from "../modules/membership/MembershipModule";
 import { RoleModule } from "../modules/role/RoleModule";
@@ -8,6 +24,7 @@ import { AllianceService } from "../AllianceService";
 import { MutationGate } from "../../engine/MutationGate";
 
 export class AllianceOrchestrator {
+
   static async join(actorId: string, allianceId: string) {
     await MutationGate.runAtomically(async () => {
       await MembershipModule.requestJoin(actorId, allianceId);
