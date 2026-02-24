@@ -1,4 +1,24 @@
-// src/engine/Dispatcher.ts
+// File: src/engine/Dispatcher.ts
+/**
+ * ============================================
+ * ENGINE: Dispatcher
+ * FILE: src/engine/Dispatcher.ts
+ * ============================================
+ *
+ * RESPONSIBILITY:
+ * - Executes mutations safely
+ * - Handles pre/post snapshots, journal logging
+ * - Supports global and alliance-specific locks
+ * - Integrates with SafeMode, Health, SnapshotService, and Journal
+ *
+ * NOTES:
+ * - Ensures integrity after mutations
+ * - Computes pre-state hash for audit
+ * - Throws on SafeMode unless systemOverride is true
+ *
+ * ============================================
+ */
+
 import crypto from "crypto";
 import { SafeMode } from "../system/SafeMode";
 import { Journal } from "../journal/Journal";
