@@ -1,15 +1,11 @@
 // File path: src/commands/alliance/join.ts
+// fillpatch: Alliance join command – allows a user to join an alliance
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-/**
- * JoinCommand
- * ----------------
- * Allows a user to join an alliance if they are not already in one.
- */
 export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("join")
