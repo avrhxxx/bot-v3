@@ -29,10 +29,14 @@
  * UWAGA ARCHITEKTONICZNA:
  * - NODE_ENV=build → w Railway deploy/build
  * - NODE_ENV=production → runtime
+ * - GENERATE_IMPORTS i CHECK_PROCESS wpływają na ładowanie modułów i pre-check
  * - Operacje mutacyjne wykonuje Orchestrator i MutationGate
  *
  * ============================================
  */
+
+import path from "path";
+import { performance } from "perf_hooks";
 
 import { IntegrityMonitor } from "./system/snapshot/IntegrityMonitor";
 import { Health } from "./system/Health";
@@ -42,13 +46,12 @@ import { SafeMode } from "./system/SafeMode";
 import { AllianceRepo, SnapshotRepo } from "./data/Repositories";
 import { CommandLoader } from "./commands/loader/CommandLoader";
 import { TimeModule } from "./system/TimeModule/TimeModule";
-import { performance } from "perf_hooks";
-import path from "path";
 
 // -------------------------
 // ENVIRONMENT CHECK
 // -------------------------
-const RUN_CHECK_PROCESS = process.env.NODE_ENV === "build";
+const RUN_CHECK_PROCESS = process.env.CHECK_PROCESS === "true";
+const GENERATE_IMPORTS = process.env.GENERATE_IMPORTS === "true";
 
 // -------------------------
 // MODULE DEFINITION
@@ -91,11 +94,11 @@ async function importModule(mod: ModuleDef) {
   try {
     await import(path.resolve(__dirname, mod.importPath + '.ts'));
     const end = performance.now();
-    return { ok: true, time: (end - start).toFixed(2) };
+    return { ok: true, time: (end-start).toFixed(2) };
   } catch (err) {
     const end = performance.now();
     console.error(`❌ Error loading ${mod.name} (${(end-start).toFixed(2)}ms):`, err);
-    return { ok: false, time: (end - start).toFixed(2) };
+    return { ok: false, time: (end-start).toFixed(2) };
   }
 }
 
@@ -143,6 +146,7 @@ async function runCheckProcess() {
 async function bootstrap() {
   console.log("System booting...");
 
+  // Pre-check process przy build/deploy
   if (RUN_CHECK_PROCESS) {
     await runCheckProcess();
   }
@@ -156,31 +160,35 @@ async function bootstrap() {
     }
   }
 
+  // Weryfikacja integralności
   const corrupted = SnapshotService.verifyAll();
   if (corrupted.length === 0) {
     Health.setHealthy();
     console.log("Initial integrity check passed.");
   } else {
-    Health.setCritical(
-      `Boot integrity failure detected in ${corrupted.length} alliance(s)`
-    );
+    Health.setCritical(`Boot integrity failure detected in ${corrupted.length} alliance(s)`);
     SafeMode.activate("Boot integrity failure");
     console.log("Boot integrity failure. SafeMode activated.");
   }
 
+  // Uruchomienie monitoringu integralności
   IntegrityMonitor.start(15000);
 
+  // Start modułu czasu
   const timeModule = TimeModule.getInstance();
   timeModule.start(1000);
   console.log("TimeModule started.");
 
+  // Załaduj wszystkie komendy
   await CommandLoader.loadAllCommands();
   console.log("All commands loaded successfully.");
 
+  // Start Discord Client
   await startDiscord();
   console.log("System boot completed. Discord client running.");
 }
 
+// Uruchom bootstrap
 bootstrap().catch(err => {
   console.error("Fatal boot error:", err);
   process.exit(1);
