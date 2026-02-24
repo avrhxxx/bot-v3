@@ -1,22 +1,27 @@
+// File path: src/system/alliance/modules/role/RoleModule.ts
 /**
  * ============================================
- * FILE: src/system/alliance/modules/rol/RoleModule.ts
+ * MODULE: RoleModule
+ * FILE: src/system/alliance/modules/role/RoleModule.ts
  * LAYER: SYSTEM (Alliance Role Module)
  * ============================================
  *
  * ODPOWIEDZIALNOŚĆ:
  * - Tworzenie ról R5, R4, R3 i identity
  * - Przypisywanie ról do członków
- * - Promocje i demacje członków
+ * - Promocje i demacje członków (R3 -> R4 -> R5)
  * - Walidacja limitów ról w sojuszu
+ * - HasRole helper
  *
  * ZALEŻNOŚCI:
- * - AllianceService (pobranie danych sojuszu i audyt)
+ * - AllianceService (pobranie danych sojuszu, audyt, liczenie członków)
  * - MutationGate (atomowość operacji)
  *
- * UWAGA:
- * - Promocje i demacje wykonywane atomowo
+ * UWAGA / FILE PATCH:
+ * - Wszystkie mutacje ról są wykonywane atomowo przez MutationGate
  * - Typy ról zgodne z AllianceRoles
+ * - Promocje i demacje sprawdzają limity ról (MAX_R4)
+ * - Funkcja validateRoles sprawdza limity całkowite i R4
  *
  * ============================================
  */
@@ -69,7 +74,6 @@ export class RoleModule {
         await member.roles.remove(roles.r3RoleId);
         await member.roles.add(roles.r4RoleId);
       } else if (member.roles.cache.has(roles.r4RoleId)) {
-        // Sprawdzenie limitu R4
         const r4Count = await AllianceService.getR4Count(member.guild.id);
         if (r4Count >= MAX_R4) {
           throw new Error("Limit R4 osiągnięty");
