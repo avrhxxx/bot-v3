@@ -1,4 +1,5 @@
 // File path: src/commands/Command.ts
+// fillpatch: Base interface for all commands
 
 import {
   ChatInputCommandInteraction,
