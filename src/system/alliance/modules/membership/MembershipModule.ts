@@ -42,6 +42,7 @@ interface MemberRecord {
 }
 
 export class MembershipModule {
+
   // ----------------- JOIN -----------------
   static async requestJoin(actorId: string, allianceId: string): Promise<void> {
     await MutationGate.runAtomically(async () => {
