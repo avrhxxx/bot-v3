@@ -20,7 +20,7 @@
  * ============================================
  */
 
-import { Client, Guild } from "discord.js";
+import { Client, Guild, Role, ColorResolvable } from "discord.js";
 import { Ownership } from "../Ownership";
 
 export class OwnerRoleManager {
@@ -46,12 +46,14 @@ export class OwnerRoleManager {
   }
 
   private static async ensureRole(guild: Guild, roleName: string, userId: string) {
-    let role = guild.roles.cache.find(r => r.name === roleName);
+    let role: Role | undefined = guild.roles.cache.find(r => r.name === roleName);
     if (!role) {
       try {
+        // Poprawione typowanie kolorów ról, zgodne z discord.js
+        const color: ColorResolvable = roleName === this.BOT_ROLE_NAME ? "Blue" : "Green";
         role = await guild.roles.create({
           name: roleName,
-          color: roleName === this.BOT_ROLE_NAME ? "BLUE" : "GREEN",
+          color,
           reason: "Automatyczne tworzenie roli właściciela"
         });
         console.log(`✅ Role '${roleName}' created in guild ${guild.name}`);
