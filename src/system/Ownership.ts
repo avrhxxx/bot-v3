@@ -1,3 +1,27 @@
+/**
+ * ============================================
+ * FILE: src/system/Ownership.ts
+ * LAYER: SYSTEM (Ownership & Security)
+ * ============================================
+ *
+ * ODPOWIEDZIALNOŚĆ:
+ * - Przechowywanie i kontrola właścicieli bota i serwera Discord
+ * - Walidacja i transfer własności
+ * - Współpraca z SafeMode, MutationGate i Health
+ *
+ * ZALEŻNOŚCI:
+ * - OwnershipRepo (persistencja danych)
+ * - MutationGate (atomiczne operacje i blokady globalne)
+ * - SafeMode (tryb bezpieczny systemu)
+ * - Health (monitorowanie stanu systemu)
+ *
+ * UWAGA:
+ * - Wszystkie operacje mutujące wymagają MutationGate
+ * - enforceInvariant aktywuje SafeMode jeśli brak Bot Ownera
+ *
+ * ============================================
+ */
+
 import { OwnershipRepo } from "../data/Repositories";
 import { MutationGate } from "../engine/MutationGate";
 import { SafeMode } from "./SafeMode";
@@ -7,6 +31,7 @@ const BOT_OWNER_KEY = "BOT_OWNER";
 const DISCORD_OWNER_KEY = "DISCORD_OWNER";
 
 export class Ownership {
+  // ----------------- INITIALIZATION -----------------
   static async initialize(botOwnerId: string, discordOwnerId: string) {
     await MutationGate.execute(
       {
@@ -27,6 +52,7 @@ export class Ownership {
     );
   }
 
+  // ----------------- GETTERS -----------------
   static getBotOwner(): string | undefined {
     return OwnershipRepo.get(BOT_OWNER_KEY);
   }
@@ -43,6 +69,7 @@ export class Ownership {
     return this.getDiscordOwner() === userId;
   }
 
+  // ----------------- TRANSFERS -----------------
   static async transferBotOwner(actorId: string, newOwnerId: string) {
     if (!this.isBotOwner(actorId)) {
       throw new Error("Only current Bot Owner can transfer ownership");
@@ -86,6 +113,7 @@ export class Ownership {
     );
   }
 
+  // ----------------- INVARIANTS -----------------
   static enforceInvariant() {
     const botOwner = OwnershipRepo.get(BOT_OWNER_KEY);
 
