@@ -1,4 +1,23 @@
 // File path: src/commands/sys/allianceDelete.ts
+/**
+ * ============================================
+ * COMMAND: Alliance Delete
+ * FILE: src/commands/sys/allianceDelete.ts
+ * LAYER: SYSTEM
+ * ============================================
+ *
+ * RESPONSIBILITY:
+ * - Deletes an existing alliance
+ * - Only Bot Owner or Discord Owner can execute
+ * - Integrates with AllianceSystem and MutationGate
+ *
+ * NOTES:
+ * - Can delete by either unique tag or unique alliance name
+ * - No backup/archiving implemented yet
+ * - System layer and owner-only command
+ *
+ * ============================================
+ */
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
@@ -16,7 +35,13 @@ export const Command: Command = {
       option
         .setName("tag")
         .setDescription("3-character tag of the alliance to delete")
-        .setRequired(true)
+        .setRequired(false)
+    )
+    .addStringOption(option =>
+      option
+        .setName("name")
+        .setDescription("Full name of the alliance to delete")
+        .setRequired(false)
     ),
   ownerOnly: true,
   systemLayer: true,
@@ -39,11 +64,30 @@ export const Command: Command = {
       return;
     }
 
-    const tag = interaction.options.getString("tag", true).toUpperCase();
-    const alliance = AllianceRepo.getByTag(tag);
+    const tagInput = interaction.options.getString("tag")?.toUpperCase();
+    const nameInput = interaction.options.getString("name");
+
+    if (!tagInput && !nameInput) {
+      await interaction.reply({
+        content: "❌ You must provide either the alliance tag or the alliance name to delete.",
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Find alliance by tag or name
+    let alliance;
+    if (tagInput) {
+      alliance = AllianceRepo.getByTag(tagInput);
+    } else if (nameInput) {
+      alliance = AllianceRepo.getByName(nameInput);
+    }
 
     if (!alliance) {
-      await interaction.reply({ content: `❌ Alliance with tag \`${tag}\` does not exist.`, ephemeral: true });
+      await interaction.reply({
+        content: `❌ Alliance not found with the provided ${tagInput ? "tag" : "name"}.`,
+        ephemeral: true
+      });
       return;
     }
 
@@ -56,10 +100,16 @@ export const Command: Command = {
         }
       );
 
-      await interaction.reply({ content: `✅ Alliance with tag \`${tag}\` has been deleted successfully.`, ephemeral: false });
+      await interaction.reply({
+        content: `✅ Alliance \`${alliance.name}\` (${alliance.tag}) has been deleted successfully.`,
+        ephemeral: false
+      });
     } catch (error: any) {
       console.error("Alliance deletion error:", error);
-      await interaction.reply({ content: `❌ Failed to delete alliance: ${error.message}`, ephemeral: true });
+      await interaction.reply({
+        content: `❌ Failed to delete alliance: ${error.message}`,
+        ephemeral: true
+      });
     }
   }
 };
