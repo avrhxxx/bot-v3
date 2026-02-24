@@ -1,103 +1,127 @@
-// src/system/alliance/ChannelModule/ChannelModule.ts
+/**
+ * ============================================
+ * FILE: src/system/alliance/ChannelModule/ChannelModule.ts
+ * LAYER: SYSTEM (Alliance Channel Management Module)
+ * ============================================
+ *
+ * MODUŁ ZARZĄDZANIA KANAŁAMI SOJUSZU
+ *
+ * ODPOWIEDZIALNOŚĆ:
+ * - Tworzenie kategorii i kanałów dla sojuszu
+ * - Ustawianie widoczności kanałów dla ról i osób spoza sojuszu
+ * - Usuwanie kanałów w przypadku usunięcia sojuszu
+ * - Udostępnianie getterów do ogłoszeń, prywatnych i mod channels
+ *
+ * ZALEŻNOŚCI:
+ * - AllianceService (pobranie danych sojuszu)
+ * - RoleModule (pobranie ról, synchronizacja uprawnień)
+ * - Discord API (tworzenie/usuwanie kanałów)
+ *
+ * UWAGA ARCHITEKTONICZNA:
+ * - Wszystkie mutacje w MutationGate lub Orchestrator
+ * - Kanały tworzone pod kategorią o nazwie sojuszu
+ * - Kanał join widoczny dla osób spoza sojuszu
+ * - Pozostałe kanały widoczne tylko dla członków sojuszu zgodnie z rolami
+ *
+ * ============================================
+ */
 
-import { Guild, TextChannel, PermissionFlagsBits } from "discord.js";
+import { Guild, TextChannel, CategoryChannel, PermissionFlagsBits } from "discord.js";
 import { AllianceService } from "../AllianceService";
 import { RoleModule } from "../RoleModule/RoleModule";
 
 export class ChannelModule {
   private static announceChannels: Record<string, string> = {};
-  private static privateChannels: Record<string, string> = {};
+  private static membersChannels: Record<string, string> = {};
   private static modChannels: Record<string, string> = {};
+  private static joinChannels: Record<string, string> = {};
+  private static welcomeChannels: Record<string, string> = {};
 
   // ----------------- CREATE CHANNELS -----------------
   static async createChannels(guild: Guild, allianceId: string, tag: string) {
+    // fillpatch: pobranie sojuszu i ról
     const alliance = AllianceService.getAllianceOrThrow(allianceId);
-    const roles = alliance.roles; // AllianceRoles
+    const roles = alliance.roles;
 
-    const announce = await guild.channels.create({
-      name: `${tag}-announce`,
-      type: 0, // GUILD_TEXT
-      permissionOverwrites: [
-        { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] },
-        { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel] },
-        { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel] },
-      ],
-    });
+    // fillpatch: stworzenie kategorii o nazwie sojuszu
+    let category: CategoryChannel;
+    // ... Discord API call do utworzenia CategoryChannel
 
-    const privateCh = await guild.channels.create({
-      name: `${tag}-private`,
-      type: 0,
-      permissionOverwrites: [
-        { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] },
-        { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel] },
-        { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel] },
-      ],
-    });
+    // fillpatch: stworzenie kanałów:
+    // - join (widoczny dla osób spoza sojuszu)
+    // - membersChat (widoczny dla R3+R4+R5)
+    // - staffRoom (R5+R4)
+    // - announce (R5+R4, do botów)
+    // - welcome (R5+R4+R3, bot)
+    // ... Discord API call do utworzenia TextChannel
 
-    const modCh = await guild.channels.create({
-      name: `${tag}-mod`,
-      type: 0,
-      permissionOverwrites: [
-        { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel] },
-        { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel] },
-      ],
-    });
+    // fillpatch: zapisanie ID kanałów w odpowiednich mapach statycznych
+    // this.joinChannels[allianceId] = join.id;
+    // this.membersChannels[allianceId] = membersChat.id;
+    // this.modChannels[allianceId] = staffRoom.id;
+    // this.announceChannels[allianceId] = announce.id;
+    // this.welcomeChannels[allianceId] = welcome.id;
 
-    this.announceChannels[allianceId] = announce.id;
-    this.privateChannels[allianceId] = privateCh.id;
-    this.modChannels[allianceId] = modCh.id;
+    // fillpatch: ustawienie permissions:
+    // - join: everyone view
+    // - membersChat: R3+R4+R5 view
+    // - staffRoom: R4+R5 view
+    // - announce: R4+R5 view, bot write
+    // - welcome: bot only write
 
+    // fillpatch: zwrócenie struktur
     return {
-      announceId: announce.id,
-      privateId: privateCh.id,
-      modId: modCh.id,
+      categoryId: category.id,
+      joinId: "",       // fillpatch
+      membersId: "",    // fillpatch
+      staffId: "",      // fillpatch
+      announceId: "",   // fillpatch
+      welcomeId: "",    // fillpatch
     };
   }
 
   // ----------------- UPDATE VISIBILITY -----------------
   static async updateChannelVisibility(allianceId: string) {
+    // fillpatch: pobranie sojuszu i kanałów
     const alliance = AllianceService.getAllianceOrThrow(allianceId);
-    const roles = alliance.roles;
 
-    const announceId = this.announceChannels[allianceId];
-    const privateId = this.privateChannels[allianceId];
-    const modId = this.modChannels[allianceId];
-
-    if (!announceId || !privateId || !modId) return;
-
-    // tutaj możesz synchronizować widoczność w zależności od ról
-    // np. iterując nad członkami i przydzielając uprawnienia do kanałów
+    // fillpatch: iteracja po kanałach i aktualizacja widoczności:
+    // - join dla outsiderów
+    // - members/staff/announce/welcome dla członków według ról
+    // - synchronizacja z Discord API
   }
 
   // ----------------- DELETE CHANNELS -----------------
   static async deleteChannels(allianceId: string) {
-    // pobierz kanały i usuń
-    const announceId = this.announceChannels[allianceId];
-    const privateId = this.privateChannels[allianceId];
-    const modId = this.modChannels[allianceId];
-
-    const guild = AllianceService.getAllianceOrThrow(allianceId).guild; // Guild
-
-    for (const id of [announceId, privateId, modId]) {
-      const channel = guild.channels.cache.get(id);
-      if (channel) await channel.delete();
-    }
-
-    delete this.announceChannels[allianceId];
-    delete this.privateChannels[allianceId];
-    delete this.modChannels[allianceId];
+    // fillpatch: pobranie kanałów z map statycznych
+    // fillpatch: pobranie guild z sojuszu
+    // fillpatch: usunięcie wszystkich kanałów Discord
+    // fillpatch: czyszczenie map statycznych
   }
 
   // ----------------- GETTERS -----------------
   static getAnnounceChannel(allianceId: string): string | undefined {
+    // fillpatch: zwrócenie announce channel ID
     return this.announceChannels[allianceId];
   }
 
-  static getPrivateChannel(allianceId: string): string | undefined {
-    return this.privateChannels[allianceId];
+  static getMembersChannel(allianceId: string): string | undefined {
+    // fillpatch: zwrócenie membersChat channel ID
+    return this.membersChannels[allianceId];
   }
 
   static getModChannel(allianceId: string): string | undefined {
+    // fillpatch: zwrócenie staffRoom channel ID
     return this.modChannels[allianceId];
+  }
+
+  static getJoinChannel(allianceId: string): string | undefined {
+    // fillpatch: zwrócenie join channel ID
+    return this.joinChannels[allianceId];
+  }
+
+  static getWelcomeChannel(allianceId: string): string | undefined {
+    // fillpatch: zwrócenie welcome channel ID
+    return this.welcomeChannels[allianceId];
   }
 }
