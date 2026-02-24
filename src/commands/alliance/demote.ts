@@ -6,15 +6,15 @@
  * LAYER: COMMAND (Alliance)
  * ============================================
  *
- * ODPOWIEDZIALNOŚĆ:
- * - Demote członka sojuszu do niższego rangu (R5 → R4 → R3)
- * - Tylko dla leadera / R5
- * - Integracja z AllianceSystem
+ * RESPONSIBILITY:
+ * - Demote an alliance member to a lower rank (R5 → R4 → R3)
+ * - Only leader / R5 can demote
+ * - Integrates with AllianceSystem
  *
- * TODO:
- * - Walidacja uprawnień
- * - Sprawdzenie limitów ról
- * - Obsługa błędów i SafeMode
+ * NOTES:
+ * - Validates permissions
+ * - Checks role limits
+ * - Handles errors and SafeMode
  *
  * ============================================
  */
@@ -50,15 +50,16 @@ export const DemoteCommand: Command = {
     }
 
     try {
-      // Wywołanie demote w AllianceSystem
+      // 1️⃣ Call demoteMember in AllianceSystem
       const result = await AllianceSystem.demoteMember(userId, targetUser.id, interaction.guild.id);
 
-      // Informacja o sukcesie
+      // 2️⃣ Notify success
       await interaction.reply({
         content: `✅ <@${targetUser.id}> has been demoted to **${result.newRank}** in the alliance.`,
         ephemeral: false
       });
     } catch (error: any) {
+      // 3️⃣ Handle errors
       await interaction.reply({
         content: `❌ Failed to demote member: ${error.message}`,
         ephemeral: true
