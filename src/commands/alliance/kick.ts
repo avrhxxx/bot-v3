@@ -6,12 +6,12 @@
  * LAYER: COMMAND (Alliance)
  * ============================================
  *
- * ODPOWIEDZIALNOŚĆ:
- * - Wyrzucanie członka z sojuszu
- * - R5 może wyrzucać wszystkich
- * - R4 może wyrzucać tylko R3
- * - Automatyczne usunięcie ról i członkostwa
- * - Powiadomienie w kanale announce
+ * RESPONSIBILITY:
+ * - Kick a member from the alliance
+ * - R5 can kick anyone
+ * - R4 can kick only R3
+ * - Automatically removes roles and membership
+ * - Sends a notification in the announce channel
  *
  * ============================================
  */
@@ -21,7 +21,7 @@ import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-export const Command: Command = {
+export const KickCommand: Command = {
   data: new SlashCommandBuilder()
     .setName("kick")
     .setDescription("Kick a member from your alliance")
@@ -47,9 +47,10 @@ export const Command: Command = {
     }
 
     try {
+      // 1️⃣ Attempt to kick via AllianceSystem
       const result = await AllianceSystem.kickMember(actorId, targetUser.id, interaction.guild.id);
 
-      // Powiadomienie w kanale announce (po angielsku)
+      // 2️⃣ Reply based on success
       if (result.success) {
         await interaction.reply({
           content: `✅ <@${targetUser.id}> has been kicked from the alliance.`,
@@ -70,4 +71,4 @@ export const Command: Command = {
   }
 };
 
-export default Command;
+export default KickCommand;
