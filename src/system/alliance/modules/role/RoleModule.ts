@@ -1,28 +1,28 @@
 /**
  * ============================================
- * FILE: src/system/alliance/RoleModule/RoleModule.ts
+ * FILE: src/system/alliance/modules/role/RoleModule.ts
  * LAYER: SYSTEM (Alliance Role Management Module)
  * ============================================
  *
  * ODPOWIEDZIALNOŚĆ:
- * - Tworzenie i zarządzanie rolami sojuszu na Discord
- * - Promocja i degradacja członków
- * - Walidacja limitów R4 i członków całkowitych
+ * - Zarządzanie rolami w sojuszu (R3, R4, R5, Identity)
+ * - Promocje i degradacje członków
+ * - Walidacja limitów członków
  *
  * ZALEŻNOŚCI:
- * - AllianceService (dane sojuszu, liczenie członków)
- * - MutationGate (atomiczne operacje Discord)
+ * - MutationGate (atomiczne operacje)
+ * - AllianceService (integracja z domeną sojuszy)
  *
  * UWAGA:
- * - Wszystkie operacje mutacyjne wykonywane w MutationGate.runAtomically
- * - Zachowanie spójności z AllianceService i MembershipModule
+ * - Typy ról spójne z AllianceTypes
+ * - Wszystkie mutacje wykonywane w MutationGate.runAtomically
  *
  * ============================================
  */
 
 import { Guild, GuildMember } from "discord.js";
-import { MutationGate } from "../../engine/MutationGate";
-import { AllianceService } from "../AllianceService";
+import { MutationGate } from "../../../engine/MutationGate";
+import { AllianceService } from "../../AllianceService";
 
 export interface AllianceRoles {
   r5RoleId: string;
@@ -43,7 +43,12 @@ export class RoleModule {
     const r3 = await guild.roles.create({ name: `${tag} R3`, mentionable: false });
     const identity = await guild.roles.create({ name: `[${tag}]`, mentionable: true });
 
-    return { r5RoleId: r5.id, r4RoleId: r4.id, r3RoleId: r3.id, identityRoleId: identity.id };
+    return {
+      r5RoleId: r5.id,
+      r4RoleId: r4.id,
+      r3RoleId: r3.id,
+      identityRoleId: identity.id,
+    };
   }
 
   // ----------------- ASSIGN ROLES -----------------
@@ -57,7 +62,7 @@ export class RoleModule {
     });
   }
 
-  // ----------------- PROMOTION -----------------
+  // ----------------- PROMOTION / DEMOTION -----------------
   static async promote(member: GuildMember, roles: AllianceRoles) {
     await MutationGate.runAtomically(async () => {
       if (!member.roles.cache.has(roles.r3RoleId) && !member.roles.cache.has(roles.r4RoleId)) {
@@ -68,18 +73,14 @@ export class RoleModule {
         await member.roles.remove(roles.r3RoleId);
         await member.roles.add(roles.r4RoleId);
       } else if (member.roles.cache.has(roles.r4RoleId)) {
-        // Sprawdzenie limitu R4
         const r4Count = await AllianceService.getR4Count(member.guild.id);
-        if (r4Count >= MAX_R4) {
-          throw new Error("Limit R4 osiągnięty");
-        }
+        if (r4Count >= MAX_R4) throw new Error("Limit R4 osiągnięty");
         await member.roles.remove(roles.r4RoleId);
         await member.roles.add(roles.r5RoleId);
       }
     });
   }
 
-  // ----------------- DEMOTION -----------------
   static async demote(member: GuildMember, roles: AllianceRoles) {
     await MutationGate.runAtomically(async () => {
       if (member.roles.cache.has(roles.r5RoleId)) {
