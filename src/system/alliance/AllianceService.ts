@@ -1,4 +1,34 @@
-// File path: src/system/alliance/AllianceService.ts
+/**
+ * ============================================
+ * FILE: src/system/alliance/AllianceService.ts
+ * LAYER: SYSTEM (Core Domain Service)
+ * ============================================
+ *
+ * CENTRALNY SERWIS LOGIKI SOJUSZU
+ *
+ * ODPOWIEDZIALNOŚĆ:
+ * - Zarządzanie encją Alliance
+ * - Operacje domenowe (create, update, delete)
+ * - Integracja z modułami:
+ *     - modules/membership/*
+ *     - modules/role/*
+ *     - modules/broadcast/*
+ *     - TransferLeaderSystem
+ *     - AllianceIntegrity
+ *
+ * ZALEŻNOŚCI:
+ * - MutationGate (atomowość)
+ * - Repositories (persistencja)
+ * - Ownership (uprawnienia globalne)
+ *
+ * UWAGA ARCHITEKTONICZNA:
+ * - Nie używać Discord API bezpośrednio
+ * - Operacje atomowe wykonywać przez Orchestrator
+ * - getAllianceOrThrow i logAudit są PUBLIC,
+ *   ponieważ używa ich TransferLeaderSystem
+ *
+ * ============================================
+ */
 
 import { MutationGate } from "../../engine/MutationGate";
 import { AllianceRepo, PendingDeletionRepo } from "../../data/Repositories";
@@ -44,13 +74,8 @@ export class AllianceService {
   }
 
   // ----------------- UPDATE -----------------
-  static async updateTag(actorId: string, allianceId: string, newTag: string): Promise<void> {
-    // stub do buildu
-  }
-
-  static async updateName(actorId: string, allianceId: string, newName: string): Promise<void> {
-    // stub do buildu
-  }
+  static async updateTag(actorId: string, allianceId: string, newTag: string): Promise<void> {}
+  static async updateName(actorId: string, allianceId: string, newName: string): Promise<void> {}
 
   // ----------------- DELETION -----------------
   static requestDelete(actorId: string, allianceId: string): void {}
