@@ -6,12 +6,11 @@ import { RoleModule } from "../RoleModule/RoleModule";
 import { ChannelModule } from "../ChannelModule/ChannelModule";
 import { BroadcastModule } from "../BroadcastModule/BroadcastModule";
 import { TransferLeaderSystem } from "../TransferLeaderSystem";
-import { CommandDispatcher } from "../CommandDispatcher/CommandDispatcher";
 import { MutationGate } from "../../engine/MutationGate";
 
 export class SystemInitializer {
   /**
-   * Inicjalizacja wszystkich modułów i komend
+   * Inicjalizacja wszystkich modułów
    */
   static async init() {
     // 1️⃣ Inicjalizacja atomowych locków
@@ -24,22 +23,10 @@ export class SystemInitializer {
     await RoleModule.syncAllRoles();
     await ChannelModule.syncAllChannels();
 
-    // 4️⃣ Rejestracja komend w CommandDispatcher
-    CommandDispatcher.registerCommand("join", (cmd) => MembershipModule.requestJoin(cmd.actorId, cmd.params.allianceId));
-    CommandDispatcher.registerCommand("approveJoin", (cmd) => MembershipModule.approveJoin(cmd.actorId, cmd.params.allianceId, cmd.params.userId));
-    CommandDispatcher.registerCommand("denyJoin", (cmd) => MembershipModule.denyJoin(cmd.actorId, cmd.params.allianceId, cmd.params.userId));
-    CommandDispatcher.registerCommand("leave", (cmd) => MembershipModule.leaveAlliance(cmd.actorId, cmd.params.allianceId));
-    CommandDispatcher.registerCommand("promote", (cmd) => RoleModule.promote(cmd.params.userId, cmd.params.allianceId));
-    CommandDispatcher.registerCommand("demote", (cmd) => RoleModule.demote(cmd.params.userId, cmd.params.allianceId));
-    CommandDispatcher.registerCommand("assignRole", (cmd) => RoleModule.assignRole(cmd.params.userId, cmd.params.allianceId, cmd.params.role));
-    CommandDispatcher.registerCommand("transferLeader", (cmd) => AllianceService.transferLeadership(cmd.actorId, cmd.params.allianceId, cmd.params.newLeaderId));
-    CommandDispatcher.registerCommand("createChannels", (cmd) => ChannelModule.createChannels(cmd.params.guild, cmd.params.allianceId, cmd.params.tag));
-    CommandDispatcher.registerCommand("updateChannels", (cmd) => ChannelModule.updateChannelVisibility(cmd.params.allianceId));
-
-    // 5️⃣ Walidacja spójności wszystkich sojuszy
+    // 4️⃣ Walidacja spójności wszystkich sojuszy
     await AllianceService.validateAll();
 
-    // 6️⃣ Start zadań w tle
+    // 5️⃣ Start zadań w tle
     SystemInitializer.startBackgroundTasks();
   }
 
