@@ -1,4 +1,18 @@
-// src/engine/MutationGate.ts
+// File: src/engine/MutationGate.ts
+/**
+ * ============================================
+ * ENGINE: MutationGate
+ * FILE: src/engine/MutationGate.ts
+ * ============================================
+ *
+ * NOTE:
+ * - Provides the same MutationGate as Dispatcher.ts
+ * - Can be imported directly where potrzebny
+ * - Contains the same safety, locking, and journaling logic
+ *
+ * ============================================
+ */
+
 import crypto from "crypto";
 import { SafeMode } from "../system/SafeMode";
 import { Journal } from "../journal/Journal";
@@ -47,14 +61,10 @@ export class MutationGate {
           if (alliance) {
             SnapshotService.createSnapshot(alliance);
 
-            const valid = SnapshotService.verifySnapshot(
-              options.allianceId
-            );
+            const valid = SnapshotService.verifySnapshot(options.allianceId);
 
             if (!valid) {
-              Health.setCritical(
-                "Immediate post-mutation integrity failure"
-              );
+              Health.setCritical("Immediate post-mutation integrity failure");
 
               Journal.updateStatus(
                 journalEntry.id,
@@ -72,11 +82,7 @@ export class MutationGate {
 
         return result;
       } catch (error: any) {
-        Journal.updateStatus(
-          journalEntry.id,
-          "ABORTED",
-          error?.message
-        );
+        Journal.updateStatus(journalEntry.id, "ABORTED", error?.message);
         throw error;
       }
     };
