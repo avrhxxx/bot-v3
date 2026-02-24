@@ -6,8 +6,10 @@ export * from "../config/config";
 export * from "../data/Database";
 export * from "../data/Repositories";
 export * from "../discord/client";
+
+// UWAGA: Dispatcher już eksportuje MutationGate i MutationOptions,
+// więc nie eksportujemy ich osobno, aby uniknąć konfliktu TS2308.
 export * from "../engine/Dispatcher";
-export * from "../engine/MutationGate";
 
 // Commands
 export * from "../commands/Command";
