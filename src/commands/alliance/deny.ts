@@ -6,15 +6,15 @@
  * LAYER: COMMAND (Alliance)
  * ============================================
  *
- * ODPOWIEDZIALNOŚĆ:
- * - Odrzucenie zgłoszenia użytkownika do sojuszu
- * - Tylko dla R5 / R4 / leader
- * - Integracja z MembershipModule
+ * RESPONSIBILITY:
+ * - Reject a user's request to join an alliance
+ * - Only for R5 / R4 / leader
+ * - Integrates with MembershipModule
  *
- * IMPLEMENTACJA:
- * - Walidacja uprawnień (R5/R4/leader)
- * - Pobranie zgłoszenia z kolejki join
- * - Odrzucenie zgłoszenia i powiadomienie użytkownika
+ * IMPLEMENTATION:
+ * - Validate permissions (R5/R4/leader)
+ * - Retrieve request from the join queue
+ * - Deny the request and notify the user
  *
  * ============================================
  */
@@ -23,14 +23,14 @@ import { Command } from "../Command";
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { MembershipModule } from "../../system/alliance/modules/membership/MembershipModule";
 
-export const Command: Command = {
+export const DenyCommand: Command = {
   data: new SlashCommandBuilder()
     .setName("deny")
-    .setDescription("Odrzuca zgłoszenie użytkownika do sojuszu")
+    .setDescription("Rejects a user's request to join the alliance")
     .addUserOption(option =>
       option
         .setName("member")
-        .setDescription("Użytkownik do odrzucenia")
+        .setDescription("The user to reject")
         .setRequired(true)
     ),
 
@@ -44,28 +44,28 @@ export const Command: Command = {
     }
 
     try {
-      // Wywołanie funkcji w MembershipModule, która usuwa zgłoszenie z kolejki
+      // 1️⃣ Remove the request from the join queue
       await MembershipModule.denyMember(actorId, targetUser.id, interaction.guild.id);
 
-      // Powiadomienie użytkownika, że został odrzucony
+      // 2️⃣ Notify the user in DM that they were denied
       await targetUser.send(
-        `❌ Twoje zgłoszenie do sojuszu zostało odrzucone. Możesz spróbować ponownie.`
+        `❌ Your alliance join request has been denied. You may try again later.`
       ).catch(() => {
-        // ignorujemy, jeśli nie można wysłać DM
+        // ignore if DMs cannot be sent
       });
 
-      // Odpowiedź w kanale komendy
+      // 3️⃣ Reply in the command channel
       await interaction.reply({
-        content: `✅ Zgłoszenie użytkownika <@${targetUser.id}> zostało odrzucone.`,
+        content: `✅ User <@${targetUser.id}>'s join request has been denied.`,
         ephemeral: false
       });
     } catch (error: any) {
       await interaction.reply({
-        content: `❌ Nie udało się odrzucić zgłoszenia: ${error.message}`,
+        content: `❌ Failed to deny join request: ${error.message}`,
         ephemeral: true
       });
     }
   }
 };
 
-export default Command;
+export default DenyCommand;
