@@ -1,3 +1,4 @@
+// src/engine/Dispatcher.ts
 import crypto from "crypto";
 import { SafeMode } from "../system/SafeMode";
 import { Journal } from "../journal/Journal";
