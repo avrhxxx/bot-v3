@@ -4,25 +4,24 @@
  * LAYER: SYSTEM (Alliance Membership Module)
  * ============================================
  *
- * ODPOWIEDZIALNOŚĆ:
- * - Obsługa członkostwa w sojuszach (dołączanie, opuszczanie)
- * - Zarządzanie zgłoszeniami do sojuszu (pending joins)
- * - Rollback lidera w przypadku braku R5
- * - Powiadamianie R4/R5 o nowych zgłoszeniach (join flow)
- * - Obsługa promocji i democji z broadcastami
+ * RESPONSIBILITIES:
+ * - Handling alliance membership (join/leave)
+ * - Managing pending join requests
+ * - Notifying R4/R5 on new join requests
+ * - Handling promotions and demotions with broadcasts
  *
- * ZALEŻNOŚCI:
- * - AllianceService (pobranie sojuszu i logowanie audytu)
- * - RoleModule (aktualizacja ról w Discord)
- * - BroadcastModule (ogłoszenia dla członków)
- * - TransferLeaderSystem (rollback lidera)
- * - AllianceIntegrity (walidacja stanu sojuszu)
- * - MutationGate (atomiczne operacje)
+ * DEPENDENCIES:
+ * - AllianceService (fetch alliance & audit logs)
+ * - RoleModule (Discord role updates)
+ * - BroadcastModule (member announcements)
+ * - TransferLeaderSystem (manual leader transfer)
+ * - AllianceIntegrity (alliance state validation)
+ * - MutationGate (atomic operations)
  *
- * UWAGA:
- * - Wszystkie mutacje są atomowe przez MutationGate.runAtomically
- * - Typy członków i ról są zgodne z AllianceTypes
- * - Komenda join powiadamia R5/R4 w staff-room, którzy mogą approve/deny
+ * NOTES:
+ * - All mutations are atomic via MutationGate.runAtomically
+ * - Member and role types align with AllianceTypes
+ * - Join command notifies R5/R4 in staff-room for approval/denial
  *
  * ============================================
  */
@@ -56,11 +55,11 @@ export class MembershipModule {
 
       AllianceService.logAudit(allianceId, { action: "requestJoin", userId: actorId });
 
-      // ----------------- POWIADOMIENIE DO STAFF-ROOM -----------------
-      const staffMsg = `Użytkownik <@${actorId}> zgłosił chęć dołączenia do sojuszu.`;
+      // ----------------- NOTIFY STAFF-ROOM -----------------
+      const staffMsg = `User <@${actorId}> has requested to join the alliance.`;
       await BroadcastModule.sendCustomMessage(allianceId, staffMsg);
 
-      // Dodatkowy broadcast z pingiem R5/R4
+      // Additional broadcast pinging R5/R4
       await BroadcastModule.announceJoinRequest(allianceId, actorId, ["R5", "R4"]);
     });
   }
@@ -69,7 +68,12 @@ export class MembershipModule {
   static async approveJoin(actorId: string, allianceId: string, userId: string): Promise<void> {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId) as any;
-      const roles: AllianceRoles = alliance.roles || {} as any;
+
+      // Validate member limit before adding
+      const totalMembers = (alliance.members?.length ?? 0) + 1; // include new member
+      if (totalMembers > AllianceIntegrity.MAX_MEMBERS) {
+        throw new Error("Alliance has reached the maximum member limit (100)");
+      }
 
       alliance.members = alliance.members || [];
       alliance.members.push({ userId, role: "R3" });
@@ -77,9 +81,10 @@ export class MembershipModule {
       alliance.pendingJoins = (alliance.pendingJoins || []).filter(j => j.userId !== userId);
 
       AllianceIntegrity.validate(alliance);
+
       await BroadcastModule.announceJoin(allianceId, userId);
 
-      // Dodatkowy broadcast z pingiem Indify w welcome channel
+      // Additional broadcast pinging Indify in welcome channel
       await BroadcastModule.announceJoin(allianceId, userId, undefined, ["Indify"]);
 
       AllianceService.logAudit(allianceId, { action: "approveJoin", actorId, userId });
@@ -93,7 +98,7 @@ export class MembershipModule {
 
       alliance.pendingJoins = (alliance.pendingJoins || []).filter(j => j.userId !== userId);
 
-      await BroadcastModule.sendCustomMessage(allianceId, `Zgłoszenie użytkownika <@${userId}> zostało odrzucone.`);
+      await BroadcastModule.sendCustomMessage(allianceId, `Join request for user <@${userId}> has been denied.`);
 
       AllianceService.logAudit(allianceId, { action: "denyJoin", actorId, userId });
     });
@@ -106,23 +111,16 @@ export class MembershipModule {
 
       alliance.members = (alliance.members || []).filter(m => m.userId !== actorId);
 
+      // If the leader is removed, manual leader transfer is required
       const leaderExists = (alliance.members || []).some(m => m.role === "R5");
       if (!leaderExists) {
-        await TransferLeaderSystem.rollbackLeadership(allianceId);
+        console.warn(`[MembershipModule] Leader has been removed. Manual TransferLeaderSystem.transferLeadership required.`);
       }
 
       AllianceIntegrity.validate(alliance);
       await BroadcastModule.announceLeave(allianceId, actorId);
 
       AllianceService.logAudit(allianceId, { action: "leaveAlliance", userId: actorId });
-    });
-  }
-
-  // ----------------- ROLLBACK LEADERSHIP -----------------
-  static async rollbackLeadership(actorId: string, allianceId: string): Promise<void> {
-    await MutationGate.runAtomically(async () => {
-      await TransferLeaderSystem.rollbackLeadership(allianceId);
-      AllianceService.logAudit(allianceId, { action: "rollbackLeadership", actorId });
     });
   }
 
@@ -137,7 +135,6 @@ export class MembershipModule {
 
       AllianceIntegrity.validate(alliance);
 
-      // Broadcast promocji z pingiem
       await BroadcastModule.announcePromotion(allianceId, userId, newRole, undefined, ["Indify"]);
 
       AllianceService.logAudit(allianceId, { action: "promote", actorId, userId, newRole });
@@ -155,17 +152,10 @@ export class MembershipModule {
 
       AllianceIntegrity.validate(alliance);
 
-      // Broadcast democji z pingiem
       await BroadcastModule.announceDemotion(allianceId, userId, newRole, undefined, ["Indify"]);
 
       AllianceService.logAudit(allianceId, { action: "demote", actorId, userId, newRole });
     });
-  }
-
-  // ----------------- HELPERS -----------------
-  private static checkOrphanState(allianceId: string): boolean {
-    const alliance = AllianceService.getAllianceOrThrow(allianceId) as any;
-    return !((alliance.members || []).some(m => m.role === "R5"));
   }
 }
 
