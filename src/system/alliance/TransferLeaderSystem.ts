@@ -1,10 +1,9 @@
-// src/system/alliance/TransferLeaderSystem.ts
-
 import { AllianceService } from "./AllianceService";
-import { RoleModule } from "./RoleModule";
-import { BroadcastModule } from "./BroadcastModule";
+import { RoleModule } from "./modules/role/RoleModule";
+import { BroadcastModule } from "./modules/broadcast/BroadcastModule";
 import { MutationGate } from "../../engine/MutationGate";
 import { AllianceIntegrity } from "./integrity/AllianceIntegrity";
+import { Alliance } from "./AllianceTypes";
 
 export class TransferLeaderSystem {
   static fallbackDelay = 3000;
@@ -14,29 +13,34 @@ export class TransferLeaderSystem {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-      // Sprawdzenie uprawnień: tylko R5 lub bot owner
       const currentLeader = alliance.members.find(m => m.role === "R5");
       if (!currentLeader || currentLeader.userId !== actorId) {
         throw new Error("Brak uprawnień do transferu lidera");
       }
 
-      // Degradacja obecnego lidera do R4
       currentLeader.role = "R4";
-      await RoleModule.assignRole(await alliance.guild.members.fetch(actorId), alliance.roles.r4RoleId);
+      await RoleModule.assignRole(
+        await alliance.guild.members.fetch(actorId),
+        alliance.roles.r4RoleId
+      );
 
-      // Promocja nowego lidera do R5
       const newLeader = alliance.members.find(m => m.userId === newLeaderId);
       if (!newLeader) throw new Error("Nowy lider nie należy do sojuszu");
-      newLeader.role = "R5";
-      await RoleModule.assignRole(await alliance.guild.members.fetch(newLeaderId), alliance.roles.r5RoleId);
 
-      // Walidacja spójności
+      newLeader.role = "R5";
+      await RoleModule.assignRole(
+        await alliance.guild.members.fetch(newLeaderId),
+        alliance.roles.r5RoleId
+      );
+
       AllianceIntegrity.validate(alliance);
 
-      // Powiadomienie
-      await BroadcastModule.announceLeadershipChange(allianceId, actorId, newLeaderId);
+      await BroadcastModule.announceLeadershipChange(
+        allianceId,
+        actorId,
+        newLeaderId
+      );
 
-      // Log
       AllianceService.logAudit(allianceId, {
         action: "transferLeadership",
         oldLeaderId: actorId,
@@ -50,8 +54,9 @@ export class TransferLeaderSystem {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-      // Poczekaj fallbackDelay zanim automatycznie przeniesiesz lidera
-      await new Promise(res => setTimeout(res, TransferLeaderSystem.fallbackDelay));
+      await new Promise(res =>
+        setTimeout(res, TransferLeaderSystem.fallbackDelay)
+      );
 
       const candidateR4 = alliance.members
         .filter(m => m.role === "R4")
@@ -71,7 +76,6 @@ export class TransferLeaderSystem {
         return;
       }
 
-      // Brak kandydatów – usunięcie sojuszu
       await AllianceService.confirmDelete("SYSTEM", allianceId);
     });
   }
@@ -80,26 +84,32 @@ export class TransferLeaderSystem {
   private static async transferLeadershipSystem(allianceId: string, newLeaderId: string) {
     const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-    // Obecny lider
     const oldLeader = alliance.members.find(m => m.role === "R5");
     if (oldLeader) {
       oldLeader.role = "R4";
-      await RoleModule.assignRole(await alliance.guild.members.fetch(oldLeader.userId), alliance.roles.r4RoleId);
+      await RoleModule.assignRole(
+        await alliance.guild.members.fetch(oldLeader.userId),
+        alliance.roles.r4RoleId
+      );
     }
 
-    // Nowy lider
     const newLeader = alliance.members.find(m => m.userId === newLeaderId);
     if (!newLeader) return;
-    newLeader.role = "R5";
-    await RoleModule.assignRole(await alliance.guild.members.fetch(newLeaderId), alliance.roles.r5RoleId);
 
-    // Walidacja spójności
+    newLeader.role = "R5";
+    await RoleModule.assignRole(
+      await alliance.guild.members.fetch(newLeaderId),
+      alliance.roles.r5RoleId
+    );
+
     AllianceIntegrity.validate(alliance);
 
-    // Powiadomienie
-    await BroadcastModule.announceLeadershipChange(allianceId, oldLeader?.userId ?? "SYSTEM", newLeaderId);
+    await BroadcastModule.announceLeadershipChange(
+      allianceId,
+      oldLeader?.userId ?? "SYSTEM",
+      newLeaderId
+    );
 
-    // Log
     AllianceService.logAudit(allianceId, {
       action: "AUTO_TRANSFER_LEADER",
       oldLeaderId: oldLeader?.userId ?? "SYSTEM",
@@ -107,7 +117,7 @@ export class TransferLeaderSystem {
     });
   }
 
-  static validateLeadership(alliance: any) {
+  static validateLeadership(alliance: Alliance) {
     AllianceIntegrity.validate(alliance);
   }
 }
