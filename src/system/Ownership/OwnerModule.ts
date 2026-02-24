@@ -1,79 +1,67 @@
-/**
- * ============================================
- * FILE: src/system/OwnerModule/OwnerModule.ts
- * LAYER: SYSTEM / Ownership
- * ============================================
- *
- * ODPOWIEDZIALNOŚĆ:
- * - Weryfikacja uprawnień użytkowników
- * - Obsługa Bot Ownera i Discord Guild Ownera
- * - Metody do rzucania błędów przy braku uprawnień
- *
- * ZALEŻNOŚCI:
- * - discord.js (Client, Guild)
- *
- * ============================================
- */
+// File: src/system/Imports.ts
+// AUTOGENEROWANY PLIK IMPORTÓW
+// Nie edytować ręcznie – używaj generatora, aby aktualizować importy.
 
-import { Guild } from "discord.js";
+export * from "../config/config";
+export * from "../data/Database";
+export * from "../data/Repositories";
+export * from "../discord/client";
 
-export class OwnerModule {
-  private static botOwners: Set<string> = new Set();
+// UWAGA: Dispatcher już eksportuje MutationGate i MutationOptions,
+// więc nie eksportujemy ich osobno, aby uniknąć konfliktu TS2308.
+export * from "../engine/Dispatcher";
 
-  /**
-   * Inicjalizacja modułu z listą bot ownerów (ID Discord)
-   */
-  static init(botOwnerIds: string[]) {
-    this.botOwners = new Set(botOwnerIds);
-  }
+// Commands
+export * from "../commands/Command";
+export * from "../commands/CommandRegistry";
+export * from "../commands/loader/CommandLoader";
 
-  /**
-   * Sprawdza czy dany userId jest bot ownerem
-   */
-  static isBotOwner(userId: string): boolean {
-    return this.botOwners.has(userId);
-  }
+// Commands alliance
+export * from "../commands/alliance/demote";
+export * from "../commands/alliance/join";
+export * from "../commands/alliance/kick";
+export * from "../commands/alliance/leave";
+export * from "../commands/alliance/promote";
+export * from "../commands/alliance/transferLeader";
+export * from "../commands/alliance/updateName";
+export * from "../commands/alliance/updateTag";
 
-  /**
-   * Sprawdza czy dany userId jest właścicielem guild
-   */
-  static isGuildOwner(userId: string, guild: Guild): boolean {
-    return guild.ownerId === userId;
-  }
+// System core
+export * from "./Health";
+export * from "./SafeMode";
+export * from "./Ownership/Ownership"; // ✅ poprawiona ścieżka (plik w folderze Ownership/)
+export * from "./Ownership/OwnerRoleManager"; // ✅ import OwnerRoleManager
+export * from "./Ownership/OwnerModule"; // ✅ poprawiona ścieżka OwnerModule
+export * from "./TimeModule/TimeModule";
 
-  /**
-   * Weryfikuje bot ownera i rzuca błąd jeśli brak uprawnień
-   */
-  static requireBotOwner(userId: string) {
-    if (!this.isBotOwner(userId)) {
-      throw new Error("User is not a Bot Owner.");
-    }
-  }
+// Alliance core
+export * from "./alliance/AllianceService";
+export * from "./alliance/AllianceSystem";
+export * from "./alliance/AllianceTypes";
+export * from "./alliance/SystemInitializer";
+export * from "./alliance/TransferLeaderSystem";
+export * from "./alliance/CommandDispatcher/CommandDispatcher";
+export * from "./alliance/orchestrator/AllianceOrchestrator";
 
-  /**
-   * Weryfikuje właściciela serwera i rzuca błąd jeśli brak uprawnień
-   */
-  static requireGuildOwner(userId: string, guild: Guild) {
-    if (!this.isGuildOwner(userId, guild)) {
-      throw new Error("User is not the Discord Guild Owner.");
-    }
-  }
+// Alliance modules
+export * from "./alliance/modules/broadcast/BroadcastModule";
+export * from "./alliance/modules/channel/ChannelModule";
+export * from "./alliance/modules/membership/MembershipModule";
+export * from "./alliance/modules/role/RoleModule";
 
-  /**
-   * Sprawdzenie czy user jest właścicielem globalnie (bot owner lub guild owner)
-   */
-  static isOwner(userId: string, guild?: Guild): boolean {
-    if (this.isBotOwner(userId)) return true;
-    if (guild && this.isGuildOwner(userId, guild)) return true;
-    return false;
-  }
+// Alliance integrity
+export * from "./alliance/integrity/AllianceIntegrity";
 
-  /**
-   * Wymusza właściciela globalnego (bot lub guild) i rzuca błąd jeśli brak uprawnień
-   */
-  static requireOwner(userId: string, guild?: Guild) {
-    if (!this.isOwner(userId, guild)) {
-      throw new Error("User is not an owner (Bot Owner or Guild Owner).");
-    }
-  }
-}
+// Snapshot system
+export * from "./snapshot/IntegrityMonitor";
+export * from "./snapshot/RepairService";
+export * from "./snapshot/SnapshotService";
+export * from "./snapshot/SnapshotTypes";
+
+// Journal
+export * from "../journal/Journal";
+export * from "../journal/JournalTypes";
+
+// Locks
+export * from "../locks/AllianceLock";
+export * from "../locks/GlobalLock";
