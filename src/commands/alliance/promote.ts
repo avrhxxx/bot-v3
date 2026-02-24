@@ -1,12 +1,30 @@
 // File path: src/commands/alliance/promote.ts
-// fillpatch: Alliance promote command – promotes a member to higher rank
+/**
+ * ============================================
+ * COMMAND: Promote
+ * FILE: src/commands/alliance/promote.ts
+ * LAYER: COMMAND (Alliance)
+ * ============================================
+ *
+ * RESPONSIBILITY:
+ * - Promote a member to a higher rank in the alliance
+ * - Only leader / R5 can promote
+ * - Integrates with AllianceSystem
+ *
+ * NOTES:
+ * - Checks if command is used inside a guild
+ * - Respects SafeMode
+ * - Handles errors gracefully
+ *
+ * ============================================
+ */
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-export const Command: Command = {
+export const PromoteCommand: Command = {
   data: new SlashCommandBuilder()
     .setName("promote")
     .setDescription("Promote a member to the next rank in your alliance")
@@ -18,7 +36,7 @@ export const Command: Command = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const userId = interaction.user.id;
+    const actorId = interaction.user.id;
     const targetUser = interaction.options.getUser("member", true);
 
     if (!interaction.guild) {
@@ -32,7 +50,10 @@ export const Command: Command = {
     }
 
     try {
-      const result = await AllianceSystem.promoteMember(userId, targetUser.id, interaction.guild.id);
+      // 1️⃣ Promote member via AllianceSystem
+      const result = await AllianceSystem.promoteMember(actorId, targetUser.id, interaction.guild.id);
+
+      // 2️⃣ Confirmation message
       await interaction.reply({
         content: `✅ <@${targetUser.id}> has been promoted to **${result.newRank}** in the alliance.`,
         ephemeral: false
@@ -46,4 +67,4 @@ export const Command: Command = {
   }
 };
 
-export default Command;
+export default PromoteCommand;
