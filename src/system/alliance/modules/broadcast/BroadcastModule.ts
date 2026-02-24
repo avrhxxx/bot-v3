@@ -1,7 +1,27 @@
-// src/system/alliance/BroadcastModule/BroadcastModule.ts
+/**
+ * ============================================
+ * FILE: src/system/alliance/modules/broadcast/BroadcastModule.ts
+ * LAYER: SYSTEM (Alliance Broadcast Module)
+ * ============================================
+ *
+ * ODPOWIEDZIALNOŚĆ:
+ * - Obsługa zdarzeń sojuszu (join, leave, promocje, democje, custom messages)
+ * - Emitowanie eventów dla modułów zewnętrznych
+ * - Integracja z ChannelModule dla kanałów announce
+ *
+ * ZALEŻNOŚCI:
+ * - AllianceService (pobranie sojuszu)
+ * - ChannelModule (kanały announce)
+ *
+ * UWAGA:
+ * - Emituje zdarzenia w postaci listenerów
+ * - Nie modyfikuje bezpośrednio ról ani kanałów
+ *
+ * ============================================
+ */
 
-import { AllianceService } from "../AllianceService";
-import { ChannelModule } from "./ChannelModule";
+import { AllianceService } from "../../AllianceService";
+import { ChannelModule } from "../ChannelModule/ChannelModule";
 
 type Listener = (...args: any[]) => void;
 
@@ -37,7 +57,6 @@ export class BroadcastModule {
 
   // ----------------- ALLIANCE-SPECIFIC METHODS -----------------
   static async announceJoin(allianceId: string, userId: string) {
-    const alliance = AllianceService.getAllianceOrThrow(allianceId);
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
 
@@ -45,7 +64,6 @@ export class BroadcastModule {
   }
 
   static async announceLeave(allianceId: string, userId: string) {
-    const alliance = AllianceService.getAllianceOrThrow(allianceId);
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
 
@@ -53,7 +71,6 @@ export class BroadcastModule {
   }
 
   static async announceLeadershipChange(allianceId: string, oldLeaderId: string, newLeaderId: string) {
-    const alliance = AllianceService.getAllianceOrThrow(allianceId);
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
 
@@ -61,7 +78,6 @@ export class BroadcastModule {
   }
 
   static async announceRollback(allianceId: string, message: string) {
-    const alliance = AllianceService.getAllianceOrThrow(allianceId);
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
 
@@ -69,7 +85,6 @@ export class BroadcastModule {
   }
 
   static async sendCustomMessage(allianceId: string, message: string) {
-    const alliance = AllianceService.getAllianceOrThrow(allianceId);
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
 
