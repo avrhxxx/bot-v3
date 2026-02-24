@@ -158,5 +158,4 @@ export class BroadcastModule {
       default:
         return `${event}: ${JSON.stringify(payload)}`;
     }
-  }
-}
+  
