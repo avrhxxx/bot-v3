@@ -29,7 +29,7 @@ export * from "../commands/alliance/updateTag";
 // System core
 export * from "./Health";
 export * from "./SafeMode";
-export * from "./Ownership";
+export * from "./Ownership/Ownership"; // ✅ poprawiona ścieżka (plik znajduje się w folderze Ownership/)
 export * from "./OwnerModule/OwnerModule";
 export * from "./TimeModule/TimeModule";
 
