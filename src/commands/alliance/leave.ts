@@ -1,21 +1,38 @@
 // File path: src/commands/alliance/leave.ts
-// fillpatch: Alliance leave command – allows a member to leave their alliance
+/**
+ * ============================================
+ * COMMAND: Leave
+ * FILE: src/commands/alliance/leave.ts
+ * LAYER: COMMAND (Alliance)
+ * ============================================
+ *
+ * RESPONSIBILITY:
+ * - Allows a member to leave their current alliance
+ * - Integrates with AllianceSystem
+ * - Sends confirmation message
+ *
+ * NOTES:
+ * - Checks if the command is used inside a guild
+ * - Respects SafeMode
+ *
+ * ============================================
+ */
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-export const Command: Command = {
+export const LeaveCommand: Command = {
   data: new SlashCommandBuilder()
     .setName("leave")
     .setDescription("Leave your current alliance"),
-  
+
   async execute(interaction: ChatInputCommandInteraction) {
     const userId = interaction.user.id;
 
     if (!interaction.guild) {
-      await interaction.reply({ content: "❌ Cannot leave alliance outside a guild.", ephemeral: true });
+      await interaction.reply({ content: "❌ You cannot leave an alliance outside a guild.", ephemeral: true });
       return;
     }
 
@@ -25,9 +42,12 @@ export const Command: Command = {
     }
 
     try {
+      // 1️⃣ Attempt to leave the alliance
       const result = await AllianceSystem.leaveAlliance(userId, interaction.guild.id);
+
+      // 2️⃣ Confirmation message
       await interaction.reply({
-        content: `✅ You have left the alliance \`${result.tag}\`.`,
+        content: `✅ You have successfully left the alliance \`${result.tag}\`.`,
         ephemeral: false
       });
     } catch (error: any) {
@@ -39,4 +59,4 @@ export const Command: Command = {
   }
 };
 
-export default Command;
+export default LeaveCommand;
