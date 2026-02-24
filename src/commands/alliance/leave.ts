@@ -1,17 +1,11 @@
 // File path: src/commands/alliance/leave.ts
+// fillpatch: Alliance leave command – allows a member to leave their alliance
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-/**
- * LeaveCommand
- * ----------------
- * Allows a user to leave their current alliance.
- * - Prevents leaving if user is leader (requires transfer first).
- * - Checks SafeMode and guild context.
- */
 export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("leave")
