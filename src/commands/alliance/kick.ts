@@ -1,5 +1,20 @@
 // File path: src/commands/alliance/kick.ts
-// fillpatch: Alliance kick command – removes a member from alliance
+/**
+ * ============================================
+ * COMMAND: Kick
+ * FILE: src/commands/alliance/kick.ts
+ * LAYER: COMMAND (Alliance)
+ * ============================================
+ *
+ * ODPOWIEDZIALNOŚĆ:
+ * - Wyrzucanie członka z sojuszu
+ * - R5 może wyrzucać wszystkich
+ * - R4 może wyrzucać tylko R3
+ * - Automatyczne usunięcie ról i członkostwa
+ * - Powiadomienie w kanale announce
+ *
+ * ============================================
+ */
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
@@ -18,7 +33,7 @@ export const Command: Command = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const userId = interaction.user.id;
+    const actorId = interaction.user.id;
     const targetUser = interaction.options.getUser("member", true);
 
     if (!interaction.guild) {
@@ -32,11 +47,20 @@ export const Command: Command = {
     }
 
     try {
-      const result = await AllianceSystem.kickMember(userId, targetUser.id, interaction.guild.id);
-      await interaction.reply({
-        content: `✅ <@${targetUser.id}> has been kicked from the alliance.`,
-        ephemeral: false
-      });
+      const result = await AllianceSystem.kickMember(actorId, targetUser.id, interaction.guild.id);
+
+      // Powiadomienie w kanale announce (po angielsku)
+      if (result.success) {
+        await interaction.reply({
+          content: `✅ <@${targetUser.id}> has been kicked from the alliance.`,
+          ephemeral: false
+        });
+      } else {
+        await interaction.reply({
+          content: `❌ You do not have permission to kick <@${targetUser.id}>.`,
+          ephemeral: true
+        });
+      }
     } catch (error: any) {
       await interaction.reply({
         content: `❌ Failed to kick member: ${error.message}`,
