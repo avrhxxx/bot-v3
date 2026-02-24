@@ -1,12 +1,30 @@
 // File path: src/commands/alliance/demote.ts
-// fillpatch: Alliance demote command – demotes a member to lower rank
+/**
+ * ============================================
+ * COMMAND: Demote
+ * FILE: src/commands/alliance/demote.ts
+ * LAYER: COMMAND (Alliance)
+ * ============================================
+ *
+ * ODPOWIEDZIALNOŚĆ:
+ * - Demote członka sojuszu do niższego rangu (R5 → R4 → R3)
+ * - Tylko dla leadera / R5
+ * - Integracja z AllianceSystem
+ *
+ * TODO:
+ * - Walidacja uprawnień
+ * - Sprawdzenie limitów ról
+ * - Obsługa błędów i SafeMode
+ *
+ * ============================================
+ */
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-export const Command: Command = {
+export const DemoteCommand: Command = {
   data: new SlashCommandBuilder()
     .setName("demote")
     .setDescription("Demote a member to a lower rank in your alliance")
@@ -32,7 +50,10 @@ export const Command: Command = {
     }
 
     try {
+      // Wywołanie demote w AllianceSystem
       const result = await AllianceSystem.demoteMember(userId, targetUser.id, interaction.guild.id);
+
+      // Informacja o sukcesie
       await interaction.reply({
         content: `✅ <@${targetUser.id}> has been demoted to **${result.newRank}** in the alliance.`,
         ephemeral: false
@@ -46,4 +67,4 @@ export const Command: Command = {
   }
 };
 
-export default Command;
+export default DemoteCommand;
