@@ -1,3 +1,27 @@
-node_modules
-dist
+# =============================================
+# FILE: .gitignore
+# PURPOSE: Ignore node_modules, logs, environment files
+# =============================================
+
+# Node.js dependencies
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# Environment files
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build output
+dist/
+build/
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
