@@ -1,22 +1,57 @@
+/**
+ * ============================================
+ * FILE: src/index.ts
+ * LAYER: BOOTSTRAP / ENTRYPOINT
+ * ============================================
+ *
+ * GŁÓWNY PUNKT WEJŚCIA BOTA "bot-v3"
+ *
+ * ODPOWIEDZIALNOŚĆ:
+ * - Inicjalizacja wszystkich modułów systemu
+ * - Weryfikacja integralności danych sojuszy
+ * - Uruchomienie SnapshotService, TimeModule, SafeMode
+ * - Załadowanie wszystkich komend
+ * - Uruchomienie klienta Discord.js
+ *
+ * ZALEŻNOŚCI:
+ * - system/snapshot/* (IntegrityMonitor, SnapshotService)
+ * - system/* (Health, SafeMode, Ownership, TimeModule, OwnerModule)
+ * - data/* (Database, Repositories)
+ * - engine/* (Dispatcher, MutationGate)
+ * - commands/* (CommandLoader, CommandRegistry)
+ * - system/alliance/* (AllianceService, AllianceSystem, TransferLeaderSystem)
+ *
+ * FILPATCH:
+ * - Obsługa zależności modułów w kolejności ładowania
+ * - Placeholdery dla modułów, które mogą być async inicjalizowane w późniejszym kroku
+ * - Zachowanie pełnej logiki bootstrappingu i integracji
+ *
+ * UWAGA ARCHITEKTONICZNA:
+ * - NODE_ENV=build → w Railway deploy/build
+ * - NODE_ENV=production → runtime
+ * - Operacje mutacyjne wykonuje Orchestrator i MutationGate
+ *
+ * ============================================
+ */
+
 import { IntegrityMonitor } from "./system/snapshot/IntegrityMonitor";
 import { Health } from "./system/Health";
 import { startDiscord } from "./discord/client";
 import { SnapshotService } from "./system/snapshot/SnapshotService";
 import { SafeMode } from "./system/SafeMode";
 import { AllianceRepo, SnapshotRepo } from "./data/Repositories";
-import { CommandLoader } from "./commands/CommandLoader";
+import { CommandLoader } from "./commands/loader/CommandLoader";
 import { TimeModule } from "./system/TimeModule/TimeModule";
-import path from "path";
 import { performance } from "perf_hooks";
+import path from "path";
 
 // -------------------------
-// Check process environment detection
+// ENVIRONMENT CHECK
 // -------------------------
-// W Railway: NODE_ENV=production w runtime, NODE_ENV=build przy deploy/build
 const RUN_CHECK_PROCESS = process.env.NODE_ENV === "build";
 
 // -------------------------
-// Modules for check process
+// MODULE DEFINITION
 // -------------------------
 type ModuleDef = { name: string; importPath: string; dependencies?: string[] };
 const modules: ModuleDef[] = [
@@ -29,34 +64,27 @@ const modules: ModuleDef[] = [
   { name: 'Repositories', importPath: './data/Repositories' },
   { name: 'AllianceLock', importPath: './locks/AllianceLock' },
   { name: 'GlobalLock', importPath: './locks/GlobalLock' },
-  { name: 'RoleModule', importPath: './system/RoleModule/RoleModule' },
-  { name: 'ChannelModule', importPath: './system/ChannelModule/ChannelModule' },
-  { name: 'BroadcastModule', importPath: './system/BroadcastModule/BroadcastModule' },
+  { name: 'RoleModule', importPath: './system/alliance/modules/role/RoleModule' },
+  { name: 'ChannelModule', importPath: './system/alliance/modules/channel/ChannelModule' },
+  { name: 'BroadcastModule', importPath: './system/alliance/modules/broadcast/BroadcastModule' },
   { name: 'AllianceSystem', importPath: './system/alliance/AllianceSystem', dependencies: ['RoleModule','ChannelModule','BroadcastModule'] },
   { name: 'TransferLeaderSystem', importPath: './system/alliance/TransferLeaderSystem', dependencies: ['AllianceSystem','RoleModule'] },
   { name: 'IntegrityMonitor', importPath: './system/snapshot/IntegrityMonitor' },
   { name: 'RepairService', importPath: './system/snapshot/RepairService', dependencies: ['IntegrityMonitor'] },
   { name: 'SnapshotService', importPath: './system/snapshot/SnapshotService', dependencies: ['IntegrityMonitor'] },
-  { name: 'SnapshotTypes', importPath: './system/snapshot/SnapshotTypes' },
   { name: 'Dispatcher', importPath: './engine/Dispatcher' },
   { name: 'MutationGate', importPath: './engine/MutationGate', dependencies: ['Dispatcher'] },
-  { name: 'CommandDispatcher', importPath: './system/CommandDispatcher/CommandDispatcher', dependencies: ['OwnerModule'] },
-  { name: 'AllianceIntegrity', importPath: './features/alliance/integrity/AllianceIntegrity', dependencies: ['AllianceSystem'] },
-  { name: 'AllianceCreationOrchestrator', importPath: './features/alliance/orchestration/AllianceCreationOrchestrator', dependencies: ['RoleModule','ChannelModule','BroadcastModule','AllianceIntegrity'] },
-  { name: 'AllianceService', importPath: './features/alliance/AllianceService', dependencies: ['AllianceSystem','AllianceIntegrity','AllianceCreationOrchestrator'] },
-  { name: 'AllianceTypes', importPath: './features/alliance/AllianceTypes' },
+  { name: 'CommandDispatcher', importPath: './system/alliance/CommandDispatcher/CommandDispatcher', dependencies: ['OwnerModule'] },
+  { name: 'AllianceIntegrity', importPath: './system/alliance/integrity/AllianceIntegrity', dependencies: ['AllianceSystem'] },
+  { name: 'AllianceOrchestrator', importPath: './system/alliance/orchestrator/AllianceOrchestrator', dependencies: ['RoleModule','ChannelModule','BroadcastModule','AllianceIntegrity'] },
+  { name: 'AllianceService', importPath: './system/alliance/AllianceService', dependencies: ['AllianceSystem','AllianceIntegrity','AllianceOrchestrator'] },
   { name: 'DiscordClient', importPath: './discord/client', dependencies: ['AllianceService','CommandDispatcher'] },
   { name: 'Journal', importPath: './journal/Journal', dependencies: ['AllianceSystem'] },
-  { name: 'JournalTypes', importPath: './journal/JournalTypes', dependencies: ['AllianceSystem'] },
-  { name: 'CommandLoader', importPath: './commands/CommandLoader' },
-  { name: 'CommandRegistry', importPath: './commands/CommandRegistry' },
-  { name: 'Command', importPath: './commands/Command' },
-  { name: 'AllianceCommands', importPath: './commands/alliance', dependencies: ['Command'] },
-  { name: 'SysCommands', importPath: './commands/sys', dependencies: ['Command'] },
+  { name: 'CommandLoader', importPath: './commands/loader/CommandLoader' }
 ];
 
 // -------------------------
-// Check process utilities
+// MODULE IMPORT UTILITIES
 // -------------------------
 async function importModule(mod: ModuleDef) {
   const start = performance.now();
@@ -78,7 +106,6 @@ function logProgress(current: number, total: number) {
 
 async function runCheckProcess() {
   console.log('\n🛠️  Pre-Boot Check Process Starting...\n');
-
   const totalModules = modules.length;
   let loadedModules: string[] = [];
 
@@ -111,17 +138,16 @@ async function runCheckProcess() {
 }
 
 // -------------------------
-// Main bootstrap
+// MAIN BOOTSTRAP
 // -------------------------
 async function bootstrap() {
   console.log("System booting...");
 
-  // 🛠️ CHECK PROCESS ONLY DURING DEPLOY/BUILD
   if (RUN_CHECK_PROCESS) {
     await runCheckProcess();
   }
 
-  // 🚀 NORMAL BOOT
+  // Inicjalizacja snapshotów sojuszy
   const alliances = AllianceRepo.getAll();
   for (const alliance of alliances) {
     const existing = SnapshotRepo.get(alliance.id);
