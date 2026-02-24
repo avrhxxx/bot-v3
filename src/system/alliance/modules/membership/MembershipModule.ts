@@ -5,21 +5,23 @@
  * ============================================
  *
  * ODPOWIEDZIALNOŚĆ:
- * - Obsługa członkostwa w sojuszach (dołączanie, opuszczanie)
- * - Zarządzanie zgłoszeniami do sojuszu
+ * - Zarządzanie członkostwem w sojuszu (dołączanie, opuszczanie)
+ * - Obsługa zgłoszeń do sojuszu
+ * - Promocja / degradacja członków
  * - Rollback lidera w przypadku braku R5
+ * - Emitowanie broadcastów dla członków
  *
  * ZALEŻNOŚCI:
- * - AllianceService (pobranie sojuszu i logowanie audytu)
- * - RoleModule (aktualizacja ról w Discord)
- * - BroadcastModule (ogłoszenia dla członków)
+ * - AllianceService (pobranie sojuszu, logAudit)
+ * - RoleModule (aktualizacja ról Discord)
+ * - BroadcastModule (ogłoszenia)
  * - TransferLeaderSystem (rollback lidera)
  * - AllianceIntegrity (walidacja stanu sojuszu)
  * - MutationGate (atomiczne operacje)
  *
- * UWAGA:
- * - Wszystkie mutacje muszą być wykonywane w MutationGate.runAtomically
- * - Typy członków i ról są zgodne z AllianceTypes
+ * UWAGA ARCHITEKTONICZNA:
+ * - Wszystkie mutacje wykonywane w MutationGate.runAtomically
+ * - Typy członków i ról zgodne z AllianceTypes
  *
  * ============================================
  */
@@ -30,6 +32,7 @@ import { BroadcastModule } from "../../BroadcastModule/BroadcastModule";
 import { TransferLeaderSystem } from "../../TransferLeaderSystem";
 import { AllianceIntegrity } from "../../integrity/AllianceIntegrity";
 import { MutationGate } from "../../../engine/MutationGate";
+import { Alliance, AllianceMembers } from "../../AllianceTypes";
 
 interface PendingJoin {
   userId: string;
@@ -43,37 +46,39 @@ interface MemberRecord {
 
 export class MembershipModule {
 
-  // ----------------- JOIN -----------------
+  // ----------------- REQUEST JOIN -----------------
   static async requestJoin(actorId: string, allianceId: string): Promise<void> {
     await MutationGate.runAtomically(async () => {
-      const alliance = AllianceService.getAllianceOrThrow(allianceId);
+      const alliance = AllianceService.getAllianceOrThrow(allianceId) as Alliance;
 
       alliance.pendingJoins = alliance.pendingJoins || [];
-      alliance.pendingJoins.push({ userId: actorId, requestedAt: Date.now() });
-
-      AllianceService.logAudit(allianceId, { action: "requestJoin", userId: actorId });
+      if (!alliance.pendingJoins.find(j => j.userId === actorId)) {
+        alliance.pendingJoins.push({ userId: actorId, requestedAt: Date.now() });
+        AllianceService.logAudit(allianceId, { action: "requestJoin", userId: actorId });
+      }
     });
   }
 
+  // ----------------- APPROVE JOIN -----------------
   static async approveJoin(actorId: string, allianceId: string, userId: string): Promise<void> {
     await MutationGate.runAtomically(async () => {
-      const alliance = AllianceService.getAllianceOrThrow(allianceId);
+      const alliance = AllianceService.getAllianceOrThrow(allianceId) as Alliance;
 
-      alliance.members = alliance.members || [];
-      alliance.members.push({ userId, role: "R3" });
+      alliance.members = alliance.members || { r5: "", r4: [], r3: [] };
+      alliance.members.r3.push(userId);
 
       alliance.pendingJoins = (alliance.pendingJoins || []).filter(j => j.userId !== userId);
 
       AllianceIntegrity.validate(alliance);
       await BroadcastModule.announceJoin(allianceId, userId);
-
       AllianceService.logAudit(allianceId, { action: "approveJoin", actorId, userId });
     });
   }
 
+  // ----------------- DENY JOIN -----------------
   static async denyJoin(actorId: string, allianceId: string, userId: string): Promise<void> {
     await MutationGate.runAtomically(async () => {
-      const alliance = AllianceService.getAllianceOrThrow(allianceId);
+      const alliance = AllianceService.getAllianceOrThrow(allianceId) as Alliance;
 
       alliance.pendingJoins = (alliance.pendingJoins || []).filter(j => j.userId !== userId);
 
@@ -83,14 +88,16 @@ export class MembershipModule {
     });
   }
 
-  // ----------------- LEAVE -----------------
+  // ----------------- LEAVE ALLIANCE -----------------
   static async leaveAlliance(actorId: string, allianceId: string): Promise<void> {
     await MutationGate.runAtomically(async () => {
-      const alliance = AllianceService.getAllianceOrThrow(allianceId);
+      const alliance = AllianceService.getAllianceOrThrow(allianceId) as Alliance;
 
-      alliance.members = (alliance.members || []).filter(m => m.userId !== actorId);
+      alliance.members.r3 = (alliance.members.r3 || []).filter(u => u !== actorId);
+      alliance.members.r4 = (alliance.members.r4 || []).filter(u => u !== actorId);
+      if (alliance.members.r5 === actorId) alliance.members.r5 = "";
 
-      const leaderExists = (alliance.members || []).some(m => m.role === "R5");
+      const leaderExists = alliance.members.r5 !== "";
       if (!leaderExists) {
         await TransferLeaderSystem.rollbackLeadership(allianceId);
       }
@@ -102,17 +109,56 @@ export class MembershipModule {
     });
   }
 
-  // ----------------- LEADERSHIP -----------------
-  static async rollbackLeadership(actorId: string, allianceId: string): Promise<void> {
+  // ----------------- PROMOTE -----------------
+  static async promote(actorId: string, allianceId: string, userId: string): Promise<void> {
     await MutationGate.runAtomically(async () => {
-      await TransferLeaderSystem.rollbackLeadership(allianceId);
-      AllianceService.logAudit(allianceId, { action: "rollbackLeadership", actorId });
+      const alliance = AllianceService.getAllianceOrThrow(allianceId) as Alliance;
+
+      if (alliance.members.r3.includes(userId)) {
+        alliance.members.r3 = alliance.members.r3.filter(u => u !== userId);
+        alliance.members.r4.push(userId);
+      } else if (alliance.members.r4.includes(userId)) {
+        alliance.members.r4 = alliance.members.r4.filter(u => u !== userId);
+        alliance.members.r5 = userId;
+      }
+
+      AllianceIntegrity.validate(alliance);
+      await BroadcastModule.sendCustomMessage(allianceId, `Użytkownik <@${userId}> został promowany.`);
+      AllianceService.logAudit(allianceId, { action: "promote", actorId, userId });
+    });
+  }
+
+  // ----------------- DEMOTE -----------------
+  static async demote(actorId: string, allianceId: string, userId: string): Promise<void> {
+    await MutationGate.runAtomically(async () => {
+      const alliance = AllianceService.getAllianceOrThrow(allianceId) as Alliance;
+
+      if (alliance.members.r5 === userId) {
+        alliance.members.r5 = "";
+        alliance.members.r4.push(userId);
+      } else if (alliance.members.r4.includes(userId)) {
+        alliance.members.r4 = alliance.members.r4.filter(u => u !== userId);
+        alliance.members.r3.push(userId);
+      }
+
+      AllianceIntegrity.validate(alliance);
+      await BroadcastModule.sendCustomMessage(allianceId, `Użytkownik <@${userId}> został zdegradowany.`);
+      AllianceService.logAudit(allianceId, { action: "demote", actorId, userId });
     });
   }
 
   // ----------------- HELPERS -----------------
-  private static checkOrphanState(allianceId: string): boolean {
-    const alliance = AllianceService.getAllianceOrThrow(allianceId);
-    return !((alliance.members || []).some(m => m.role === "R5"));
+  static isMember(allianceId: string, userId: string): boolean {
+    const alliance = AllianceService.getAllianceOrThrow(allianceId) as Alliance;
+    return (
+      alliance.members.r5 === userId ||
+      alliance.members.r4.includes(userId) ||
+      alliance.members.r3.includes(userId)
+    );
+  }
+
+  static hasLeader(allianceId: string): boolean {
+    const alliance = AllianceService.getAllianceOrThrow(allianceId) as Alliance;
+    return alliance.members.r5 !== "";
   }
 }
