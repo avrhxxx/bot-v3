@@ -1,128 +1,125 @@
 /**
  * ============================================
  * FILE: src/system/alliance/ChannelModule/ChannelModule.ts
- * LAYER: SYSTEM (Alliance Channel Module)
+ * LAYER: SYSTEM (Alliance Channel Management Module)
  * ============================================
  *
  * ODPOWIEDZIALNOŚĆ:
- * - Tworzenie, aktualizacja i usuwanie kanałów Discord dla sojuszu
- * - Ustawianie uprawnień widoczności i pisania
- * - Integracja z AllianceService i RoleModule
+ * - Tworzenie i zarządzanie kanałami sojuszu na Discord
+ * - Ustawienie widoczności kanałów dla R5/R4/R3 oraz osób spoza sojuszu
+ * - Zapewnienie spójności z kategorią sojuszu
  *
  * ZALEŻNOŚCI:
- * - AllianceService (pobranie danych sojuszu)
- * - RoleModule (role R5/R4/R3)
+ * - AllianceService (dane sojuszu i role)
+ * - RoleModule (spójność ról)
  *
  * UWAGA:
- * - Kanały pod kategorią nazwaną nazwą sojuszu
- * - Welcome i Announce na górze, chat niżej, Staff Room i Join na dole
- * - Join widoczny tylko dla osób spoza sojuszu
+ * - Kanały są zawsze tworzone w stałym pakiecie:
+ *   Welcome → Announce → Chat → Staff Room → Join
+ * - Join widoczny dla osób spoza sojuszu, pozostali go nie widzą
+ * - Staff Room widoczny tylko dla R5 i R4
  *
  * ============================================
  */
 
-import { Guild, TextChannel, PermissionFlagsBits, CategoryChannel, ChannelType } from "discord.js";
+import { Guild, TextChannel, CategoryChannel, ChannelType, PermissionFlagsBits } from "discord.js";
 import { AllianceService } from "../AllianceService";
 import { RoleModule } from "../RoleModule/RoleModule";
 
 export class ChannelModule {
-  private static announceChannels: Record<string, string> = {};
-  private static chatChannels: Record<string, string> = {};
-  private static staffChannels: Record<string, string> = {};
-  private static welcomeChannels: Record<string, string> = {};
-  private static joinChannels: Record<string, string> = {};
+  private static channels: Record<string, Record<string, string>> = {};
 
   // ----------------- CREATE CHANNELS -----------------
-  static async createChannels(guild: Guild, allianceId: string, tag: string) {
+  static async createChannels(guild: Guild, allianceId: string, tag: string, name: string) {
     const alliance = AllianceService.getAllianceOrThrow(allianceId);
     const roles = alliance.roles;
 
-    // CATEGORY
+    const createdChannels: Record<string, TextChannel> = {};
+
+    // Tworzenie kategorii
     const category = await guild.channels.create({
-      name: alliance.name,
+      name,
       type: ChannelType.GuildCategory,
     }) as CategoryChannel;
 
-    // WELCOME
+    // 1️⃣ Welcome
     const welcome = await guild.channels.create({
       name: "welcome",
       type: ChannelType.GuildText,
       parent: category.id,
     }) as TextChannel;
 
-    // ANNOUNCE
+    // 2️⃣ Announce
     const announce = await guild.channels.create({
       name: "announce",
       type: ChannelType.GuildText,
       parent: category.id,
     }) as TextChannel;
 
-    // CHAT
+    // 3️⃣ Chat (czat)
     const chat = await guild.channels.create({
       name: "chat",
       type: ChannelType.GuildText,
       parent: category.id,
     }) as TextChannel;
 
-    // STAFF ROOM
+    // 4️⃣ Staff Room
     const staff = await guild.channels.create({
       name: "staff-room",
       type: ChannelType.GuildText,
       parent: category.id,
     }) as TextChannel;
 
-    // JOIN
+    // 5️⃣ Join
     const join = await guild.channels.create({
       name: "join",
       type: ChannelType.GuildText,
       parent: category.id,
     }) as TextChannel;
 
-    // ----------------- PERMISSIONS -----------------
+    createdChannels["welcome"] = welcome;
+    createdChannels["announce"] = announce;
+    createdChannels["chat"] = chat;
+    createdChannels["staff"] = staff;
+    createdChannels["join"] = join;
+
+    // ----------------- USTAWIENIE UPRAWNIEŃ -----------------
     const everyoneId = guild.roles.everyone.id;
 
+    // Welcome: tylko bot może pisać
     await welcome.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] },
     ]);
 
+    // Announce: tylko bot pisze, R5 i R4 widzą
     await announce.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] },
       { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel] },
       { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] },
     ]);
 
+    // Chat: wszyscy członkowie R3+R4+R5 mogą pisać i widzieć
     await chat.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-      { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-      { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+      { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] },
+      { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel] },
+      { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel] },
     ]);
 
+    // Staff Room: tylko R4 i R5
     await staff.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-      { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+      { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel] },
+      { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel] },
     ]);
 
+    // Join: widoczny publicznie, tylko bot pisze
     await join.permissionOverwrites.set([
       { id: everyoneId, allow: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r5RoleId, deny: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r4RoleId, deny: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r3RoleId, deny: [PermissionFlagsBits.ViewChannel] },
     ]);
 
-    // ----------------- STORE IDS -----------------
-    this.welcomeChannels[allianceId] = welcome.id;
-    this.announceChannels[allianceId] = announce.id;
-    this.chatChannels[allianceId] = chat.id;
-    this.staffChannels[allianceId] = staff.id;
-    this.joinChannels[allianceId] = join.id;
-
-    return {
+    // ----------------- ZAPIS ID -----------------
+    this.channels[allianceId] = {
       categoryId: category.id,
       welcomeId: welcome.id,
       announceId: announce.id,
@@ -130,58 +127,32 @@ export class ChannelModule {
       staffId: staff.id,
       joinId: join.id,
     };
-  }
 
-  // ----------------- UPDATE VISIBILITY -----------------
-  static async updateChannelVisibility(allianceId: string) {
-    const alliance = AllianceService.getAllianceOrThrow(allianceId);
-    const roles = alliance.roles;
-
-    // implementacja aktualizacji widoczności według ról
-  }
-
-  // ----------------- DELETE CHANNELS -----------------
-  static async deleteChannels(allianceId: string) {
-    const guild = AllianceService.getAllianceOrThrow(allianceId).guild;
-
-    const ids = [
-      this.welcomeChannels[allianceId],
-      this.announceChannels[allianceId],
-      this.chatChannels[allianceId],
-      this.staffChannels[allianceId],
-      this.joinChannels[allianceId],
-    ];
-
-    for (const id of ids) {
-      const channel = guild.channels.cache.get(id);
-      if (channel) await channel.delete();
-    }
-
-    delete this.welcomeChannels[allianceId];
-    delete this.announceChannels[allianceId];
-    delete this.chatChannels[allianceId];
-    delete this.staffChannels[allianceId];
-    delete this.joinChannels[allianceId];
+    return this.channels[allianceId];
   }
 
   // ----------------- GETTERS -----------------
-  static getWelcomeChannel(allianceId: string): string | undefined {
-    return this.welcomeChannels[allianceId];
+  static getChannel(allianceId: string, type: keyof typeof ChannelModule["channels"][string]): string | undefined {
+    return this.channels[allianceId]?.[type];
   }
 
-  static getAnnounceChannel(allianceId: string): string | undefined {
-    return this.announceChannels[allianceId];
+  static getAnnounceChannel(allianceId: string) {
+    return this.channels[allianceId]?.announceId;
   }
 
-  static getChatChannel(allianceId: string): string | undefined {
-    return this.chatChannels[allianceId];
+  static getWelcomeChannel(allianceId: string) {
+    return this.channels[allianceId]?.welcomeId;
   }
 
-  static getStaffChannel(allianceId: string): string | undefined {
-    return this.staffChannels[allianceId];
+  static getChatChannel(allianceId: string) {
+    return this.channels[allianceId]?.chatId;
   }
 
-  static getJoinChannel(allianceId: string): string | undefined {
-    return this.joinChannels[allianceId];
+  static getStaffChannel(allianceId: string) {
+    return this.channels[allianceId]?.staffId;
+  }
+
+  static getJoinChannel(allianceId: string) {
+    return this.channels[allianceId]?.joinId;
   }
 }
