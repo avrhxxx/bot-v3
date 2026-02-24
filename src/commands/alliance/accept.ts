@@ -6,15 +6,17 @@
  * LAYER: COMMAND (Alliance)
  * ============================================
  *
- * ODPOWIEDZIALNOŚĆ:
- * - Akceptacja zgłoszenia użytkownika do sojuszu
- * - Tylko dla R5 / R4 / leader
- * - Integracja z MembershipModule
+ * RESPONSIBILITY:
+ * - Accept a user's request to join the alliance
+ * - Only R5 / R4 / leader can approve
+ * - Integrates with MembershipModule
  *
- * TODO:
- * - Walidacja uprawnień (R5/R4/leader)
- * - Pobranie zgłoszenia z kolejki join
- * - Przypisanie członka do sojuszu
+ * NOTES:
+ * - Checks the leader/officer permissions
+ * - Fetches pending join request
+ * - Assigns the user to the alliance
+ * - Updates Discord roles
+ * - Broadcasts acceptance to the alliance
  *
  * ============================================
  */
@@ -27,56 +29,58 @@ import { BroadcastModule } from "../../system/alliance/modules/broadcast/Broadca
 
 export const AcceptCommand: Command = {
   name: "accept",
-  description: "Akceptuje zgłoszenie użytkownika do sojuszu",
+  description: "Accepts a user's request to join the alliance",
   execute: async (interaction) => {
     const actorId = interaction.user.id;
 
-    // 1️⃣ Pobranie sojuszu dla użytkownika
+    // 1️⃣ Get the alliance for the user (leader/officer)
     const alliance = await AllianceService.getAllianceByLeaderOrOfficer(actorId);
     if (!alliance) {
       await interaction.reply({
-        content: "Nie jesteś liderem ani oficerem żadnego sojuszu.",
+        content: "❌ You are not a leader or officer of any alliance.",
         ephemeral: true,
       });
       return;
     }
 
-    // 2️⃣ Pobranie zgłoszenia z kolejki
+    // 2️⃣ Get the pending join request
     const joinRequest = MembershipModule.getPendingRequest(alliance.id);
     if (!joinRequest) {
       await interaction.reply({
-        content: "Brak zgłoszeń oczekujących na akceptację.",
+        content: "❌ No pending join requests to approve.",
         ephemeral: true,
       });
       return;
     }
 
-    // 3️⃣ Walidacja uprawnień (R5/R4/Leader)
+    // 3️⃣ Check permissions (R5 / R4 / Leader)
     const isAuthorized = MembershipModule.canApprove(actorId, alliance.id);
     if (!isAuthorized) {
       await interaction.reply({
-        content: "Nie masz uprawnień do akceptacji członków.",
+        content: "❌ You do not have permission to approve members.",
         ephemeral: true,
       });
       return;
     }
 
-    // 4️⃣ Dodanie członka do sojuszu
+    // 4️⃣ Add the member to the alliance
     await MembershipModule.acceptMember(joinRequest.userId, alliance.id);
 
-    // 5️⃣ Nadanie ról Discord
+    // 5️⃣ Assign Discord roles
     await RoleModule.assignRole(joinRequest.member, alliance.roles.r3RoleId);
 
-    // 6️⃣ Powiadomienie
+    // 6️⃣ Broadcast the acceptance to the alliance
     await BroadcastModule.broadcast(
       alliance.id,
-      `Użytkownik <@${joinRequest.userId}> został zaakceptowany do sojuszu ${alliance.tag}!`
+      `✅ User <@${joinRequest.userId}> has been accepted into alliance ${alliance.tag}!`
     );
 
-    // 7️⃣ Odpowiedź dla osoby wykonującej komendę
+    // 7️⃣ Reply to the actor
     await interaction.reply({
-      content: `Akceptowano użytkownika <@${joinRequest.userId}> do sojuszu ${alliance.tag}.`,
+      content: `✅ You have accepted <@${joinRequest.userId}> into the alliance ${alliance.tag}.`,
       ephemeral: true,
     });
   },
 };
+
+export default AcceptCommand;
