@@ -1,17 +1,11 @@
 // File path: src/commands/alliance/transferLeader.ts
+// fillpatch: Alliance transfer leader command – allows current leader to transfer leadership
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { MutationGate } from "../../engine/MutationGate";
 
-/**
- * TransferLeaderCommand
- * ----------------------
- * Allows the current leader to transfer alliance leadership to another member.
- * - Checks that actor is a leader and that the new leader is in the same alliance.
- * - Executes atomically via MutationGate.
- */
 export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("transfer_leader")
