@@ -43,15 +43,33 @@ import { Health } from "./system/Health";
 import { startDiscord } from "./discord/client";
 import { SnapshotService } from "./system/snapshot/SnapshotService";
 import { SafeMode } from "./system/SafeMode";
-import { AllianceRepo, SnapshotRepo } from "./data/Repositories";
+import { AllianceRepo, SnapshotRepo, OwnershipRepo } from "./data/Repositories";
 import { CommandLoader } from "./commands/loader/CommandLoader";
 import { TimeModule } from "./system/TimeModule/TimeModule";
+import { Ownership } from "./system/Ownership";
 
 // -------------------------
 // ENVIRONMENT CHECK
 // -------------------------
 const RUN_CHECK_PROCESS = process.env.CHECK_PROCESS === "true";
 const GENERATE_IMPORTS = process.env.GENERATE_IMPORTS === "true";
+
+// -------------------------
+// SET BOT & DISCORD OWNERS FROM ENV
+// -------------------------
+const BOT_OWNER_ID = process.env.BOT_OWNER_ID;
+const DISCORD_OWNER_ID = process.env.DISCORD_OWNER_ID;
+
+if (!BOT_OWNER_ID || !DISCORD_OWNER_ID) {
+  console.error("❌ BOT_OWNER_ID or DISCORD_OWNER_ID environment variable is missing.");
+  SafeMode.activate("OWNERSHIP_NOT_SET");
+} else {
+  // Bez używania setup – zapisujemy ID od razu w repo
+  OwnershipRepo.set("BOT_OWNER", BOT_OWNER_ID);
+  OwnershipRepo.set("DISCORD_OWNER", DISCORD_OWNER_ID);
+  Ownership.enforceInvariant();
+  console.log(`✅ Ownership initialized from environment: BOT_OWNER=${BOT_OWNER_ID}, DISCORD_OWNER=${DISCORD_OWNER_ID}`);
+}
 
 // -------------------------
 // MODULE DEFINITION
@@ -77,11 +95,11 @@ const modules: ModuleDef[] = [
   { name: 'SnapshotService', importPath: './system/snapshot/SnapshotService', dependencies: ['IntegrityMonitor'] },
   { name: 'Dispatcher', importPath: './engine/Dispatcher' },
   { name: 'MutationGate', importPath: './engine/MutationGate', dependencies: ['Dispatcher'] },
-  { name: 'CommandDispatcher', importPath: './system/alliance/CommandDispatcher/CommandDispatcher', dependencies: ['OwnerModule'] },
+  // CommandDispatcher został usunięty
   { name: 'AllianceIntegrity', importPath: './system/alliance/integrity/AllianceIntegrity', dependencies: ['AllianceSystem'] },
   { name: 'AllianceOrchestrator', importPath: './system/alliance/orchestrator/AllianceOrchestrator', dependencies: ['RoleModule','ChannelModule','BroadcastModule','AllianceIntegrity'] },
   { name: 'AllianceService', importPath: './system/alliance/AllianceService', dependencies: ['AllianceSystem','AllianceIntegrity','AllianceOrchestrator'] },
-  { name: 'DiscordClient', importPath: './discord/client', dependencies: ['AllianceService','CommandDispatcher'] },
+  { name: 'DiscordClient', importPath: './discord/client', dependencies: ['AllianceService'] },
   { name: 'Journal', importPath: './journal/Journal', dependencies: ['AllianceSystem'] },
   { name: 'CommandLoader', importPath: './commands/loader/CommandLoader' }
 ];
@@ -146,7 +164,6 @@ async function runCheckProcess() {
 async function bootstrap() {
   console.log("System booting...");
 
-  // Pre-check process przy build/deploy
   if (RUN_CHECK_PROCESS) {
     await runCheckProcess();
   }
@@ -171,19 +188,15 @@ async function bootstrap() {
     console.log("Boot integrity failure. SafeMode activated.");
   }
 
-  // Uruchomienie monitoringu integralności
   IntegrityMonitor.start(15000);
 
-  // Start modułu czasu
   const timeModule = TimeModule.getInstance();
   timeModule.start(1000);
   console.log("TimeModule started.");
 
-  // Załaduj wszystkie komendy
   await CommandLoader.loadAllCommands();
   console.log("All commands loaded successfully.");
 
-  // Start Discord Client
   await startDiscord();
   console.log("System boot completed. Discord client running.");
 }
