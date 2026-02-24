@@ -1,16 +1,11 @@
 // File path: src/commands/alliance/demote.ts
+// fillpatch: Alliance demote command – demotes a member to lower rank
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-/**
- * DemoteCommand
- * ----------------
- * Demotes a member to a lower rank in the executing user's alliance.
- * Requires that the command issuer has sufficient permissions.
- */
 export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("demote")
