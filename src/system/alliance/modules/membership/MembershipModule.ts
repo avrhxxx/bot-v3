@@ -8,6 +8,7 @@
  * - Obsługa członkostwa w sojuszach (dołączanie, opuszczanie)
  * - Zarządzanie zgłoszeniami do sojuszu (pending joins)
  * - Rollback lidera w przypadku braku R5
+ * - Powiadamianie R4/R5 o nowych zgłoszeniach (join flow)
  *
  * ZALEŻNOŚCI:
  * - AllianceService (pobranie sojuszu i logowanie audytu)
@@ -20,6 +21,7 @@
  * UWAGA:
  * - Wszystkie mutacje są atomowe przez MutationGate.runAtomically
  * - Typy członków i ról są zgodne z AllianceTypes
+ * - Komenda join powiadamia R5/R4 w staff-room, którzy mogą approve/deny
  *
  * ============================================
  */
@@ -52,6 +54,11 @@ export class MembershipModule {
       alliance.pendingJoins.push({ userId: actorId, requestedAt: Date.now() });
 
       AllianceService.logAudit(allianceId, { action: "requestJoin", userId: actorId });
+
+      // ----------------- NOWOŚĆ: POWIADOMIENIE DO STAFF-ROOM -----------------
+      // Wywołanie broadcast do kanału R4/R5 informujące o zgłoszeniu
+      const staffMsg = `Użytkownik <@${actorId}> zgłosił chęć dołączenia do sojuszu.`;
+      await BroadcastModule.sendCustomMessage(allianceId, staffMsg);
     });
   }
 
