@@ -30,8 +30,8 @@ export * from "../commands/alliance/updateTag";
 export * from "./Health";
 export * from "./SafeMode";
 export * from "./Ownership/Ownership"; // ✅ poprawiona ścieżka (plik w folderze Ownership/)
-export * from "./Ownership/OwnerRoleManager"; // ✅ dodany import OwnerRoleManager
-export * from "./OwnerModule/OwnerModule";
+export * from "./Ownership/OwnerRoleManager"; // ✅ import OwnerRoleManager
+export * from "./Ownership/OwnerModule"; // ✅ poprawiona ścieżka OwnerModule
 export * from "./TimeModule/TimeModule";
 
 // Alliance core
