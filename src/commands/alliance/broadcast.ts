@@ -6,13 +6,13 @@
  * LAYER: COMMAND (Alliance)
  * ============================================
  *
- * ODPOWIEDZIALNOŚĆ:
- * - Wysyłanie wiadomości do wszystkich członków sojuszu
- * - Integracja z BroadcastModule
+ * RESPONSIBILITY:
+ * - Send a message to all alliance members
+ * - Integrates with BroadcastModule
  *
- * TODO:
- * - Pobranie listy członków z AllianceService
- * - Wysłanie wiadomości przy użyciu BroadcastModule
+ * NOTES:
+ * - Only R5/R4 members can broadcast
+ * - Message is sent to the alliance announce channel
  *
  * ============================================
  */
@@ -24,40 +24,42 @@ import { ChannelModule } from "../../system/alliance/modules/channel/ChannelModu
 
 export const BroadcastCommand: Command = {
   name: "broadcast",
-  description: "Wysyła wiadomość do wszystkich członków sojuszu",
+  description: "Sends a message to all alliance members",
   execute: async (interaction) => {
     const memberId = interaction.user.id;
     const guild = interaction.guild;
 
     if (!guild) return;
 
-    // Pobranie sojuszu użytkownika
+    // 1️⃣ Get the alliance for the user
     const alliance = AllianceSystem.getAllianceByMember(memberId);
     if (!alliance) {
-      return interaction.reply({ content: "Nie jesteś członkiem żadnego sojuszu.", ephemeral: true });
+      return interaction.reply({ content: "❌ You are not a member of any alliance.", ephemeral: true });
     }
 
-    // Sprawdzenie uprawnień (R4/R5)
+    // 2️⃣ Check permissions (R5/R4)
     if (!alliance.members.r5.includes(memberId) && !alliance.members.r4.includes(memberId)) {
-      return interaction.reply({ content: "Nie masz uprawnień do użycia tej komendy.", ephemeral: true });
+      return interaction.reply({ content: "❌ You do not have permission to use this command.", ephemeral: true });
     }
 
-    // Pobranie treści wiadomości z interakcji
+    // 3️⃣ Get the message content from the interaction
     const messageContent = interaction.options.getString("message");
     if (!messageContent) {
-      return interaction.reply({ content: "Musisz podać wiadomość do wysłania.", ephemeral: true });
+      return interaction.reply({ content: "❌ You must provide a message to send.", ephemeral: true });
     }
 
-    // Pobranie kanału announce
+    // 4️⃣ Get the announce channel
     const announceChannelId = ChannelModule.getChannelId(alliance.id, "announce");
     const announceChannel = guild.channels.cache.get(announceChannelId);
     if (!announceChannel?.isTextBased()) {
-      return interaction.reply({ content: "Nie udało się znaleźć kanału announce.", ephemeral: true });
+      return interaction.reply({ content: "❌ Could not find the announce channel.", ephemeral: true });
     }
 
-    // Wysłanie wiadomości przez BroadcastModule
+    // 5️⃣ Send the message via BroadcastModule
     await BroadcastModule.broadcast(announceChannel, messageContent, alliance);
 
-    // Nie wysyłamy ephemerala, bo sam kanał zobaczy wiadomość
+    // Note: No ephemeral reply needed, the message is visible in the announce channel
   },
 };
+
+export default BroadcastCommand;
