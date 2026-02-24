@@ -1,10 +1,12 @@
+// ============================================
+// FILE: package.json
+// ============================================
 {
   "name": "bot-v3",
   "version": "3.0.0-beta",
   "main": "dist/index.js",
   "scripts": {
-    "generate-imports": "ts-node src/scripts/GenerateImports.ts",
-    "build": "if [ \"$GENERATE_IMPORTS\" = \"true\" ]; then npm run generate-imports; fi && rm -rf dist && tsc",
+    "build": "rm -rf dist && tsc",
     "start": "npm run build && node dist/index.js"
   },
   "dependencies": {
