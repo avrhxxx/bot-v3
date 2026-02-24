@@ -6,15 +6,15 @@
  * LAYER: COMMAND (Alliance)
  * ============================================
  *
- * ODPOWIEDZIALNOŚĆ:
- * - Umożliwia użytkownikowi zgłoszenie chęci dołączenia do sojuszu
- * - Dodaje użytkownika do kolejki w MembershipModule
- * - Powiadamia R5 / R4 / leader o nowym zgłoszeniu
+ * RESPONSIBILITY:
+ * - Allows a user to request joining an alliance
+ * - Adds the user to the join queue in MembershipModule
+ * - Notifies R5 / R4 / leader about a new request
  *
- * UWAGA:
- * - Sprawdza, czy użytkownik nie należy już do sojuszu
- * - Sprawdza limity członków sojuszu
- * - Powiadomienie dla użytkownika wysyłane w DM
+ * NOTES:
+ * - Checks if the user is already in an alliance
+ * - Validates alliance member limits
+ * - Sends a DM notification to the user
  *
  * ============================================
  */
@@ -28,45 +28,45 @@ import { SafeMode } from "../../system/SafeMode";
 export const JoinCommand: Command = {
   data: new SlashCommandBuilder()
     .setName("join")
-    .setDescription("Zgłoszenie chęci dołączenia do sojuszu"),
+    .setDescription("Submit a request to join an alliance"),
 
   async execute(interaction: ChatInputCommandInteraction) {
     const userId = interaction.user.id;
 
     if (!interaction.guild) {
-      await interaction.reply({ content: "❌ Nie można dołączyć poza serwerem.", ephemeral: true });
+      await interaction.reply({ content: "❌ You cannot join outside a server.", ephemeral: true });
       return;
     }
 
     if (SafeMode.isActive()) {
-      await interaction.reply({ content: "⛔ System w SAFE_MODE – nie można dołączać do sojuszu.", ephemeral: true });
+      await interaction.reply({ content: "⛔ System in SAFE_MODE – cannot join an alliance.", ephemeral: true });
       return;
     }
 
     try {
-      // Sprawdzenie, czy użytkownik już należy do sojuszu
+      // Check if the user is already in an alliance
       const existingAlliance = await AllianceService.getAllianceByMember(userId, interaction.guild.id);
       if (existingAlliance) {
-        await interaction.reply({ content: "❌ Już należysz do sojuszu.", ephemeral: true });
+        await interaction.reply({ content: "❌ You are already in an alliance.", ephemeral: true });
         return;
       }
 
-      // Walidacja limitu członków
+      // Validate alliance member limit
       const totalMembers = await AllianceService.getTotalMembers(interaction.guild.id);
       if (totalMembers >= 100) {
-        await interaction.reply({ content: "❌ Limit członków w sojuszu osiągnięty.", ephemeral: true });
+        await interaction.reply({ content: "❌ Alliance member limit reached.", ephemeral: true });
         return;
       }
 
-      // Dodanie zgłoszenia do kolejki
+      // Add request to join queue
       await MembershipModule.addJoinRequest(userId, interaction.guild.id);
 
-      // Powiadomienie użytkownika
-      await interaction.user.send("✅ Twoje zgłoszenie do sojuszu zostało wysłane i oczekuje na akceptację.");
+      // Notify the user
+      await interaction.user.send("✅ Your request to join the alliance has been submitted and is awaiting approval.");
 
-      await interaction.reply({ content: "✅ Zgłoszenie wysłane.", ephemeral: true });
+      await interaction.reply({ content: "✅ Request submitted.", ephemeral: true });
     } catch (error: any) {
-      await interaction.reply({ content: `❌ Nie udało się wysłać zgłoszenia: ${error.message}`, ephemeral: true });
+      await interaction.reply({ content: `❌ Failed to submit request: ${error.message}`, ephemeral: true });
     }
   },
 };
