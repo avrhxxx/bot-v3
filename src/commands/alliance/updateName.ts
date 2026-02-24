@@ -1,13 +1,30 @@
-
 // File path: src/commands/alliance/updateName.ts
-// fillpatch: Alliance update name command – allows leader to change alliance name
+/**
+ * ============================================
+ * COMMAND: Update Name
+ * FILE: src/commands/alliance/updateName.ts
+ * LAYER: COMMAND (Alliance)
+ * ============================================
+ *
+ * RESPONSIBILITY:
+ * - Allows the alliance leader to change the alliance name
+ * - Validates new name format (letters and spaces only)
+ * - Integrates with AllianceSystem
+ *
+ * NOTES:
+ * - Only the leader can execute this command
+ * - Name max length: 32 characters
+ * - Sends confirmation or error message
+ *
+ * ============================================
+ */
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-export const Command: Command = {
+export const UpdateNameCommand: Command = {
   data: new SlashCommandBuilder()
     .setName("update_name")
     .setDescription("Change your alliance name (letters only)")
@@ -19,7 +36,7 @@ export const Command: Command = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const userId = interaction.user.id;
+    const actorId = interaction.user.id;
     const newName = interaction.options.getString("name", true);
 
     if (!interaction.guild) {
@@ -28,7 +45,7 @@ export const Command: Command = {
     }
 
     if (SafeMode.isActive()) {
-      await interaction.reply({ content: "⛔ System in SAFE_MODE – cannot update name.", ephemeral: true });
+      await interaction.reply({ content: "⛔ System in SAFE_MODE – cannot update alliance name.", ephemeral: true });
       return;
     }
 
@@ -38,18 +55,18 @@ export const Command: Command = {
     }
 
     try {
-      await AllianceSystem.updateName(userId, interaction.guild.id, newName);
+      await AllianceSystem.updateName(actorId, interaction.guild.id, newName);
       await interaction.reply({
-        content: `✅ Alliance name has been updated to \`${newName}\`.`,
+        content: `✅ Alliance name has been successfully updated to \`${newName}\`.`,
         ephemeral: false
       });
     } catch (error: any) {
       await interaction.reply({
-        content: `❌ Failed to update name: ${error.message}`,
+        content: `❌ Failed to update alliance name: ${error.message}`,
         ephemeral: true
       });
     }
   }
 };
 
-export default Command;
+export default UpdateNameCommand;
