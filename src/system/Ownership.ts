@@ -41,9 +41,8 @@ export class Ownership {
       },
       async () => {
         const existingBotOwner = OwnershipRepo.get(BOT_OWNER_KEY);
-
         if (existingBotOwner) {
-          throw new Error("Bot Owner already initialized");
+          throw new Error("Bot Owner is already initialized and cannot be overwritten.");
         }
 
         OwnershipRepo.set(BOT_OWNER_KEY, botOwnerId);
@@ -72,16 +71,16 @@ export class Ownership {
   // ----------------- TRANSFERS -----------------
   static async transferBotOwner(actorId: string, newOwnerId: string) {
     if (!this.isBotOwner(actorId)) {
-      throw new Error("Only current Bot Owner can transfer ownership");
+      throw new Error("Only the current Bot Owner can transfer ownership.");
     }
 
     if (SafeMode.isActive()) {
-      throw new Error("Cannot transfer during SAFE_MODE");
+      throw new Error("Ownership transfer is blocked: system is in SAFE_MODE.");
     }
 
     const health = Health.get();
     if (health.state !== "HEALTHY") {
-      throw new Error("Cannot transfer unless system is HEALTHY");
+      throw new Error("Ownership transfer blocked: system health is not HEALTHY.");
     }
 
     await MutationGate.execute(
@@ -98,7 +97,7 @@ export class Ownership {
 
   static async setDiscordOwner(actorId: string, newOwnerId: string) {
     if (!this.isBotOwner(actorId)) {
-      throw new Error("Only Bot Owner can set Discord Owner");
+      throw new Error("Only the Bot Owner can assign the Discord Owner.");
     }
 
     await MutationGate.execute(
