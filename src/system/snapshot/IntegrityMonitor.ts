@@ -1,3 +1,4 @@
+// src/system/snapshot/IntegrityMonitor.ts
 import { SnapshotService } from "./SnapshotService";
 import { Health } from "../Health";
 import { SafeMode } from "../SafeMode";
