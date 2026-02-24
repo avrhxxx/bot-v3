@@ -9,6 +9,7 @@
  * - Zarządzanie zgłoszeniami do sojuszu (pending joins)
  * - Rollback lidera w przypadku braku R5
  * - Powiadamianie R4/R5 o nowych zgłoszeniach (join flow)
+ * - Obsługa promocji i democji z broadcastami
  *
  * ZALEŻNOŚCI:
  * - AllianceService (pobranie sojuszu i logowanie audytu)
@@ -55,10 +56,12 @@ export class MembershipModule {
 
       AllianceService.logAudit(allianceId, { action: "requestJoin", userId: actorId });
 
-      // ----------------- NOWOŚĆ: POWIADOMIENIE DO STAFF-ROOM -----------------
-      // Wywołanie broadcast do kanału R4/R5 informujące o zgłoszeniu
+      // ----------------- POWIADOMIENIE DO STAFF-ROOM -----------------
       const staffMsg = `Użytkownik <@${actorId}> zgłosił chęć dołączenia do sojuszu.`;
       await BroadcastModule.sendCustomMessage(allianceId, staffMsg);
+
+      // Dodatkowy broadcast z pingiem R5/R4
+      await BroadcastModule.announceJoinRequest(allianceId, actorId, ["R5", "R4"]);
     });
   }
 
@@ -75,6 +78,9 @@ export class MembershipModule {
 
       AllianceIntegrity.validate(alliance);
       await BroadcastModule.announceJoin(allianceId, userId);
+
+      // Dodatkowy broadcast z pingiem Indify w welcome channel
+      await BroadcastModule.announceJoin(allianceId, userId, undefined, ["Indify"]);
 
       AllianceService.logAudit(allianceId, { action: "approveJoin", actorId, userId });
     });
@@ -117,6 +123,42 @@ export class MembershipModule {
     await MutationGate.runAtomically(async () => {
       await TransferLeaderSystem.rollbackLeadership(allianceId);
       AllianceService.logAudit(allianceId, { action: "rollbackLeadership", actorId });
+    });
+  }
+
+  // ----------------- PROMOTE -----------------
+  static async promoteUser(actorId: string, allianceId: string, userId: string, newRole: string): Promise<void> {
+    await MutationGate.runAtomically(async () => {
+      const alliance = AllianceService.getAllianceOrThrow(allianceId) as any;
+      const member = (alliance.members || []).find(m => m.userId === userId);
+      if (!member) throw new Error("User not found in alliance");
+
+      member.role = newRole;
+
+      AllianceIntegrity.validate(alliance);
+
+      // Broadcast promocji z pingiem
+      await BroadcastModule.announcePromotion(allianceId, userId, newRole, undefined, ["Indify"]);
+
+      AllianceService.logAudit(allianceId, { action: "promote", actorId, userId, newRole });
+    });
+  }
+
+  // ----------------- DEMOTE -----------------
+  static async demoteUser(actorId: string, allianceId: string, userId: string, newRole: string): Promise<void> {
+    await MutationGate.runAtomically(async () => {
+      const alliance = AllianceService.getAllianceOrThrow(allianceId) as any;
+      const member = (alliance.members || []).find(m => m.userId === userId);
+      if (!member) throw new Error("User not found in alliance");
+
+      member.role = newRole;
+
+      AllianceIntegrity.validate(alliance);
+
+      // Broadcast democji z pingiem
+      await BroadcastModule.announceDemotion(allianceId, userId, newRole, undefined, ["Indify"]);
+
+      AllianceService.logAudit(allianceId, { action: "demote", actorId, userId, newRole });
     });
   }
 
