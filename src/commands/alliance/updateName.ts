@@ -1,16 +1,12 @@
+
 // File path: src/commands/alliance/updateName.ts
+// fillpatch: Alliance update name command – allows leader to change alliance name
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-/**
- * UpdateNameCommand
- * -----------------
- * Allows the alliance leader to change the alliance's name.
- * - Name must contain only letters (A-Z, a-z) and spaces, max 32 characters.
- */
 export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("update_name")
