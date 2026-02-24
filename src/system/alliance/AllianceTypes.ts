@@ -39,6 +39,9 @@ export interface AllianceChannels {
   officersChannelId: string;     // Kanał dla R5 + R4
   membersChannelId: string;      // Kanał dla R5 + R4 + R3
   joinChannelId: string;         // Kanał publicznych zgłoszeń do sojuszu
+
+  announceChannelId: string;     // Kanał, w którym bot ogłasza wiadomości od R5/R4
+  welcomeChannelId: string;      // Kanał, w którym bot wita nowych członków
 }
 
 export interface Alliance {
@@ -54,4 +57,6 @@ export interface Alliance {
 
   orphaned: boolean;               // true jeśli brak prawidłowej struktury liderów
   createdAt: number;               // Timestamp utworzenia sojuszu
+
+  pendingJoins?: { userId: string; requestedAt: number }[];
 }
