@@ -166,3 +166,11 @@ export class MembershipModule {
   private static checkOrphanState(allianceId: string): boolean {
     const alliance = AllianceService.getAllianceOrThrow(allianceId) as any;
     return !((alliance.members || []).some(m => m.role === "R5"));
+  }
+}
+
+/**
+ * ============================================
+ * FILEPATH: src/system/alliance/modules/membership/MembershipModule.ts
+ * ============================================
+ */
