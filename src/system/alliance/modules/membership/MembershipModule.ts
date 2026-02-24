@@ -1,4 +1,28 @@
-// File path: src/system/alliance/modules/membership/MembershipModule.ts
+/**
+ * ============================================
+ * FILE: src/system/alliance/modules/membership/MembershipModule.ts
+ * LAYER: SYSTEM (Alliance Membership Module)
+ * ============================================
+ *
+ * ODPOWIEDZIALNOŚĆ:
+ * - Obsługa członkostwa w sojuszach (dołączanie, opuszczanie)
+ * - Zarządzanie zgłoszeniami do sojuszu
+ * - Rollback lidera w przypadku braku R5
+ *
+ * ZALEŻNOŚCI:
+ * - AllianceService (pobranie sojuszu i logowanie audytu)
+ * - RoleModule (aktualizacja ról w Discord)
+ * - BroadcastModule (ogłoszenia dla członków)
+ * - TransferLeaderSystem (rollback lidera)
+ * - AllianceIntegrity (walidacja stanu sojuszu)
+ * - MutationGate (atomiczne operacje)
+ *
+ * UWAGA:
+ * - Wszystkie mutacje muszą być wykonywane w MutationGate.runAtomically
+ * - Typy członków i ról są zgodne z AllianceTypes
+ *
+ * ============================================
+ */
 
 import { AllianceService } from "../AllianceService";
 import { RoleModule, AllianceRoles } from "../modules/role/RoleModule";
@@ -18,7 +42,6 @@ interface MemberRecord {
 }
 
 export class MembershipModule {
-
   // ----------------- JOIN -----------------
   static async requestJoin(actorId: string, allianceId: string): Promise<void> {
     await MutationGate.runAtomically(async () => {
@@ -36,7 +59,6 @@ export class MembershipModule {
       const alliance = AllianceService.getAllianceOrThrow(allianceId) as any;
       const roles: AllianceRoles = alliance.roles || {} as any;
 
-      // Dodanie członka
       alliance.members = alliance.members || [];
       alliance.members.push({ userId, role: "R3" });
 
