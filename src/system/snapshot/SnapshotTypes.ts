@@ -1,3 +1,4 @@
+// src/system/snapshot/SnapshotTypes.ts
 import { HealthState } from "../Health";
 
 /**
