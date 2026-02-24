@@ -1,17 +1,11 @@
 // File path: src/commands/alliance/promote.ts
+// fillpatch: Alliance promote command – promotes a member to higher rank
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-/**
- * PromoteCommand
- * ----------------
- * Allows a leader or moderator to promote a member in the alliance.
- * - Checks SafeMode and guild context.
- * - Ensures the target member is in the same alliance and eligible for promotion.
- */
 export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("promote")
