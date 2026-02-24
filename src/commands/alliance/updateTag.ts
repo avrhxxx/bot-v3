@@ -1,12 +1,29 @@
 // File path: src/commands/alliance/updateTag.ts
-// fillpatch: Alliance update tag command – allows leader to change alliance tag
+/**
+ * ============================================
+ * COMMAND: Update Tag
+ * FILE: src/commands/alliance/updateTag.ts
+ * LAYER: COMMAND (Alliance)
+ * ============================================
+ *
+ * RESPONSIBILITY:
+ * - Allows the alliance leader to change the alliance tag
+ * - Validates tag format (3 characters: letters and numbers only)
+ * - Integrates with AllianceSystem
+ *
+ * NOTES:
+ * - Only the leader can execute this command
+ * - Sends confirmation or error message
+ *
+ * ============================================
+ */
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-export const Command: Command = {
+export const UpdateTagCommand: Command = {
   data: new SlashCommandBuilder()
     .setName("update_tag")
     .setDescription("Change your alliance tag (letters and numbers only)")
@@ -18,7 +35,7 @@ export const Command: Command = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const userId = interaction.user.id;
+    const actorId = interaction.user.id;
     const newTag = interaction.options.getString("tag", true).toUpperCase();
 
     if (!interaction.guild) {
@@ -27,28 +44,31 @@ export const Command: Command = {
     }
 
     if (SafeMode.isActive()) {
-      await interaction.reply({ content: "⛔ System in SAFE_MODE – cannot update tag.", ephemeral: true });
+      await interaction.reply({ content: "⛔ System in SAFE_MODE – cannot update alliance tag.", ephemeral: true });
       return;
     }
 
     if (!/^[A-Z0-9]{3}$/.test(newTag)) {
-      await interaction.reply({ content: "❌ Tag must be exactly 3 characters: letters (A-Z) or numbers (0-9).", ephemeral: true });
+      await interaction.reply({
+        content: "❌ Tag must be exactly 3 characters: letters (A-Z) or numbers (0-9).",
+        ephemeral: true
+      });
       return;
     }
 
     try {
-      await AllianceSystem.updateTag(userId, interaction.guild.id, newTag);
+      await AllianceSystem.updateTag(actorId, interaction.guild.id, newTag);
       await interaction.reply({
-        content: `✅ Alliance tag has been updated to \`${newTag}\`.`,
+        content: `✅ Alliance tag has been successfully updated to \`${newTag}\`.`,
         ephemeral: false
       });
     } catch (error: any) {
       await interaction.reply({
-        content: `❌ Failed to update tag: ${error.message}`,
+        content: `❌ Failed to update alliance tag: ${error.message}`,
         ephemeral: true
       });
     }
   }
 };
 
-export default Command;
+export default UpdateTagCommand;
