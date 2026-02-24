@@ -16,7 +16,7 @@
  * - AllianceIntegrity (walidacja)
  *
  * UWAGA:
- * - Używa MutationGate (można w przyszłości przenieść wyżej)
+ * - Używa MutationGate (atomiczne operacje)
  * - getAllianceOrThrow musi być PUBLIC w AllianceService
  *
  * ============================================
@@ -27,12 +27,12 @@ import { RoleModule } from "./modules/role/RoleModule";
 import { BroadcastModule } from "./modules/broadcast/BroadcastModule";
 import { MutationGate } from "../../engine/MutationGate";
 import { AllianceIntegrity } from "./integrity/AllianceIntegrity";
-import { Alliance } from "./AllianceTypes";
+import { Alliance, AllianceMembers } from "./AllianceTypes";
 
 export class TransferLeaderSystem {
-
   static fallbackDelay = 3000;
 
+  // ----------------- MANUAL TRANSFER -----------------
   static async transferLeadership(actorId: string, allianceId: string, newLeaderId: string) {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
@@ -42,12 +42,14 @@ export class TransferLeaderSystem {
         throw new Error("Brak uprawnień do transferu lidera");
       }
 
+      // Zmiana roli obecnego lidera
       currentLeader.role = "R4";
       await RoleModule.assignRole(
         await alliance.guild.members.fetch(actorId),
         alliance.roles.r4RoleId
       );
 
+      // Przypisanie nowego lidera
       const newLeader = alliance.members.find(m => m.userId === newLeaderId);
       if (!newLeader) throw new Error("Nowy lider nie należy do sojuszu");
 
@@ -69,36 +71,39 @@ export class TransferLeaderSystem {
     });
   }
 
+  // ----------------- AUTOMATIC FALLBACK -----------------
   static async rollbackLeadership(allianceId: string) {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-      await new Promise(res =>
-        setTimeout(res, TransferLeaderSystem.fallbackDelay)
-      );
+      await new Promise(res => setTimeout(res, TransferLeaderSystem.fallbackDelay));
 
+      // Najpierw kandydaci R4
       const candidateR4 = alliance.members
         .filter(m => m.role === "R4")
-        .sort((a, b) => a.joinedAt - b.joinedAt)[0];
+        .sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0))[0];
 
       if (candidateR4) {
         await this.transferLeadershipSystem(allianceId, candidateR4.userId);
         return;
       }
 
+      // Następnie kandydaci R3
       const candidateR3 = alliance.members
         .filter(m => m.role === "R3")
-        .sort((a, b) => a.joinedAt - b.joinedAt)[0];
+        .sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0))[0];
 
       if (candidateR3) {
         await this.transferLeadershipSystem(allianceId, candidateR3.userId);
         return;
       }
 
+      // Brak kandydatów → usunięcie sojuszu
       await AllianceService.confirmDelete("SYSTEM", allianceId);
     });
   }
 
+  // ----------------- INTERNAL TRANSFER -----------------
   private static async transferLeadershipSystem(allianceId: string, newLeaderId: string) {
     const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
@@ -135,6 +140,7 @@ export class TransferLeaderSystem {
     });
   }
 
+  // ----------------- VALIDATION -----------------
   static validateLeadership(alliance: Alliance) {
     AllianceIntegrity.validate(alliance);
   }
