@@ -1,4 +1,5 @@
 // File path: src/commands/CommandRegistry.ts
+// fillpatch: Central registry storing all loaded commands
 
 import { Collection } from "discord.js";
 import { Command } from "./Command";
