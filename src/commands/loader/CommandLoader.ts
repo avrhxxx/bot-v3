@@ -1,4 +1,5 @@
 // File path: src/commands/loader/CommandLoader.ts
+// fillpatch: CommandLoader responsible for dynamic loading of all commands
 
 import fs from "fs";
 import path from "path";
