@@ -1,15 +1,11 @@
 // File path: src/commands/alliance/kick.ts
+// fillpatch: Alliance kick command – removes a member from alliance
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-/**
- * KickCommand
- * ----------------
- * Allows a user to kick a member from their alliance according to rank permissions.
- */
 export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("kick")
@@ -37,7 +33,6 @@ export const Command: Command = {
 
     try {
       const result = await AllianceSystem.kickMember(userId, targetUser.id, interaction.guild.id);
-      
       await interaction.reply({
         content: `✅ <@${targetUser.id}> has been kicked from the alliance.`,
         ephemeral: false
