@@ -1,6 +1,6 @@
 /**
  * ============================================
- * FILE: src/system/Ownership.ts
+ * FILE: src/system/Ownership/Ownership.ts
  * LAYER: SYSTEM (Ownership & Security)
  * ============================================
  *
@@ -22,11 +22,14 @@
  * ============================================
  */
 
+// ----------------- IMPORTY -----------------
+// Poprawione ścieżki po przeniesieniu plików Ownership do folderu Ownership/
 import { OwnershipRepo } from "../data/Repositories";
 import { MutationGate } from "../engine/MutationGate";
-import { SafeMode } from "./SafeMode";
-import { Health } from "./Health";
+import { SafeMode } from "./Ownership/SafeMode"; // <- nowa ścieżka
+import { Health } from "./Ownership/Health"; // <- nowa ścieżka
 
+// ----------------- KLUCZE -----------------
 const BOT_OWNER_KEY = "BOT_OWNER";
 const DISCORD_OWNER_KEY = "DISCORD_OWNER";
 
