@@ -1,13 +1,32 @@
-// src/system/alliance/integrity/AllianceIntegrity.ts
-import { Guild, Role, TextChannel, CategoryChannel } from "discord.js";
+/**
+ * ============================================
+ * FILE: src/system/alliance/integrity/AllianceIntegrity.ts
+ * LAYER: SYSTEM (Alliance Integrity & Validation)
+ * ============================================
+ *
+ * ODPOWIEDZIALNOŚĆ:
+ * - Sprawdza spójność sojuszu
+ * - Waliduje role, członków, kanały i limity
+ * - Zapewnia, że limity członków są zgodne z zasadami (R5 + R4 + R3 ≤ 100, max 10 R4)
+ *
+ * ZALEŻNOŚCI:
+ * - AllianceTypes
+ *
+ * UWAGA:
+ * - Walidacja uwzględnia wszystkie role w jednym limicie
+ * - Nie wykonuje rollbacku – operacje mutacyjne powinny być atomowe
+ *
+ * ============================================
+ */
+
 import { Alliance, AllianceRoles, AllianceChannels, AllianceMember } from "../AllianceTypes";
 
 export class AllianceIntegrity {
-  static MAX_MEMBERS = 100;
-  static MAX_R4 = 10;
+  static MAX_MEMBERS = 100;   // limit wszystkich członków (R5+R4+R3)
+  static MAX_R4 = 10;         // limit moderatorów
 
   /**
-   * Sprawdza pełną spójność sojuszu
+   * Walidacja całego sojuszu
    */
   static validate(alliance: Alliance): void {
     if (!alliance.roles) throw new Error("Alliance missing roles");
@@ -72,8 +91,20 @@ export class AllianceIntegrity {
 
   private static validateLimits(members: AllianceMember[]) {
     const r4Count = members.filter(m => m.role === "R4").length;
-    if (r4Count > this.MAX_R4) throw new Error(`Too many R4 members: ${r4Count}`);
-    if (members.length > this.MAX_MEMBERS)
-      throw new Error(`Too many total members: ${members.length}`);
+    const totalCount = members.length; // R5 + R4 + R3 razem
+
+    if (r4Count > this.MAX_R4) {
+      throw new Error(`Too many R4 members: ${r4Count}`);
+    }
+
+    if (totalCount > this.MAX_MEMBERS) {
+      throw new Error(`Too many total members (R5+R4+R3): ${totalCount}`);
+    }
   }
 }
+
+/**
+ * ============================================
+ * FILEPATH: src/system/alliance/integrity/AllianceIntegrity.ts
+ * ============================================
+ */
