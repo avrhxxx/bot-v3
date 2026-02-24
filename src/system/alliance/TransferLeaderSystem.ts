@@ -1,3 +1,27 @@
+/**
+ * ============================================
+ * FILE: src/system/alliance/TransferLeaderSystem.ts
+ * LAYER: SYSTEM (Leadership Domain Logic)
+ * ============================================
+ *
+ * ODPOWIEDZIALNOŚĆ:
+ * - Manualny transfer lidera (R5 → R5)
+ * - Automatyczny fallback (R4 → R3 → delete)
+ * - Walidacja spójności lidera
+ *
+ * ZALEŻNOŚCI:
+ * - AllianceService (pobranie sojuszu + audit)
+ * - RoleModule (aktualizacja ról Discord)
+ * - BroadcastModule (ogłoszenia)
+ * - AllianceIntegrity (walidacja)
+ *
+ * UWAGA:
+ * - Używa MutationGate (można w przyszłości przenieść wyżej)
+ * - getAllianceOrThrow musi być PUBLIC w AllianceService
+ *
+ * ============================================
+ */
+
 import { AllianceService } from "./AllianceService";
 import { RoleModule } from "./modules/role/RoleModule";
 import { BroadcastModule } from "./modules/broadcast/BroadcastModule";
@@ -6,9 +30,9 @@ import { AllianceIntegrity } from "./integrity/AllianceIntegrity";
 import { Alliance } from "./AllianceTypes";
 
 export class TransferLeaderSystem {
+
   static fallbackDelay = 3000;
 
-  // ----------------- MANUAL TRANSFER -----------------
   static async transferLeadership(actorId: string, allianceId: string, newLeaderId: string) {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
@@ -35,11 +59,7 @@ export class TransferLeaderSystem {
 
       AllianceIntegrity.validate(alliance);
 
-      await BroadcastModule.announceLeadershipChange(
-        allianceId,
-        actorId,
-        newLeaderId
-      );
+      await BroadcastModule.announceLeadershipChange(allianceId, actorId, newLeaderId);
 
       AllianceService.logAudit(allianceId, {
         action: "transferLeadership",
@@ -49,7 +69,6 @@ export class TransferLeaderSystem {
     });
   }
 
-  // ----------------- ROLLBACK / AUTOMATIC -----------------
   static async rollbackLeadership(allianceId: string) {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
@@ -80,7 +99,6 @@ export class TransferLeaderSystem {
     });
   }
 
-  // ----------------- HELPERS -----------------
   private static async transferLeadershipSystem(allianceId: string, newLeaderId: string) {
     const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
