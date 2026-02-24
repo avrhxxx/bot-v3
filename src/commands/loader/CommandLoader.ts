@@ -1,5 +1,5 @@
 // File path: src/commands/loader/CommandLoader.ts
-// fillpatch: CommandLoader responsible for dynamic loading of all commands
+// fillpatch: CommandLoader responsible for dynamic loading of all commands (now independent of CommandDispatcher)
 
 import fs from "fs";
 import path from "path";
@@ -7,6 +7,10 @@ import { Command } from "../Command";
 import { CommandRegistry } from "../CommandRegistry";
 
 export class CommandLoader {
+  /**
+   * Load all command modules dynamically and register them into CommandRegistry.
+   * This replaces the old CommandDispatcher registration system.
+   */
   static async loadAllCommands(): Promise<void> {
     const commandsDir = path.resolve(__dirname, ".."); 
 
