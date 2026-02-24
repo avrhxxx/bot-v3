@@ -21,6 +21,7 @@
  * ============================================
  */
 
+import { ChatInputCommandInteraction } from "discord.js";
 import { Command } from "../Command";
 import { MembershipModule } from "../../system/alliance/modules/membership/MembershipModule";
 import { AllianceService } from "../../system/alliance/AllianceService";
@@ -30,7 +31,7 @@ import { BroadcastModule } from "../../system/alliance/modules/broadcast/Broadca
 export const AcceptCommand: Command = {
   name: "accept",
   description: "Accepts a user's request to join the alliance",
-  execute: async (interaction) => {
+  execute: async (interaction: ChatInputCommandInteraction) => {
     const actorId = interaction.user.id;
 
     // 1️⃣ Get the alliance for the user (leader/officer)
@@ -44,7 +45,7 @@ export const AcceptCommand: Command = {
     }
 
     // 2️⃣ Get the pending join request
-    const joinRequest = MembershipModule.getPendingRequest(alliance.id);
+    const joinRequest = await MembershipModule.getPendingRequest(alliance.id);
     if (!joinRequest) {
       await interaction.reply({
         content: "❌ No pending join requests to approve.",
@@ -54,7 +55,7 @@ export const AcceptCommand: Command = {
     }
 
     // 3️⃣ Check permissions (R5 / R4 / Leader)
-    const isAuthorized = MembershipModule.canApprove(actorId, alliance.id);
+    const isAuthorized = await MembershipModule.canApprove(actorId, alliance.id);
     if (!isAuthorized) {
       await interaction.reply({
         content: "❌ You do not have permission to approve members.",
@@ -67,7 +68,9 @@ export const AcceptCommand: Command = {
     await MembershipModule.acceptMember(joinRequest.userId, alliance.id);
 
     // 5️⃣ Assign Discord roles
-    await RoleModule.assignRole(joinRequest.member, alliance.roles.r3RoleId);
+    if (joinRequest.member) {
+      await RoleModule.assignRole(joinRequest.member, alliance.roles.r3RoleId);
+    }
 
     // 6️⃣ Broadcast the acceptance to the alliance
     await BroadcastModule.broadcast(
