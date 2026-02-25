@@ -10,11 +10,11 @@
  * - Allows the current leader to transfer leadership to another member
  * - Validates that the actor is the current leader
  * - Checks that the new leader is a member of the alliance
- * - Integrates with AllianceSystem and MutationGate
+ * - Integrates with AllianceOrchestrator
  *
  * NOTES:
  * - Only the current leader can execute this command
- * - Uses MutationGate for safe execution
+ * - Uses MutationGate for safe execution inside the orchestrator
  * - Replies with confirmation or error messages
  *
  * ============================================
@@ -22,8 +22,7 @@
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
-import { AllianceSystem } from "../../system/alliance/AllianceSystem";
-import { MutationGate } from "../../engine/MutationGate";
+import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
 
 export const TransferLeaderCommand: Command = {
   data: new SlashCommandBuilder()
@@ -42,35 +41,11 @@ export const TransferLeaderCommand: Command = {
     const actorId = interaction.user.id;
     const newLeader = interaction.options.getUser("new_leader", true);
 
-    // 1️⃣ Get the alliance of the actor
-    const alliance = await AllianceSystem.getAllianceByMember(actorId);
-    if (!alliance) {
-      await interaction.reply({ content: "❌ You are not in an alliance.", ephemeral: true });
-      return;
-    }
-
-    // 2️⃣ Check if actor is the current leader
-    if (!AllianceSystem.isLeader(alliance, actorId)) {
-      await interaction.reply({ content: "⛔ Only the leader can transfer leadership.", ephemeral: true });
-      return;
-    }
-
-    // 3️⃣ Check if new leader is a member of the alliance
-    if (!AllianceSystem.isMember(alliance, newLeader.id)) {
-      await interaction.reply({ content: "❌ The selected user is not a member of your alliance.", ephemeral: true });
-      return;
-    }
-
     try {
-      // 4️⃣ Execute transfer safely via MutationGate
-      await MutationGate.execute(
-        { operation: "TRANSFER_LEADER", actor: actorId, requireGlobalLock: false },
-        async () => {
-          await AllianceSystem.transferLeader(alliance, newLeader.id);
-        }
-      );
+      // 1️⃣ Transfer leadership atomically via AllianceOrchestrator
+      await AllianceOrchestrator.transferLeader(actorId, newLeader.id, interaction.guild?.id!);
 
-      // 5️⃣ Confirmation message
+      // 2️⃣ Confirmation message
       await interaction.reply({
         content: `✅ Leadership has been successfully transferred to <@${newLeader.id}>.`,
         ephemeral: false
