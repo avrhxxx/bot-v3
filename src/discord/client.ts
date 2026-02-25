@@ -14,7 +14,7 @@
  * - All commands loaded via CommandLoader / CommandRegistry
  */
 
-import { Client, GatewayIntentBits, REST, Routes, Interaction } from "discord.js";
+import { Client, GatewayIntentBits, REST, Routes, ChatInputCommandInteraction } from "discord.js";
 import { config } from "../config/config";
 import { CommandRegistry } from "../commands/CommandRegistry";
 import { Dispatcher } from "../engine/Dispatcher";
@@ -25,6 +25,7 @@ export const client = new Client({
 });
 
 const registry = new CommandRegistry();
+const dispatcher = new Dispatcher(registry);
 
 // 🔹 Load all commands dynamically
 (async () => {
@@ -32,16 +33,13 @@ const registry = new CommandRegistry();
   allCommands.forEach(cmd => registry.register(cmd));
 })();
 
-const dispatcher = new Dispatcher(registry);
-
-export async function startDiscord() {
+export async function startDiscord(): Promise<void> {
   try {
     console.log("Registering slash commands...");
 
     const rest = new REST({ version: "10" }).setToken(config.token);
 
     const commands = registry.getAll().map(cmd => cmd.data.toJSON());
-
     await rest.put(
       Routes.applicationGuildCommands(config.clientId, config.guildId),
       { body: commands }
@@ -49,9 +47,9 @@ export async function startDiscord() {
 
     console.log("Slash commands registered successfully.");
 
-    client.on("interactionCreate", async (interaction: Interaction) => {
+    client.on("interactionCreate", async (interaction) => {
       if (!interaction.isChatInputCommand()) return;
-      await dispatcher.dispatch(interaction);
+      await dispatcher.dispatch(interaction as ChatInputCommandInteraction);
     });
 
     await client.login(config.token);
