@@ -1,15 +1,24 @@
 // File path: src/commands/loader/CommandLoader.ts
-// fillpatch: CommandLoader responsible for dynamic loading of all commands (now independent of CommandDispatcher)
-
 import fs from "fs";
 import path from "path";
 import { Command } from "../Command";
 import { CommandRegistry } from "../CommandRegistry";
+// ✅ Jeśli w przyszłości pojawią się problemy z importami dynamicznymi w Node.js, 
+// możemy użyć import { pathToFileURL } from "url"; i wtedy import(pathToFileURL(file).href)
 
+/**
+ * fillpatch: CommandLoader responsible for dynamic loading of all commands 
+ * (now independent of CommandDispatcher)
+ */
 export class CommandLoader {
   /**
    * Load all command modules dynamically and register them into CommandRegistry.
    * This replaces the old CommandDispatcher registration system.
+   *
+   * Notes:
+   * - Supports both `export default Command` and `export const Command`.
+   * - Logs the file path and command name for debugging.
+   * - Skips non-.ts files and CommandLoader.ts itself.
    */
   static async loadAllCommands(): Promise<void> {
     const commandsDir = path.resolve(__dirname, ".."); 
@@ -29,7 +38,8 @@ export class CommandLoader {
 
     for (const file of files) {
       try {
-        const importedModule = await import(file);
+        // ℹ️ Dynamic import using file path (works for both default and named exports)
+        const importedModule = await import(file); 
         const exportedCommand: Command | undefined =
           importedModule?.default || Object.values(importedModule).find((exp) => (exp as Command)?.data);
 
@@ -37,9 +47,11 @@ export class CommandLoader {
           CommandRegistry.register(exportedCommand);
           console.log(`✅ Command loaded: ${exportedCommand.data.name} (${file})`);
         } else {
+          // ⚠️ Plik TS nie zawiera prawidłowej komendy (brak `data`)
           console.warn(`⚠️ No valid command found in ${file}`);
         }
       } catch (err) {
+        // ❌ Import lub inicjalizacja modułu nie powiodła się
         console.error(`❌ Failed to load command from ${file}:`, err);
       }
     }
