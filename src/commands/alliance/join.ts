@@ -8,7 +8,7 @@
  *
  * RESPONSIBILITY:
  * - Allows a user to request joining an alliance
- * - Adds the user to the join queue in MembershipModule
+ * - Adds the user to the join queue in AllianceOrchestrator
  * - Notifies R5 / R4 / leader about a new request
  *
  * NOTES:
@@ -21,20 +21,9 @@
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
-import { MembershipModule } from "../../system/alliance/modules/membership/MembershipModule";
+import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
 import { AllianceService } from "../../system/alliance/AllianceService";
 import { SafeMode } from "../../system/SafeMode";
-
-// Temporary stubs to ensure build passes
-if (!AllianceService.getAllianceByMember) {
-  (AllianceService as any).getAllianceByMember = async (userId: string, guildId: string) => null;
-}
-if (!AllianceService.getTotalMembers) {
-  (AllianceService as any).getTotalMembers = async (guildId: string) => 0;
-}
-if (!MembershipModule.addJoinRequest) {
-  (MembershipModule as any).addJoinRequest = async () => {};
-}
 
 export const JoinCommand: Command = {
   data: new SlashCommandBuilder()
@@ -55,29 +44,21 @@ export const JoinCommand: Command = {
     }
 
     try {
-      // Check if the user is already in an alliance
-      const existingAlliance = await AllianceService.getAllianceByMember(userId, interaction.guild.id);
-      if (existingAlliance) {
-        await interaction.reply({ content: "❌ You are already in an alliance.", ephemeral: true });
-        return;
-      }
+      // 1️⃣ Use Orchestrator to submit join request atomically
+      await AllianceOrchestrator.requestJoin(userId, interaction.guild.id);
 
-      // Validate alliance member limit
-      const totalMembers = await AllianceService.getTotalMembers(interaction.guild.id);
-      if (totalMembers >= 100) {
-        await interaction.reply({ content: "❌ Alliance member limit reached.", ephemeral: true });
-        return;
-      }
+      // 2️⃣ Notify the user
+      await interaction.user.send(
+        "✅ Your request to join the alliance has been submitted and is awaiting approval."
+      );
 
-      // Add request to join queue
-      await MembershipModule.addJoinRequest(userId, interaction.guild.id);
-
-      // Notify the user
-      await interaction.user.send("✅ Your request to join the alliance has been submitted and is awaiting approval.");
-
+      // 3️⃣ Confirm to the command issuer
       await interaction.reply({ content: "✅ Request submitted.", ephemeral: true });
     } catch (error: any) {
-      await interaction.reply({ content: `❌ Failed to submit request: ${error.message}`, ephemeral: true });
+      await interaction.reply({
+        content: `❌ Failed to submit request: ${error.message}`,
+        ephemeral: true,
+      });
     }
   },
 };
