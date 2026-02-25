@@ -36,26 +36,26 @@ export type BroadcastEvent =
   | "tagChange"
   | "allianceRemoval";
 
-/** Payload for broadcasting alliance events */
-export interface BroadcastPayload {
-  allianceId: string;
-  userId?: string;
-  actorId?: string;          // for custom messages
-  oldLeaderId?: string;
-  newLeaderId?: string;
-  newRole?: AllianceRole;
-  message?: string;
-  channelId: string;
-  pingRoleIds?: string[];
-  pingUserIds?: string[];
+/** Payload map for each broadcast event */
+interface EventPayloadMap {
+  joinRequest: { allianceId: string; userId: string; channelId: string; pingRoleIds?: string[]; pingUserIds?: string[] };
+  join: { allianceId: string; userId: string; channelId: string; pingRoleIds?: string[]; pingUserIds?: string[] };
+  leave: { allianceId: string; userId: string; channelId: string; pingRoleIds?: string[]; pingUserIds?: string[] };
+  promotion: { allianceId: string; userId: string; newRole: AllianceRole; channelId: string; pingRoleIds?: string[]; pingUserIds?: string[] };
+  demotion: { allianceId: string; userId: string; newRole: AllianceRole; channelId: string; pingRoleIds?: string[]; pingUserIds?: string[] };
+  customMessage: { allianceId: string; message: string; actorId?: string; channelId: string; pingRoleIds?: string[]; pingUserIds?: string[] };
+  leadershipChange: { allianceId: string; oldLeaderId: string; newLeaderId: string; channelId: string; pingRoleIds?: string[] };
+  nameChange: { allianceId: string; message: string; channelId: string; pingRoleIds?: string[] };
+  tagChange: { allianceId: string; message: string; channelId: string; pingRoleIds?: string[] };
+  allianceRemoval: { allianceId: string; message: string; channelId: string; pingRoleIds?: string[] };
 }
 
 /** Listener type for each event */
-type BroadcastListener<T extends BroadcastEvent> = (payload: BroadcastPayload) => void;
+type BroadcastListener<T extends BroadcastEvent> = (payload: EventPayloadMap[T]) => void;
 
 /** BroadcastModule - emits events for alliance changes */
 export class BroadcastModule {
-  private static listeners: Partial<Record<BroadcastEvent, BroadcastListener<BroadcastEvent>[]>> = {};
+  private static listeners: Partial<{ [K in BroadcastEvent]: BroadcastListener<K>[] }> = {};
 
   // ----------------- EVENT MANAGEMENT -----------------
   static on<T extends BroadcastEvent>(event: T, listener: BroadcastListener<T>) {
@@ -63,7 +63,7 @@ export class BroadcastModule {
     this.listeners[event]!.push(listener as BroadcastListener<BroadcastEvent>);
   }
 
-  static emit<T extends BroadcastEvent>(event: T, payload: BroadcastPayload) {
+  static emit<T extends BroadcastEvent>(event: T, payload: EventPayloadMap[T]) {
     const eventListeners = this.listeners[event] ?? [];
     for (const listener of eventListeners) {
       try {
@@ -85,141 +85,68 @@ export class BroadcastModule {
   }
 
   // ----------------- ALLIANCE-SPECIFIC -----------------
-
-  static async announceJoinRequest(
-    allianceId: string,
-    userId: string,
-    pingRoleIds?: string[],
-    pingUserIds?: string[]
-  ) {
+  static async announceJoinRequest(allianceId: string, userId: string, pingRoleIds?: string[], pingUserIds?: string[]) {
     const channelId = ChannelModule.getStaffChannel(allianceId);
     if (!channelId) return;
     this.emit("joinRequest", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
   }
 
-  static async announceJoin(
-    allianceId: string,
-    userId: string,
-    pingRoleIds?: string[],
-    pingUserIds?: string[]
-  ) {
+  static async announceJoin(allianceId: string, userId: string, pingRoleIds?: string[], pingUserIds?: string[]) {
     const channelId = ChannelModule.getWelcomeChannel(allianceId);
     if (!channelId) return;
     this.emit("join", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
   }
 
-  static async announceLeave(
-    allianceId: string,
-    userId: string,
-    pingRoleIds?: string[],
-    pingUserIds?: string[]
-  ) {
+  static async announceLeave(allianceId: string, userId: string, pingRoleIds?: string[], pingUserIds?: string[]) {
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
     this.emit("leave", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
   }
 
-  static async announcePromotion(
-    allianceId: string,
-    userId: string,
-    newRole: AllianceRole,
-    pingRoleIds?: string[],
-    pingUserIds?: string[]
-  ) {
+  static async announcePromotion(allianceId: string, userId: string, newRole: AllianceRole, pingRoleIds?: string[], pingUserIds?: string[]) {
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
     this.emit("promotion", { allianceId, userId, newRole, channelId, pingRoleIds, pingUserIds });
   }
 
-  static async announceDemotion(
-    allianceId: string,
-    userId: string,
-    newRole: AllianceRole,
-    pingRoleIds?: string[],
-    pingUserIds?: string[]
-  ) {
+  static async announceDemotion(allianceId: string, userId: string, newRole: AllianceRole, pingRoleIds?: string[], pingUserIds?: string[]) {
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
     this.emit("demotion", { allianceId, userId, newRole, channelId, pingRoleIds, pingUserIds });
   }
 
-  static async sendCustomMessage(
-    allianceId: string,
-    message: string,
-    actorId?: string,
-    pingRoleIds?: string[],
-    pingUserIds?: string[]
-  ) {
+  static async sendCustomMessage(allianceId: string, message: string, actorId?: string, pingRoleIds?: string[], pingUserIds?: string[]) {
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
     this.emit("customMessage", { allianceId, actorId, message, channelId, pingRoleIds, pingUserIds });
   }
 
-  static async announceLeadershipChange(
-    allianceId: string,
-    oldLeaderId: string,
-    newLeaderId: string,
-    identityRoleId: string
-  ) {
+  static async announceLeadershipChange(allianceId: string, oldLeaderId: string, newLeaderId: string, identityRoleId: string) {
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
-    this.emit("leadershipChange", {
-      allianceId,
-      oldLeaderId,
-      newLeaderId,
-      channelId,
-      pingRoleIds: [identityRoleId],
-    });
+    this.emit("leadershipChange", { allianceId, oldLeaderId, newLeaderId, channelId, pingRoleIds: [identityRoleId] });
   }
 
-  static async announceNameChange(
-    allianceId: string,
-    oldName: string,
-    newName: string,
-    identityRoleId: string
-  ) {
+  static async announceNameChange(allianceId: string, oldName: string, newName: string, identityRoleId: string) {
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
-    this.emit("nameChange", {
-      allianceId,
-      message: `📝 Alliance name changed from **${oldName}** to **${newName}**.`,
-      channelId,
-      pingRoleIds: [identityRoleId],
-    });
+    this.emit("nameChange", { allianceId, message: `📝 Alliance name changed from **${oldName}** to **${newName}**.`, channelId, pingRoleIds: [identityRoleId] });
   }
 
-  static async announceTagChange(
-    allianceId: string,
-    oldTag: string,
-    newTag: string,
-    identityRoleId: string
-  ) {
+  static async announceTagChange(allianceId: string, oldTag: string, newTag: string, identityRoleId: string) {
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
-    this.emit("tagChange", {
-      allianceId,
-      message: `🏷️ Alliance tag changed from **${oldTag}** to **${newTag}**.`,
-      channelId,
-      pingRoleIds: [identityRoleId],
-    });
+    this.emit("tagChange", { allianceId, message: `🏷️ Alliance tag changed from **${oldTag}** to **${newTag}**.`, channelId, pingRoleIds: [identityRoleId] });
   }
 
-  static async announceAllianceRemoval(
-    allianceId: string,
-    identityRoleId: string
-  ) {
+  static async announceAllianceRemoval(allianceId: string, identityRoleId: string) {
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
-    this.emit("allianceRemoval", {
-      allianceId,
-      message: `❌ The alliance has been removed.`,
-      channelId,
-      pingRoleIds: [identityRoleId],
-    });
+    this.emit("allianceRemoval", { allianceId, message: `❌ The alliance has been removed.`, channelId, pingRoleIds: [identityRoleId] });
   }
 
   // ----------------- MESSAGE FORMAT -----------------
-  static formatMessage(event: BroadcastEvent, payload: BroadcastPayload): string {
+  static formatMessage(event: BroadcastEvent, payload: EventPayloadMap[typeof event]): string {
     const pingRoles = (payload.pingRoleIds ?? []).map(r => `<@&${r}>`).join(' ');
     const pingUsers = (payload.pingUserIds ?? []).map(u => `<@${u}>`).join(' ');
 
@@ -235,7 +162,7 @@ export class BroadcastModule {
       case "demotion":
         return `⬇️ User <@${payload.userId}> was demoted to ${payload.newRole}.${pingRoles} ${pingUsers}`;
       case "customMessage":
-        return `📢 <@${payload.actorId}> says: ${payload.message}${pingRoles} ${pingUsers}`;
+        return `📢 ${payload.actorId ? `<@${payload.actorId}>` : ""} says: ${payload.message ?? ""}${pingRoles} ${pingUsers}`;
       case "leadershipChange":
         return `👑 Leadership Change: <@${payload.oldLeaderId}> → <@${payload.newLeaderId}> ${pingRoles}`;
       case "nameChange":
