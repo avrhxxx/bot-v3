@@ -1,7 +1,7 @@
 // src/data/Repositories.ts
 
 import { db } from "./Database";
-import { Alliance } from "../features/alliance/AllianceTypes";
+import { Alliance } from "../system/alliance/AllianceTypes";
 import { SnapshotRecord, OwnershipRecord, HealthStateType } from "../system/snapshot/SnapshotTypes";
 
 // ---------------------------
