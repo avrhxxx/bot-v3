@@ -146,11 +146,11 @@ export class BroadcastModule {
 
     switch (event) {
       case "joinRequest":
-        return `📝 User <@${payload.userId}> requested to join the alliance.${pingRoles} ${pingUsers}`;
+        return `📝 User <@${payload.userId}> has requested to join the alliance.${pingRoles} ${pingUsers}`;
       case "join":
-        return `🎉 <@${payload.userId}> joined the alliance!${pingRoles} ${pingUsers}`;
+        return `🎉 User <@${payload.userId}> has joined the alliance!${pingRoles} ${pingUsers}`;
       case "leave":
-        return `❌ <@${payload.userId}> left the alliance.${pingRoles} ${pingUsers}`;
+        return `❌ User <@${payload.userId}> has left the alliance.${pingRoles} ${pingUsers}`;
       case "promotion":
         return `⬆️ User <@${payload.userId}> was promoted to ${payload.newRole}!${pingRoles} ${pingUsers}`;
       case "demotion":
