@@ -30,24 +30,28 @@
  * ============================================
  */
 
-import { MutationGate } from "../../engine/MutationGate";
-import { AllianceRepo, PendingDeletionRepo } from "../../data/Repositories";
-import { Alliance, AllianceRoles, AllianceChannels } from "./AllianceTypes";
-import { Ownership } from "../Ownership";
-import { AllianceIntegrity } from "./integrity/AllianceIntegrity";
-import { BroadcastModule } from "./modules/broadcast/BroadcastModule";
-import { RoleModule } from "./modules/role/RoleModule";
-import { TransferLeaderSystem } from "./TransferLeaderSystem";
-import { db } from "../../data/Database";
+// ----------------- IMPORTY -----------------
+import { MutationGate } from "../../engine/MutationGate"; // atomowość operacji
+import { AllianceRepo, PendingDeletionRepo } from "../../data/Repositories"; // repozytoria
+import { Alliance, AllianceRoles, AllianceChannels } from "./AllianceTypes"; // typy sojuszu
+import { Ownership } from "../Ownership/ownership"; // folder Ownership, plik ownership.ts
+import { AllianceIntegrity } from "./integrity/AllianceIntegrity"; // walidacja i logika integralności
+import { BroadcastModule } from "./modules/broadcast/BroadcastModule"; // moduł broadcast
+import { RoleModule } from "./modules/role/RoleModule"; // moduł ról
+import { TransferLeaderSystem } from "./TransferLeaderSystem"; // transfer lidera
+import { db } from "../../data/Database"; // baza danych / journal
 
+// ----------------- TYPY -----------------
 export interface PendingDeletionRecord {
   requestedBy: string;
   requestedAt: number;
 }
 
+// ----------------- STAŁE -----------------
 const MAX_MEMBERS = 100;
 const MAX_R4 = 10;
 
+// ----------------- KLASA -----------------
 export class AllianceService {
 
   // ----------------- CREATE -----------------
@@ -61,6 +65,7 @@ export class AllianceService {
     roles: AllianceRoles;
     channels: AllianceChannels;
   }): Promise<Alliance> {
+    // stub minimalny do builda
     return {} as Alliance;
   }
 
@@ -191,7 +196,7 @@ export class AllianceService {
 
   // ----------------- STUBY DLA BUILD -----------------
   static async fetchGuildMember(guildId: string, userId: string) {
-    return { id: userId }; // stub minimalny, build przejdzie
+    return { id: userId }; // stub minimalny
   }
 
   static async updateAlliance(alliance: Alliance) {
