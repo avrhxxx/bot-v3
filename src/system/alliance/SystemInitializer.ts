@@ -26,10 +26,10 @@
  */
 
 import { AllianceService } from "../AllianceService";
-import { MembershipModule } from "../MembershipModule";
-import { RoleModule } from "../role/RoleModule";
-import { ChannelModule } from "../ChannelModule/ChannelModule";
-import { BroadcastModule } from "../BroadcastModule/BroadcastModule";
+import { MembershipModule } from "./modules/membership/MembershipModule";
+import { RoleModule } from "./modules/role/RoleModule";
+import { ChannelModule } from "./modules/channel/ChannelModule";
+import { BroadcastModule } from "./modules/broadcast/BroadcastModule";
 import { TransferLeaderSystem } from "../TransferLeaderSystem";
 import { MutationGate } from "../../engine/MutationGate";
 import { CommandLoader } from "../../commands/loader/CommandLoader";
