@@ -28,26 +28,6 @@ import { AllianceService } from "../../system/alliance/AllianceService";
 import { RoleModule } from "../../system/alliance/modules/role/RoleModule";
 import { BroadcastModule } from "../../system/alliance/modules/broadcast/BroadcastModule";
 
-// Temporary stub for missing methods to make build pass
-if (!AllianceService.getAllianceByLeaderOrOfficer) {
-  (AllianceService as any).getAllianceByLeaderOrOfficer = async (actorId: string) => ({ id: "stub", tag: "STUB", roles: { r3RoleId: "stub-role" } });
-}
-if (!MembershipModule.getPendingRequest) {
-  (MembershipModule as any).getPendingRequest = async (allianceId: string) => ({ userId: "stub-user", member: { id: "stub-user" } });
-}
-if (!MembershipModule.canApprove) {
-  (MembershipModule as any).canApprove = async () => true;
-}
-if (!MembershipModule.acceptMember) {
-  (MembershipModule as any).acceptMember = async () => {};
-}
-if (!BroadcastModule.broadcast) {
-  (BroadcastModule as any).broadcast = async () => {};
-}
-if (!RoleModule.assignRole) {
-  (RoleModule as any).assignRole = async () => {};
-}
-
 export const AcceptCommand: Command = {
   name: "accept",
   description: "Accepts a user's request to join the alliance",
