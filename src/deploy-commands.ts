@@ -4,25 +4,19 @@
  * LAYER: DEPLOY / COMMANDS MANAGEMENT
  * ============================================
  *
- * ODPOWIEDZIALNOŚĆ:
- * - Deploy wszystkich slash commandów bota Discord
- * - Ładowanie komend dynamicznie z katalogu commands/
- * - Konwersja komend do formatu JSON
- * - Obsługa REST API Discorda
+ * RESPONSIBILITIES:
+ * - Deploy all Discord slash commands
+ * - Dynamically load commands from commands/ folder
+ * - Convert commands to JSON for Discord API
+ * - Handle REST deployment errors and log timing
  *
- * ZALEŻNOŚCI:
+ * DEPENDENCIES:
  * - discord.js (REST, Routes)
- * - src/config/config.ts (tokeny, clientId)
- * - src/commands/loader/CommandLoader.ts
+ * - config.ts (token, clientId)
+ * - CommandLoader.ts (dynamic command loader)
  *
- * FILPATCH:
- * - Dynamiczne pobieranie wszystkich komend zamiast ręcznego importu
- * - Obsługa błędów deployu i logowanie czasów
- *
- * UWAGA ARCHITEKTONICZNA:
- * - Można uruchomić w build/deploy lub osobno dla aktualizacji komend
- *
- * ============================================
+ * NOTES:
+ * - Can be run as part of build/deploy process or standalone
  */
 
 import { REST, Routes } from "discord.js";
