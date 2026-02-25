@@ -11,7 +11,6 @@
  *
  * ZALEŻNOŚCI:
  * - AllianceService (dane sojuszu i role)
- * - RoleModule (spójność ról)
  *
  * UWAGA:
  * - Kanały są zawsze tworzone w stałym pakiecie:
@@ -24,7 +23,7 @@
 
 import { Guild, TextChannel, CategoryChannel, ChannelType, PermissionFlagsBits } from "discord.js";
 import { AllianceService } from "../AllianceService";
-import { RoleModule } from "../RoleModule/RoleModule";
+import { RoleModule } from "../rol/RoleModule"; // <- poprawiona ścieżka
 
 export class ChannelModule {
   private static channels: Record<string, Record<string, string>> = {};
@@ -156,3 +155,9 @@ export class ChannelModule {
     return this.channels[allianceId]?.joinId;
   }
 }
+
+/**
+ * ============================================
+ * FILEPATH: src/system/alliance/ChannelModule/ChannelModule.ts
+ * ============================================
+ */
