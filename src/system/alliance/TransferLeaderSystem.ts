@@ -37,6 +37,9 @@ import { Alliance } from "./AllianceTypes";
 export class TransferLeaderSystem {
 
   // ----------------- MANUAL TRANSFER (R4 → R5 ONLY) -----------------
+  // Użycie: normalny workflow przez lidera (R5) w sojuszu
+  // Przekazuje leadership do R4 członka
+  // Nie wolno używać jeśli jesteś nie-liderem
   static async transferLeadership(actorId: string, allianceId: string, newLeaderId: string) {
     await MutationGate.runAtomically(async () => {
       const alliance: Alliance = AllianceService.getAllianceOrThrow(allianceId);
@@ -63,8 +66,14 @@ export class TransferLeaderSystem {
 
       await AllianceService.updateAlliance(alliance);
 
-      // broadcast z identityRoleId = stary lider
-      await BroadcastModule.announceLeadershipChange(allianceId, oldLeaderId, newLeaderId, oldLeaderId);
+      // broadcast z identityRoleId = identityRoleId sojuszu
+      await BroadcastModule.announceLeadershipChange(
+        allianceId,
+        oldLeaderId,
+        newLeaderId,
+        alliance.roles.identityRoleId
+      );
+
       AllianceService.logAudit(allianceId, {
         action: "transferLeadership",
         actorId,
@@ -75,6 +84,10 @@ export class TransferLeaderSystem {
   }
 
   // ----------------- ADMIN / OWNER SET LEADER -----------------
+  // Użycie: tylko Bot Owner / Discord Owner / Admin
+  // Może ustawić lidera w sytuacjach awaryjnych lub inicjalizacji
+  // - Jeśli brak lidera, przypisuje nowego bez walidacji R4
+  // - Jeśli lider istnieje, nowy lider musi być R4
   static async setLeader(actorId: string, allianceId: string, newLeaderId: string) {
     await MutationGate.runAtomically(async () => {
       const alliance: Alliance = AllianceService.getAllianceOrThrow(allianceId);
@@ -88,7 +101,13 @@ export class TransferLeaderSystem {
         alliance.members.r5 = newLeaderId;
         await AllianceService.updateAlliance(alliance);
 
-        await BroadcastModule.announceLeadershipChange(allianceId, "", newLeaderId, newLeaderId);
+        await BroadcastModule.announceLeadershipChange(
+          allianceId,
+          "", // brak starego lidera
+          newLeaderId,
+          alliance.roles.identityRoleId
+        );
+
         AllianceService.logAudit(allianceId, { action: "setLeader", actorId, newLeaderId });
         return;
       }
@@ -109,7 +128,13 @@ export class TransferLeaderSystem {
 
       await AllianceService.updateAlliance(alliance);
 
-      await BroadcastModule.announceLeadershipChange(allianceId, oldLeaderId, newLeaderId, oldLeaderId);
+      await BroadcastModule.announceLeadershipChange(
+        allianceId,
+        oldLeaderId,
+        newLeaderId,
+        alliance.roles.identityRoleId
+      );
+
       AllianceService.logAudit(allianceId, {
         action: "setLeader",
         actorId,
