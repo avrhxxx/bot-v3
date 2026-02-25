@@ -34,7 +34,7 @@
 import { MutationGate } from "../../engine/MutationGate"; // atomowość operacji
 import { AllianceRepo, PendingDeletionRepo } from "../../data/Repositories"; // repozytoria
 import { Alliance, AllianceRoles, AllianceChannels } from "./AllianceTypes"; // typy sojuszu
-import { Ownership } from "../Ownership/ownership"; // folder Ownership, plik ownership.ts
+import { Ownership } from "../Ownership/Ownership"; // folder Ownership, plik Ownership.ts (poprawiony)
 import { AllianceIntegrity } from "./integrity/AllianceIntegrity"; // walidacja i logika integralności
 import { BroadcastModule } from "./modules/broadcast/BroadcastModule"; // moduł broadcast
 import { RoleModule } from "./modules/role/RoleModule"; // moduł ról
