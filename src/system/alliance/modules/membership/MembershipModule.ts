@@ -33,87 +33,97 @@ import { BroadcastModule } from "../broadcast/BroadcastModule";
 import { TransferLeaderSystem } from "../../TransferLeaderSystem";
 import { AllianceIntegrity } from "../../integrity/AllianceIntegrity";
 import { MutationGate } from "../../../engine/MutationGate";
+import { Alliance, AllianceRole } from "../../AllianceTypes";
 
 interface PendingJoin {
   userId: string;
   requestedAt: number;
 }
 
-interface MemberRecord {
-  userId: string;
-  role: "R3" | "R4" | "R5";
-}
-
 export class MembershipModule {
 
-  // ----------------- REQUEST JOIN -----------------
-  static async requestJoin(actorId: string, allianceId: string): Promise<void> {
+  // ----------------- ADD JOIN REQUEST -----------------
+  static async addJoinRequest(userId: string, allianceId: string): Promise<void> {
     await MutationGate.runAtomically(async () => {
-      const alliance = AllianceService.getAllianceOrThrow(allianceId) as any;
+      const alliance: Alliance = AllianceService.getAllianceOrThrow(allianceId);
 
       alliance.pendingJoins = alliance.pendingJoins || [];
-      alliance.pendingJoins.push({ userId: actorId, requestedAt: Date.now() });
+      alliance.pendingJoins.push({ userId, requestedAt: Date.now() });
 
-      AllianceService.logAudit(allianceId, { action: "requestJoin", userId: actorId });
+      AllianceService.logAudit(allianceId, { action: "addJoinRequest", userId });
 
-      // Notify staff-room
+      // Notify staff-room (R5/R4)
       await BroadcastModule.sendCustomMessage(
         allianceId,
-        `User <@${actorId}> has requested to join the alliance.`
+        `User <@${userId}> has requested to join the alliance.`
       );
-      await BroadcastModule.announceJoinRequest(allianceId, actorId, ["R5", "R4"]);
+      await BroadcastModule.announceJoinRequest(allianceId, userId, ["R5", "R4"]);
     });
   }
 
-  // ----------------- APPROVE JOIN -----------------
-  static async approveJoin(actorId: string, allianceId: string, userId: string): Promise<void> {
+  // ----------------- ACCEPT MEMBER -----------------
+  static async acceptMember(actorId: string, allianceId: string, userId: string): Promise<void> {
     await MutationGate.runAtomically(async () => {
-      const alliance = AllianceService.getAllianceOrThrow(allianceId) as any;
+      const alliance: Alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-      const totalMembers = (alliance.members?.length ?? 0) + 1;
-      if (totalMembers > AllianceIntegrity.MAX_MEMBERS)
+      alliance.r3 = alliance.r3 || [];
+      if (alliance.r3.length >= AllianceIntegrity.MAX_MEMBERS)
         throw new Error("Alliance has reached the maximum member limit (100)");
 
-      alliance.members = alliance.members || [];
-      alliance.members.push({ userId, role: "R3" });
+      alliance.r3.push(userId);
 
+      // Remove pending request
       alliance.pendingJoins = (alliance.pendingJoins || []).filter(j => j.userId !== userId);
 
       AllianceIntegrity.validate(alliance);
 
       // Announce join
       await BroadcastModule.announceJoin(allianceId, userId);
-      await BroadcastModule.announceJoin(allianceId, userId, undefined, ["Indify"]);
 
-      AllianceService.logAudit(allianceId, { action: "approveJoin", actorId, userId });
+      AllianceService.logAudit(allianceId, { action: "acceptMember", actorId, userId });
     });
   }
 
-  // ----------------- DENY JOIN -----------------
-  static async denyJoin(actorId: string, allianceId: string, userId: string): Promise<void> {
+  // ----------------- DENY MEMBER -----------------
+  static async denyMember(actorId: string, allianceId: string, userId: string): Promise<void> {
     await MutationGate.runAtomically(async () => {
-      const alliance = AllianceService.getAllianceOrThrow(allianceId) as any;
+      const alliance: Alliance = AllianceService.getAllianceOrThrow(allianceId);
+
       alliance.pendingJoins = (alliance.pendingJoins || []).filter(j => j.userId !== userId);
 
       await BroadcastModule.sendCustomMessage(
         allianceId,
         `Join request for user <@${userId}> has been denied.`
       );
-      AllianceService.logAudit(allianceId, { action: "denyJoin", actorId, userId });
+
+      AllianceService.logAudit(allianceId, { action: "denyMember", actorId, userId });
     });
   }
 
-  // ----------------- LEAVE -----------------
+  // ----------------- GET PENDING REQUEST -----------------
+  static getPendingRequest(allianceId: string, userId: string): PendingJoin | undefined {
+    const alliance: Alliance = AllianceService.getAllianceOrThrow(allianceId);
+    return alliance.pendingJoins?.find(j => j.userId === userId);
+  }
+
+  // ----------------- CAN APPROVE -----------------
+  static canApprove(actorId: string, allianceId: string): boolean {
+    const alliance: Alliance = AllianceService.getAllianceOrThrow(allianceId);
+    return alliance.r5 === actorId || alliance.r4?.includes(actorId);
+  }
+
+  // ----------------- LEAVE ALLIANCE -----------------
   static async leaveAlliance(actorId: string, allianceId: string): Promise<void> {
     await MutationGate.runAtomically(async () => {
-      const alliance = AllianceService.getAllianceOrThrow(allianceId) as any;
-      alliance.members = (alliance.members || []).filter(m => m.userId !== actorId);
+      const alliance: Alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-      const leaderExists = (alliance.members || []).some(m => m.role === "R5");
-      if (!leaderExists)
-        console.warn(
-          `[MembershipModule] Leader has been removed. Manual TransferLeaderSystem.transferLeadership required.`
-        );
+      alliance.r3 = (alliance.r3 || []).filter(u => u !== actorId);
+      alliance.r4 = (alliance.r4 || []).filter(u => u !== actorId);
+      if (alliance.r5 === actorId) alliance.r5 = null;
+
+      if (!alliance.r5) console.warn(
+        `[MembershipModule] Leader has been removed. Manual TransferLeaderSystem.transferLeadership required.`
+      );
 
       AllianceIntegrity.validate(alliance);
       await BroadcastModule.announceLeave(allianceId, actorId);
@@ -122,35 +132,40 @@ export class MembershipModule {
     });
   }
 
-  // ----------------- PROMOTE -----------------
-  static async promoteUser(actorId: string, allianceId: string, userId: string, newRole: string): Promise<void> {
+  // ----------------- PROMOTE MEMBER -----------------
+  static async promoteMember(actorId: string, allianceId: string, userId: string): Promise<void> {
     await MutationGate.runAtomically(async () => {
-      const alliance = AllianceService.getAllianceOrThrow(allianceId) as any;
-      const member = (alliance.members || []).find(m => m.userId === userId);
-      if (!member) throw new Error("User not found in alliance");
+      const alliance: Alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-      member.role = newRole;
+      // Move from R3 → R4
+      if (!alliance.r3?.includes(userId)) throw new Error("User is not R3");
+      alliance.r4 = alliance.r4 || [];
+      alliance.r4.push(userId);
+      alliance.r3 = alliance.r3.filter(u => u !== userId);
 
       AllianceIntegrity.validate(alliance);
 
-      await BroadcastModule.announcePromotion(allianceId, userId, newRole, undefined, ["Indify"]);
-      AllianceService.logAudit(allianceId, { action: "promote", actorId, userId, newRole });
+      await BroadcastModule.announcePromotion(allianceId, userId, "R4");
+      AllianceService.logAudit(allianceId, { action: "promoteMember", actorId, userId, newRole: "R4" });
     });
   }
 
-  // ----------------- DEMOTE -----------------
-  static async demoteUser(actorId: string, allianceId: string, userId: string, newRole: string): Promise<void> {
+  // ----------------- DEMOTE MEMBER -----------------
+  static async demoteMember(actorId: string, allianceId: string, userId: string): Promise<void> {
     await MutationGate.runAtomically(async () => {
-      const alliance = AllianceService.getAllianceOrThrow(allianceId) as any;
-      const member = (alliance.members || []).find(m => m.userId === userId);
-      if (!member) throw new Error("User not found in alliance");
+      const alliance: Alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-      member.role = newRole;
+      // Move from R4 → R3
+      if (!alliance.r4?.includes(userId)) throw new Error("User is not R4");
+      alliance.r3 = alliance.r3 || [];
+      alliance.r3.push(userId);
+      alliance.r4 = alliance.r4.filter(u => u !== userId);
 
       AllianceIntegrity.validate(alliance);
 
-      await BroadcastModule.announceDemotion(allianceId, userId, newRole, undefined, ["Indify"]);
-      AllianceService.logAudit(allianceId, { action: "demote", actorId, userId, newRole });
+      await BroadcastModule.announceDemotion(allianceId, userId, "R3");
+      AllianceService.logAudit(allianceId, { action: "demoteMember", actorId, userId, newRole: "R3" });
     });
   }
+
 }
