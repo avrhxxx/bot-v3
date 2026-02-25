@@ -9,7 +9,7 @@
  * RESPONSIBILITY:
  * - Allows the alliance leader to change the alliance tag
  * - Validates tag format (3 characters: letters and numbers only)
- * - Integrates with AllianceSystem
+ * - Integrates with AllianceOrchestrator
  *
  * NOTES:
  * - Only the leader can execute this command
@@ -20,7 +20,7 @@
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
-import { AllianceSystem } from "../../system/alliance/AllianceSystem";
+import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
 import { SafeMode } from "../../system/SafeMode";
 
 export const UpdateTagCommand: Command = {
@@ -57,7 +57,10 @@ export const UpdateTagCommand: Command = {
     }
 
     try {
-      await AllianceSystem.updateTag(actorId, interaction.guild.id, newTag);
+      // 1️⃣ Update tag via AllianceOrchestrator
+      await AllianceOrchestrator.updateTag(actorId, interaction.guild.id, newTag);
+
+      // 2️⃣ Confirmation message
       await interaction.reply({
         content: `✅ Alliance tag has been successfully updated to \`${newTag}\`.`,
         ephemeral: false
