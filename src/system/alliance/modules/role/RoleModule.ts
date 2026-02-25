@@ -1,4 +1,3 @@
-// File path: src/system/alliance/modules/role/RoleModule.ts
 /**
  * ============================================
  * MODULE: RoleModule
@@ -65,18 +64,14 @@ export class RoleModule {
   }
 
   // ----------------- ASSIGN R4 ROLES -----------------
-  // Used when demoting the old leader back to R4
   static async assignR4Roles(member: GuildMember, roles: AllianceRoles) {
     await MutationGate.runAtomically(async () => {
-      // Remove R5 role if present
       if (member.roles.cache.has(roles.r5RoleId)) {
         await member.roles.remove(roles.r5RoleId);
       }
-      // Ensure identity role remains
       if (!member.roles.cache.has(roles.identityRoleId)) {
         await member.roles.add(roles.identityRoleId);
       }
-      // Add R4 role
       if (!member.roles.cache.has(roles.r4RoleId)) {
         await member.roles.add(roles.r4RoleId);
       }
