@@ -19,6 +19,10 @@
  * - Transfers respect role limits (R4 → R5 only)
  * - setLeader can override limits for setup or emergency
  *
+ * WORKFLOW PRZYWŁASZCZENIA LIDERA:
+ * 1️⃣ transferLeadership → zwykła zmiana lidera R4 → R5 przez obecnego lidera
+ * 2️⃣ setLeader → ustawienie lidera przez Ownera/Admina (awaryjne lub inicjalizacja)
+ *
  * ============================================
  */
 
@@ -33,6 +37,9 @@ import { Alliance } from "./AllianceTypes"; // typy sojuszu
 export class TransferLeaderSystem {
 
   // ----------------- MANUAL TRANSFER (R4 → R5 ONLY) -----------------
+  // Użycie: normalny workflow przez lidera (R5) w sojuszu
+  // Przekazuje leadership do R4 członka
+  // Nie wolno używać jeśli jesteś nie-liderem
   static async transferLeadership(actorId: string, allianceId: string, newLeaderId: string) {
     await MutationGate.runAtomically(async () => {
       const alliance: Alliance = AllianceService.getAllianceOrThrow(allianceId);
@@ -56,12 +63,14 @@ export class TransferLeaderSystem {
       await RoleModule.assignLeaderRoles(newLeaderMember, alliance.roles);
       await RoleModule.assignR4Roles(oldLeaderMember, alliance.roles);
 
+      // aktualizacja ról w członkostwie
       alliance.members.r4 = r4List.filter(id => id !== newLeaderId);
       alliance.members.r4.push(oldLeaderId);
       alliance.members.r5 = newLeaderId;
 
       await AllianceService.updateAlliance(alliance);
 
+      // broadcast i log audytu
       await BroadcastModule.announceLeadershipChange(allianceId, actorId, newLeaderId);
       AllianceService.logAudit(allianceId, {
         action: "transferLeadership",
@@ -73,6 +82,10 @@ export class TransferLeaderSystem {
   }
 
   // ----------------- ADMIN / OWNER SET LEADER -----------------
+  // Użycie: tylko Bot Owner / Discord Owner / Admin
+  // Może ustawić lidera w sytuacjach awaryjnych lub inicjalizacji
+  // - Jeśli brak lidera, przypisuje nowego bez walidacji R4
+  // - Jeśli lider istnieje, nowy lider musi być R4
   static async setLeader(actorId: string, allianceId: string, newLeaderId: string) {
     await MutationGate.runAtomically(async () => {
       const alliance: Alliance = AllianceService.getAllianceOrThrow(allianceId);
@@ -103,6 +116,7 @@ export class TransferLeaderSystem {
       await RoleModule.assignLeaderRoles(newLeaderMember, alliance.roles);
       await RoleModule.assignR4Roles(oldLeaderMember, alliance.roles);
 
+      // aktualizacja członkostwa
       alliance.members.r4 = r4List.filter(id => id !== newLeaderId);
       alliance.members.r4.push(oldLeaderId);
       alliance.members.r5 = newLeaderId;
