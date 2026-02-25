@@ -7,7 +7,7 @@
  *
  * RESPONSIBILITY:
  * - Assign a new leader to an existing alliance
- * - If an existing leader exists, demote them to R3
+ * - If an existing leader exists, demote them to R4
  * - Supports identifying alliance by tag or name
  * - Only BotOwner / DiscordOwner can execute
  *
@@ -24,10 +24,10 @@ import { Ownership } from "../../system/Ownership/Ownership";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { SafeMode } from "../../system/SafeMode";
 
-export const Command: Command = {
+export const SetLeaderCommand: Command = {
   data: new SlashCommandBuilder()
     .setName("set_leader")
-    .setDescription("Assign a leader to an existing alliance (demotes previous leader if any)")
+    .setDescription("Assign a leader to an existing alliance (demotes previous leader to R4 if any)")
     .addStringOption(option =>
       option.setName("identifier")
         .setDescription("Alliance tag (3 letters/numbers) or full alliance name")
@@ -35,7 +35,7 @@ export const Command: Command = {
     )
     .addUserOption(option =>
       option.setName("leader")
-        .Description("User to assign as the new leader")
+        .setDescription("User to assign as the new leader")
         .setRequired(true)
     ),
   ownerOnly: true,
@@ -71,4 +71,4 @@ export const Command: Command = {
   }
 };
 
-export default Command;
+export default SetLeaderCommand;
