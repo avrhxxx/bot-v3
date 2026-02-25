@@ -22,12 +22,14 @@
  * ============================================
  */
 
-import { AllianceService } from "./AllianceService";
-import { RoleModule } from "./modules/role/RoleModule";
-import { BroadcastModule } from "./modules/broadcast/BroadcastModule";
-import { MutationGate } from "../../engine/MutationGate";
-import { Alliance } from "./AllianceTypes";
+// ----------------- IMPORTY -----------------
+import { AllianceService } from "./AllianceService"; // pełna ścieżka
+import { RoleModule } from "./modules/role/RoleModule"; // role i przypisania
+import { BroadcastModule } from "./modules/broadcast/BroadcastModule"; // broadcasty
+import { MutationGate } from "../../engine/MutationGate"; // atomowość
+import { Alliance } from "./AllianceTypes"; // typy sojuszu
 
+// ----------------- KLASA -----------------
 export class TransferLeaderSystem {
 
   // ----------------- MANUAL TRANSFER (R4 → R5 ONLY) -----------------
@@ -35,7 +37,7 @@ export class TransferLeaderSystem {
     await MutationGate.runAtomically(async () => {
       const alliance: Alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-      // Validate that the actor is the current leader
+      // walidacja: tylko aktualny lider może przekazać leadership
       if (alliance.members.r5 !== actorId) {
         throw new Error("Only the current leader can transfer leadership.");
       }
@@ -79,6 +81,7 @@ export class TransferLeaderSystem {
       const newLeaderMember = await AllianceService.fetchGuildMember(alliance.guildId, newLeaderId);
       if (!newLeaderMember) throw new Error("Unable to fetch GuildMember for the new leader.");
 
+      // brak obecnego lidera
       if (!oldLeaderId) {
         await RoleModule.assignLeaderRoles(newLeaderMember, alliance.roles);
         alliance.members.r5 = newLeaderId;
@@ -89,6 +92,7 @@ export class TransferLeaderSystem {
         return;
       }
 
+      // walidacja: nowy lider musi być R4
       const r4List = alliance.members.r4 || [];
       if (!r4List.includes(newLeaderId)) {
         throw new Error("New leader must be an R4 member.");
@@ -136,4 +140,5 @@ export class TransferLeaderSystem {
     // stub do builda / background task
     return;
   }
+
 }
