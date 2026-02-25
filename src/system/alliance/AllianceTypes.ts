@@ -21,11 +21,17 @@
 
 export type AllianceRole = "R3" | "R4" | "R5";
 
+/**
+ * Typ członka sojuszu – teraz tylko userId i rola w kontekście list r3/r4/r5
+ */
 export interface AllianceMember {
   userId: string;
   role: AllianceRole;
 }
 
+/**
+ * Role Discord dla sojuszu
+ */
 export interface AllianceRoles {
   r5RoleId: string;          // Discord role ID dla lidera
   r4RoleId: string;          // Discord role ID dla moderatorów
@@ -33,6 +39,9 @@ export interface AllianceRoles {
   identityRoleId: string;    // ping-only role, zawsze powiązana z użytkownikiem
 }
 
+/**
+ * Kanały Discord powiązane z sojuszem
+ */
 export interface AllianceChannels {
   categoryId: string;            // Kategoria główna sojuszu na Discord
 
@@ -45,6 +54,9 @@ export interface AllianceChannels {
   welcomeChannelId: string;      // Kanał, w którym bot wita nowych członków
 }
 
+/**
+ * Struktura sojuszu
+ */
 export interface Alliance {
   id: string;                     // Unikalne ID wewnętrzne sojuszu
   guildId: string;                 // ID serwera Discord
@@ -52,7 +64,13 @@ export interface Alliance {
   tag: string;                     // Dokładnie 3 alfanumeryczne znaki
   name: string;                    // Pełna nazwa sojuszu
 
-  members: AllianceMember[];       // Tablica członków sojuszu
+  // Teraz osobne tablice dla r5, r4, r3
+  members: {
+    r5?: string | null;            // Lider – tylko jeden, może być null
+    r4: string[];                  // Moderators
+    r3: string[];                  // Regular members
+  };
+
   roles: AllianceRoles;
   channels: AllianceChannels;
 
@@ -61,6 +79,28 @@ export interface Alliance {
 
   pendingJoins?: { userId: string; requestedAt: number }[];
 }
+
+/**
+ * Snapshot sojuszu
+ */
+export interface AllianceSnapshot {
+  allianceId: string;
+  checksum: string;
+  memberCount: number;
+  r5Count: number;
+  r4Count: number;
+  r3Count: number;
+  orphaned: boolean;
+  createdAt: number;
+  snapshotAt: number;
+}
+
+/**
+ * Alias typów używanych w repozytoriach i Health
+ */
+export type SnapshotRecord = AllianceSnapshot;
+export type OwnershipRecord = string;
+export type HealthStateType = HealthState;
 
 /**
  * ============================================
