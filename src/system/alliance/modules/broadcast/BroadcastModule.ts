@@ -24,7 +24,7 @@
  */
 
 import { AllianceService } from "../../AllianceService";
-import { ChannelModule } from "../ChannelModule/ChannelModule";
+import { ChannelModule } from "../ChannelModule/ChannelModule"; // <- poprawiona ścieżka
 
 type Listener = (...args: any[]) => void;
 
@@ -160,3 +160,9 @@ export class BroadcastModule {
     }
   }
 }
+
+/**
+ * ============================================
+ * FILEPATH: src/system/alliance/modules/broadcast/BroadcastModule.ts
+ * ============================================
+ */
