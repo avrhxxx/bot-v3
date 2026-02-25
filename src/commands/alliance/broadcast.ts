@@ -38,7 +38,7 @@ export const BroadcastCommand: Command = {
     }
 
     // 2️⃣ Check permissions (R5/R4)
-    if (!alliance.members?.r5?.includes(memberId) && !alliance.members?.r4?.includes(memberId)) {
+    if (!(alliance.members.r5 === memberId || alliance.members.r4?.includes(memberId))) {
       return interaction.reply({ content: "❌ You do not have permission to use this command.", ephemeral: true });
     }
 
@@ -49,16 +49,15 @@ export const BroadcastCommand: Command = {
     }
 
     // 4️⃣ Get the announce channel
-    const announceChannelId = ChannelModule.getChannelId(alliance.id, "announce");
-    const announceChannel = guild.channels.cache.get(announceChannelId);
-    if (!announceChannel || !announceChannel.isTextBased()) {
+    const announceChannelId = ChannelModule.getAnnounceChannel(alliance.id);
+    if (!announceChannelId) {
       return interaction.reply({ content: "❌ Could not find the announce channel.", ephemeral: true });
     }
 
     try {
       // 5️⃣ Send the message via BroadcastModule
-      await BroadcastModule.broadcast(announceChannel, messageContent, alliance);
-      // Note: No ephemeral reply needed, message is visible in announce channel
+      await BroadcastModule.sendCustomMessage(alliance.id, messageContent, memberId);
+      // No ephemeral reply needed, message is visible in announce channel
     } catch (error: any) {
       await interaction.reply({
         content: `❌ Failed to broadcast message: ${error.message}`,
