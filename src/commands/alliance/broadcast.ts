@@ -19,7 +19,7 @@
 
 import { ChatInputCommandInteraction } from "discord.js";
 import { Command } from "../Command";
-import { AllianceSystem } from "../../system/alliance/AllianceSystem";
+import { AllianceService } from "../../system/alliance/AllianceService";
 import { BroadcastModule } from "../../system/alliance/modules/broadcast/BroadcastModule";
 import { ChannelModule } from "../../system/alliance/modules/channel/ChannelModule";
 
@@ -29,11 +29,10 @@ export const BroadcastCommand: Command = {
   execute: async (interaction: ChatInputCommandInteraction) => {
     const memberId = interaction.user.id;
     const guild = interaction.guild;
-
     if (!guild) return;
 
     // 1️⃣ Get the alliance for the user
-    const alliance = await AllianceSystem.getAllianceByMember(memberId);
+    const alliance = await AllianceService.getAllianceByMember(memberId);
     if (!alliance) {
       return interaction.reply({ content: "❌ You are not a member of any alliance.", ephemeral: true });
     }
@@ -56,10 +55,16 @@ export const BroadcastCommand: Command = {
       return interaction.reply({ content: "❌ Could not find the announce channel.", ephemeral: true });
     }
 
-    // 5️⃣ Send the message via BroadcastModule
-    await BroadcastModule.broadcast(announceChannel, messageContent, alliance);
-
-    // Note: No ephemeral reply needed, the message is visible in the announce channel
+    try {
+      // 5️⃣ Send the message via BroadcastModule
+      await BroadcastModule.broadcast(announceChannel, messageContent, alliance);
+      // Note: No ephemeral reply needed, message is visible in announce channel
+    } catch (error: any) {
+      await interaction.reply({
+        content: `❌ Failed to broadcast message: ${error.message}`,
+        ephemeral: true,
+      });
+    }
   },
 };
 
