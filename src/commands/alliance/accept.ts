@@ -13,7 +13,7 @@
  *
  * NOTES:
  * - Checks the leader/officer permissions
- * - Fetches pending join request
+ * - Accepts the user directly (no pending fetch)
  * - Assigns the user to the alliance atomically
  * - Updates Discord roles
  * - Broadcasts acceptance to the alliance
@@ -21,18 +21,35 @@
  * ============================================
  */
 
-import { ChatInputCommandInteraction } from "discord.js";
+import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceService } from "../../system/alliance/AllianceService";
 import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
 
 export const AcceptCommand: Command = {
   name: "accept",
-  description: "Accepts a user's request to join the alliance",
+  description: "Accepts a user into your alliance",
+  data: new SlashCommandBuilder()
+    .setName("accept")
+    .setDescription("Accepts a user into your alliance")
+    .addUserOption(option =>
+      option.setName("user")
+            .setDescription("The user to accept")
+            .setRequired(true)
+    ),
   execute: async (interaction: ChatInputCommandInteraction) => {
     const actorId = interaction.user.id;
+    const targetUser = interaction.options.getUser("user");
 
-    // 1️⃣ Get the alliance for the user (leader/officer)
+    if (!targetUser) {
+      await interaction.reply({
+        content: "❌ You must specify a user to accept.",
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // 1️⃣ Get the alliance for the actor (leader/officer)
     const alliance = await AllianceService.getAllianceByLeaderOrOfficer(actorId);
     if (!alliance) {
       await interaction.reply({
@@ -42,23 +59,13 @@ export const AcceptCommand: Command = {
       return;
     }
 
-    // 2️⃣ Get the pending join request
-    const joinRequest = await AllianceService.getPendingRequest(alliance.id);
-    if (!joinRequest) {
-      await interaction.reply({
-        content: "❌ No pending join requests to approve.",
-        ephemeral: true,
-      });
-      return;
-    }
-
     try {
-      // 3️⃣ Atomically approve via AllianceOrchestrator
-      await AllianceOrchestrator.approveJoin(actorId, alliance.id, joinRequest.userId);
+      // 2️⃣ Atomically accept the user via Orchestrator
+      await AllianceOrchestrator.approveJoin(actorId, alliance.id, targetUser.id);
 
-      // 4️⃣ Reply to the actor
+      // 3️⃣ Reply to the actor
       await interaction.reply({
-        content: `✅ You have accepted <@${joinRequest.userId}> into the alliance ${alliance.tag}.`,
+        content: `✅ You have accepted <@${targetUser.id}> into the alliance ${alliance.tag}.`,
         ephemeral: true,
       });
     } catch (error: any) {
