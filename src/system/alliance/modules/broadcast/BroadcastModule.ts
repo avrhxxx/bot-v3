@@ -28,6 +28,7 @@ import { RoleModule } from "../role/RoleModule";
 export interface BroadcastPayload {
   allianceId: string;
   userId?: string;
+  actorId?: string;          // added for custom message
   oldLeaderId?: string;
   newLeaderId?: string;
   newRole?: string;
@@ -72,12 +73,6 @@ export class BroadcastModule {
 
   // ----------------- ALLIANCE-SPECIFIC -----------------
 
-  /**
-   * Join request:
-   * - Goes to staff-room
-   * - Only R4/R5 see it
-   * - Triggered by system when user uses join command
-   */
   static async announceJoinRequest(
     allianceId: string,
     userId: string,
@@ -89,12 +84,6 @@ export class BroadcastModule {
     this.emit("joinRequest", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
   }
 
-  /**
-   * Join accepted:
-   * - Goes to welcome channel
-   * - All alliance members see it
-   * - Only bot sends this message
-   */
   static async announceJoin(
     allianceId: string,
     userId: string,
@@ -106,29 +95,18 @@ export class BroadcastModule {
     this.emit("join", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
   }
 
-  /**
-   * Leave:
-   * - Goes to welcome channel
-   * - All alliance members see it
-   * - Only bot sends this message
-   */
+  // ----------------- LEAVE (moved to announce channel) -----------------
   static async announceLeave(
     allianceId: string,
     userId: string,
     pingRoleIds?: string[],
     pingUserIds?: string[]
   ) {
-    const channelId = ChannelModule.getWelcomeChannel(allianceId);
+    const channelId = ChannelModule.getAnnounceChannel(allianceId); // changed
     if (!channelId) return;
     this.emit("leave", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
   }
 
-  /**
-   * Promotion:
-   * - Goes to announce channel
-   * - All alliance members see it
-   * - Only bot sends this message
-   */
   static async announcePromotion(
     allianceId: string,
     userId: string,
@@ -141,12 +119,6 @@ export class BroadcastModule {
     this.emit("promotion", { allianceId, userId, newRole, channelId, pingRoleIds, pingUserIds });
   }
 
-  /**
-   * Demotion:
-   * - Goes to announce channel
-   * - All alliance members see it
-   * - Only bot sends this message
-   */
   static async announceDemotion(
     allianceId: string,
     userId: string,
@@ -159,21 +131,17 @@ export class BroadcastModule {
     this.emit("demotion", { allianceId, userId, newRole, channelId, pingRoleIds, pingUserIds });
   }
 
-  /**
-   * Custom message:
-   * - Goes to announce channel
-   * - All alliance members see it
-   * - Sent by R4/R5 via broadcast command
-   */
+  // ----------------- CUSTOM MESSAGE (adds actorId prefix) -----------------
   static async sendCustomMessage(
     allianceId: string,
     message: string,
+    actorId?: string,
     pingRoleIds?: string[],
     pingUserIds?: string[]
   ) {
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
-    this.emit("customMessage", { allianceId, message, channelId, pingRoleIds, pingUserIds });
+    this.emit("customMessage", { allianceId, actorId, message, channelId, pingRoleIds, pingUserIds });
   }
 
   // ----------------- MESSAGE FORMAT -----------------
@@ -187,13 +155,13 @@ export class BroadcastModule {
       case "join":
         return `🎉 User <@${payload.userId}> has joined the alliance!${pingRoles} ${pingUsers}`;
       case "leave":
-        return `❌ User <@${payload.userId}> has left the alliance.${pingRoles} ${pingUsers}`;
+        return `❌ User <@${payload.userId}> has left the alliance.${pingRoles} ${pingUsers}`; // channel announce
       case "promotion":
         return `⬆️ User <@${payload.userId}> was promoted to ${payload.newRole}!${pingRoles} ${pingUsers}`;
       case "demotion":
         return `⬇️ User <@${payload.userId}> was demoted to ${payload.newRole}.${pingRoles} ${pingUsers}`;
       case "customMessage":
-        return `${payload.message}${pingRoles} ${pingUsers}`;
+        return `📢 <@${payload.actorId}> says: ${payload.message}${pingRoles} ${pingUsers}`; // added actorId
       default:
         return `${event}: ${JSON.stringify(payload)}`;
     }
