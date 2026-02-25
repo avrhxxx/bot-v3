@@ -11,10 +11,12 @@
  * - Promocje i demacje członków (R3 -> R4 -> R5)
  * - Walidacja limitów ról w sojuszu
  * - HasRole helper
+ * - Emitowanie broadcastów przy promocji/demacji
  *
  * DEPENDENCIES:
  * - AllianceService (pobranie danych sojuszu, audyt, liczenie członków)
  * - MutationGate (atomowość operacji)
+ * - BroadcastModule (emisja wydarzeń)
  *
  * ============================================
  */
@@ -22,6 +24,7 @@
 import { Guild, GuildMember } from "discord.js"; // discord.js types
 import { MutationGate } from "../../../engine/MutationGate"; // atomic operations
 import { AllianceService } from "../../AllianceService"; // alliance data / limits
+import { BroadcastModule } from "../broadcast/BroadcastModule"; // broadcast events
 
 // ----------------- INTERFACES -----------------
 export interface AllianceRoles {
@@ -57,12 +60,14 @@ export class RoleModule {
   // ----------------- ASSIGN ROLES -----------------
   static async assignLeaderRoles(member: GuildMember, roles: AllianceRoles) {
     await member.roles.add([roles.r5RoleId, roles.identityRoleId]);
+    // broadcast nie jest potrzebny – TransferLeaderSystem wywołuje announceLeadershipChange
   }
 
   static async assignRole(member: GuildMember | AllianceMemberRef, roleId: string) {
     await MutationGate.runAtomically(async () => {
       if ("userId" in member) {
-        // stub: można dodać pobranie GuildMember z userId
+        const guildMember = await AllianceService.fetchGuildMemberById(member.userId);
+        if (guildMember) await guildMember.roles.add(roleId);
         return;
       }
       await member.roles.add(roleId);
@@ -82,10 +87,16 @@ export class RoleModule {
       if (member.roles.cache.has(roles.r3RoleId)) {
         await member.roles.remove(roles.r3RoleId);
         await member.roles.add(roles.r4RoleId);
+
+        // broadcast promocji
+        await BroadcastModule.announcePromotion(allianceId, member.id, "R4", [roles.identityRoleId]);
       } else if (member.roles.cache.has(roles.r4RoleId)) {
         if (r4Count >= MAX_R4) throw new Error("Limit R4 osiągnięty");
         await member.roles.remove(roles.r4RoleId);
         await member.roles.add(roles.r5RoleId);
+
+        // broadcast promocji
+        await BroadcastModule.announcePromotion(allianceId, member.id, "R5", [roles.identityRoleId]);
       }
 
       if (totalMembers > MAX_MEMBERS) throw new Error("Limit członków przekroczony");
@@ -98,9 +109,11 @@ export class RoleModule {
       if (member.roles.cache.has(roles.r5RoleId)) {
         await member.roles.remove(roles.r5RoleId);
         await member.roles.add(roles.r4RoleId);
+        await BroadcastModule.announceDemotion(allianceId, member.id, "R4", [roles.identityRoleId]);
       } else if (member.roles.cache.has(roles.r4RoleId)) {
         await member.roles.remove(roles.r4RoleId);
         await member.roles.add(roles.r3RoleId);
+        await BroadcastModule.announceDemotion(allianceId, member.id, "R3", [roles.identityRoleId]);
       }
     });
   }
