@@ -9,7 +9,7 @@
  * RESPONSIBILITY:
  * - Reject a user's request to join an alliance
  * - Only for R5 / R4 / leader
- * - Integrates with MembershipModule
+ * - Integrates with AllianceOrchestrator
  *
  * IMPLEMENTATION:
  * - Validate permissions (R5/R4/leader)
@@ -21,12 +21,7 @@
 
 import { Command } from "../Command";
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import { MembershipModule } from "../../system/alliance/modules/membership/MembershipModule";
-
-// Temporary stub to ensure build passes
-if (!MembershipModule.denyMember) {
-  (MembershipModule as any).denyMember = async (actorId: string, targetUserId: string, guildId: string) => {};
-}
+import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
 
 export const DenyCommand: Command = {
   data: new SlashCommandBuilder()
@@ -49,8 +44,8 @@ export const DenyCommand: Command = {
     }
 
     try {
-      // 1️⃣ Remove the request from the join queue
-      await MembershipModule.denyMember(actorId, targetUser.id, interaction.guild.id);
+      // 1️⃣ Atomically deny the join request via Orchestrator
+      await AllianceOrchestrator.approveJoin(actorId, interaction.guild.id, targetUser.id, false);
 
       // 2️⃣ Notify the user in DM that they were denied
       await targetUser.send(
