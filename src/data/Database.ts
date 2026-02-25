@@ -1,6 +1,6 @@
 // src/data/Database.ts
 
-import { Alliance } from "../features/alliance/AllianceTypes";
+import { Alliance } from "../system/alliance/AllianceTypes";
 import { OwnershipRecord } from "../system/Ownership";
 import { HealthState } from "../system/Health";
 import { SnapshotRecord } from "../system/snapshot/SnapshotTypes";
