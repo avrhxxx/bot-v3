@@ -1,112 +1,106 @@
 /**
  * ============================================
- * MODULE: BroadcastModule
- * FILE: src/system/alliance/modules/broadcast/BroadcastModule.ts
- * LAYER: SYSTEM (Alliance Broadcast Module)
+ * MODULE: RoleModule
+ * FILE: src/system/alliance/modules/role/RoleModule.ts
+ * LAYER: SYSTEM (Alliance Role Module)
  * ============================================
  *
  * RESPONSIBILITY:
- * - Handle alliance events (join, leave, promotion, demotion, custom messages)
- * - Emit events for external modules
- * - Integrate with ChannelModule for announce, welcome, and staff-room channels
+ * - Tworzenie ról R5, R4, R3 i identity
+ * - Przypisywanie ról do członków
+ * - Promocje i demacje członków (R3 -> R4 -> R5)
+ * - Walidacja limitów ról w sojuszu
+ * - HasRole helper
  *
  * DEPENDENCIES:
- * - AllianceService (fetch alliance data)
- * - ChannelModule (channels: announce, welcome, staff-room)
- * - RoleModule (optional for promotions/demotions)
+ * - AllianceService (pobranie danych sojuszu, audyt, liczenie członków)
+ * - MutationGate (atomowość operacji)
  *
  * ============================================
  */
 
-import { AllianceService } from "../../AllianceService";
-import { ChannelModule } from "../channel/ChannelModule";
-import { RoleModule } from "../role/RoleModule";
+import { Guild, GuildMember } from "discord.js"; // discord.js types
+import { MutationGate } from "../../../engine/MutationGate"; // atomic operations
+import { AllianceService } from "../../AllianceService"; // alliance data / limits
 
-type Listener = (...args: any[]) => void;
-
-interface BroadcastPayload {
-  allianceId: string;
-  userId?: string;
-  oldLeaderId?: string;
-  newLeaderId?: string;
-  newRole?: string;
-  message?: string;
-  channelId: string;
-  pingRoleIds?: string[];
-  pingUserIds?: string[];
+// ----------------- INTERFACES -----------------
+export interface AllianceRoles {
+  r5RoleId: string;
+  r4RoleId: string;
+  r3RoleId: string;
+  identityRoleId: string;
 }
 
-export class BroadcastModule {
-  private static listeners: Record<string, Listener[]> = {};
+// ----------------- CONSTANTS -----------------
+const MAX_MEMBERS = 100; // maksymalna liczba członków w sojuszu
+const MAX_R4 = 10;       // maksymalna liczba ról R4
 
-  static on(event: string, listener: Listener) {
-    if (!this.listeners[event]) this.listeners[event] = [];
-    this.listeners[event].push(listener);
+// ----------------- ROLE MODULE CLASS -----------------
+export class RoleModule {
+
+  // ----------------- CREATE ROLES -----------------
+  static async createRoles(guild: Guild, tag: string): Promise<AllianceRoles> {
+    const r5 = await guild.roles.create({ name: `${tag} R5`, mentionable: false });
+    const r4 = await guild.roles.create({ name: `${tag} R4`, mentionable: false });
+    const r3 = await guild.roles.create({ name: `${tag} R3`, mentionable: false });
+    const identity = await guild.roles.create({ name: `[${tag}]`, mentionable: true });
+
+    return { r5RoleId: r5.id, r4RoleId: r4.id, r3RoleId: r3.id, identityRoleId: identity.id };
   }
 
-  static emit(event: string, payload: BroadcastPayload) {
-    const eventListeners = this.listeners[event] ?? [];
-    for (const listener of eventListeners) {
-      try { listener(payload); } 
-      catch (error) { console.error(`BroadcastModule: error in listener '${event}'`, error); }
-    }
+  // ----------------- ASSIGN ROLES -----------------
+  static async assignLeaderRoles(member: GuildMember, roles: AllianceRoles) {
+    await member.roles.add([roles.r5RoleId, roles.identityRoleId]);
   }
 
-  static off(event: string, listener?: Listener) {
-    if (!this.listeners[event]) return;
-    if (!listener) delete this.listeners[event];
-    else this.listeners[event] = this.listeners[event].filter(l => l !== listener);
+  static async assignRole(member: GuildMember, roleId: string) {
+    await MutationGate.runAtomically(async () => {
+      await member.roles.add(roleId);
+    });
   }
 
-  static clearAll() { this.listeners = {}; }
+  // ----------------- PROMOTION -----------------
+  static async promote(member: GuildMember, roles: AllianceRoles) {
+    await MutationGate.runAtomically(async () => {
+      if (!member.roles.cache.has(roles.r3RoleId) && !member.roles.cache.has(roles.r4RoleId)) {
+        throw new Error("Member cannot be promoted, not in R3 or R4");
+      }
 
-  // ----------------- ALLIANCE-SPECIFIC -----------------
-  static async announceJoinRequest(allianceId: string, userId: string, pingRoleIds?: string[], pingUserIds?: string[]) {
-    const channelId = ChannelModule.getStaffChannel(allianceId);
-    if (!channelId) return;
-    this.emit("joinRequest", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
+      if (member.roles.cache.has(roles.r3RoleId)) {
+        await member.roles.remove(roles.r3RoleId);
+        await member.roles.add(roles.r4RoleId);
+      } else if (member.roles.cache.has(roles.r4RoleId)) {
+        const r4Count = await AllianceService.getR4Count(member.guild.id);
+        if (r4Count >= MAX_R4) throw new Error("Limit R4 osiągnięty");
+        await member.roles.remove(roles.r4RoleId);
+        await member.roles.add(roles.r5RoleId);
+      }
+    });
   }
 
-  static async announceJoin(allianceId: string, userId: string, pingRoleIds?: string[], pingUserIds?: string[]) {
-    const channelId = ChannelModule.getWelcomeChannel(allianceId);
-    if (!channelId) return;
-    this.emit("join", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
+  // ----------------- DEMOTION -----------------
+  static async demote(member: GuildMember, roles: AllianceRoles) {
+    await MutationGate.runAtomically(async () => {
+      if (member.roles.cache.has(roles.r5RoleId)) {
+        await member.roles.remove(roles.r5RoleId);
+        await member.roles.add(roles.r4RoleId);
+      } else if (member.roles.cache.has(roles.r4RoleId)) {
+        await member.roles.remove(roles.r4RoleId);
+        await member.roles.add(roles.r3RoleId);
+      }
+    });
   }
 
-  static async announceLeave(allianceId: string, userId: string, pingRoleIds?: string[], pingUserIds?: string[]) {
-    const channelId = ChannelModule.getAnnounceChannel(allianceId);
-    if (!channelId) return;
-    this.emit("leave", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
+  // ----------------- VALIDATION -----------------
+  static hasRole(member: GuildMember, roleId: string): boolean {
+    return member.roles.cache.has(roleId);
   }
 
-  static async announcePromotion(allianceId: string, userId: string, newRole: string, pingRoleIds?: string[], pingUserIds?: string[]) {
-    const channelId = ChannelModule.getAnnounceChannel(allianceId);
-    if (!channelId) return;
-    this.emit("promotion", { allianceId, userId, newRole, channelId, pingRoleIds, pingUserIds });
-  }
+  static async validateRoles(allianceId: string, roles: AllianceRoles) {
+    const r4Count = await AllianceService.getR4Count(allianceId);
+    const totalMembers = await AllianceService.getTotalMembersByAlliance(allianceId);
 
-  static async announceDemotion(allianceId: string, userId: string, newRole: string, pingRoleIds?: string[], pingUserIds?: string[]) {
-    const channelId = ChannelModule.getAnnounceChannel(allianceId);
-    if (!channelId) return;
-    this.emit("demotion", { allianceId, userId, newRole, channelId, pingRoleIds, pingUserIds });
-  }
-
-  static async sendCustomMessage(allianceId: string, message: string, pingRoleIds?: string[], pingUserIds?: string[]) {
-    const channelId = ChannelModule.getAnnounceChannel(allianceId);
-    if (!channelId) return;
-    this.emit("customMessage", { allianceId, message, channelId, pingRoleIds, pingUserIds });
-  }
-
-  // ----------------- MESSAGE FORMAT -----------------
-  static formatMessage(event: string, payload: BroadcastPayload): string {
-    switch(event) {
-      case "joinRequest": return `📝 User <@${payload.userId}> requested to join the alliance.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
-      case "join": return `🎉 <@${payload.userId}> joined the alliance!${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
-      case "leave": return `❌ <@${payload.userId}> left the alliance.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
-      case "promotion": return `⬆️ User <@${payload.userId}> was promoted to ${payload.newRole}!${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
-      case "demotion": return `⬇️ User <@${payload.userId}> was demoted to ${payload.newRole}.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
-      case "customMessage": return `${payload.message}${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
-      default: return `${event}: ${JSON.stringify(payload)}`;
-    }
+    if (r4Count > MAX_R4) throw new Error("Limit R4 przekroczony");
+    if (totalMembers > MAX_MEMBERS) throw new Error("Limit członków przekroczony");
   }
 }
