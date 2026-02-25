@@ -1,6 +1,6 @@
 /**
  * ============================================
- * FILEPATH: src/system/alliance/TransferLeaderSystem.ts
+ * FILE: src/system/alliance/TransferLeaderSystem.ts
  * LAYER: SYSTEM (Leadership Domain Logic)
  * ============================================
  *
@@ -129,5 +129,11 @@ export class TransferLeaderSystem {
     if (!allMembers.includes(leaderId)) {
       throw new Error("Invalid leader state: leader is not listed as a member.");
     }
+  }
+
+  // ----------------- BACKGROUND / ORPHAN CHECK (stub) -----------------
+  static async checkOrphanLeaders() {
+    // stub do builda / background task
+    return;
   }
 }
