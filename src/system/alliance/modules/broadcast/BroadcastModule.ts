@@ -1,5 +1,6 @@
 /**
  * ============================================
+ * MODULE: BroadcastModule
  * FILE: src/system/alliance/modules/broadcast/BroadcastModule.ts
  * LAYER: SYSTEM (Alliance Broadcast Module)
  * ============================================
@@ -8,23 +9,18 @@
  * - Handle alliance events (join, leave, promotion, demotion, custom messages)
  * - Emit events for external modules
  * - Integrate with ChannelModule for announce, welcome, and staff-room channels
- * - Notify staff-room on join requests
- * - Notify welcome channel when a member is approved
- * - Support optional role/user pings in messages
  *
  * DEPENDENCIES:
  * - AllianceService (fetch alliance data)
  * - ChannelModule (channels: announce, welcome, staff-room)
- *
- * NOTE:
- * - Emits events via listeners
- * - Does not directly modify roles or channels
+ * - RoleModule (optional for promotions/demotions)
  *
  * ============================================
  */
 
 import { AllianceService } from "../../AllianceService";
-import { ChannelModule } from "../ChannelModule/ChannelModule"; // <- poprawiona ścieżka
+import { ChannelModule } from "../channel/ChannelModule";
+import { RoleModule } from "../role/RoleModule";
 
 type Listener = (...args: any[]) => void;
 
@@ -43,7 +39,6 @@ interface BroadcastPayload {
 export class BroadcastModule {
   private static listeners: Record<string, Listener[]> = {};
 
-  // ----------------- GENERIC EVENTS -----------------
   static on(event: string, listener: Listener) {
     if (!this.listeners[event]) this.listeners[event] = [];
     this.listeners[event].push(listener);
@@ -52,11 +47,8 @@ export class BroadcastModule {
   static emit(event: string, payload: BroadcastPayload) {
     const eventListeners = this.listeners[event] ?? [];
     for (const listener of eventListeners) {
-      try {
-        listener(payload);
-      } catch (error) {
-        console.error(`BroadcastModule: error in listener for event '${event}'`, error);
-      }
+      try { listener(payload); } 
+      catch (error) { console.error(`BroadcastModule: error in listener '${event}'`, error); }
     }
   }
 
@@ -66,103 +58,54 @@ export class BroadcastModule {
     else this.listeners[event] = this.listeners[event].filter(l => l !== listener);
   }
 
-  static clearAll() {
-    this.listeners = {};
-  }
+  static clearAll() { this.listeners = {}; }
 
-  // ----------------- ALLIANCE-SPECIFIC METHODS -----------------
-
-  // --- Join Request (staff-room) ---
+  // ----------------- ALLIANCE-SPECIFIC -----------------
   static async announceJoinRequest(allianceId: string, userId: string, pingRoleIds?: string[], pingUserIds?: string[]) {
     const channelId = ChannelModule.getStaffChannel(allianceId);
     if (!channelId) return;
-
     this.emit("joinRequest", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
   }
 
-  // --- Join (welcome channel) ---
   static async announceJoin(allianceId: string, userId: string, pingRoleIds?: string[], pingUserIds?: string[]) {
     const channelId = ChannelModule.getWelcomeChannel(allianceId);
     if (!channelId) return;
-
     this.emit("join", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
   }
 
-  // --- Leave (announce channel) ---
   static async announceLeave(allianceId: string, userId: string, pingRoleIds?: string[], pingUserIds?: string[]) {
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
-
     this.emit("leave", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
   }
 
-  // --- Leadership Change (announce channel) ---
-  static async announceLeadershipChange(allianceId: string, oldLeaderId: string, newLeaderId: string, pingRoleIds?: string[], pingUserIds?: string[]) {
-    const channelId = ChannelModule.getAnnounceChannel(allianceId);
-    if (!channelId) return;
-
-    this.emit("leadershipChange", { allianceId, oldLeaderId, newLeaderId, channelId, pingRoleIds, pingUserIds });
-  }
-
-  // --- Rollback (announce channel) ---
-  static async announceRollback(allianceId: string, message: string, pingRoleIds?: string[], pingUserIds?: string[]) {
-    const channelId = ChannelModule.getAnnounceChannel(allianceId);
-    if (!channelId) return;
-
-    this.emit("rollback", { allianceId, message, channelId, pingRoleIds, pingUserIds });
-  }
-
-  // --- Custom Message (announce channel) ---
-  static async sendCustomMessage(allianceId: string, message: string, pingRoleIds?: string[], pingUserIds?: string[]) {
-    const channelId = ChannelModule.getAnnounceChannel(allianceId);
-    if (!channelId) return;
-
-    this.emit("customMessage", { allianceId, message, channelId, pingRoleIds, pingUserIds });
-  }
-
-  // --- Promotion (announce channel) ---
   static async announcePromotion(allianceId: string, userId: string, newRole: string, pingRoleIds?: string[], pingUserIds?: string[]) {
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
-
     this.emit("promotion", { allianceId, userId, newRole, channelId, pingRoleIds, pingUserIds });
   }
 
-  // --- Demotion (announce channel) ---
   static async announceDemotion(allianceId: string, userId: string, newRole: string, pingRoleIds?: string[], pingUserIds?: string[]) {
     const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
-
     this.emit("demotion", { allianceId, userId, newRole, channelId, pingRoleIds, pingUserIds });
   }
 
-  // ----------------- HELPERS: FORMAT MESSAGE -----------------
+  static async sendCustomMessage(allianceId: string, message: string, pingRoleIds?: string[], pingUserIds?: string[]) {
+    const channelId = ChannelModule.getAnnounceChannel(allianceId);
+    if (!channelId) return;
+    this.emit("customMessage", { allianceId, message, channelId, pingRoleIds, pingUserIds });
+  }
+
   static formatMessage(event: string, payload: BroadcastPayload): string {
     switch(event) {
-      case "joinRequest":
-        return `📝 User <@${payload.userId}> requested to join the alliance.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
-      case "join":
-        return `🎉 <@${payload.userId}> joined the alliance! Welcome the new member!${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
-      case "leave":
-        return `❌ <@${payload.userId}> left the alliance.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
-      case "leadershipChange":
-        return `👑 Leadership changed from <@${payload.oldLeaderId}> to <@${payload.newLeaderId}>.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
-      case "rollback":
-        return `⚠️ Rollback operation in the alliance: ${payload.message}${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
-      case "customMessage":
-        return `${payload.message}${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
-      case "promotion":
-        return `⬆️ User <@${payload.userId}> was promoted to ${payload.newRole}!${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
-      case "demotion":
-        return `⬇️ User <@${payload.userId}> was demoted to ${payload.newRole}.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
-      default:
-        return `${event}: ${JSON.stringify(payload)}`;
+      case "joinRequest": return `📝 User <@${payload.userId}> requested to join the alliance.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
+      case "join": return `🎉 <@${payload.userId}> joined the alliance!${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
+      case "leave": return `❌ <@${payload.userId}> left the alliance.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
+      case "promotion": return `⬆️ User <@${payload.userId}> was promoted to ${payload.newRole}!${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
+      case "demotion": return `⬇️ User <@${payload.userId}> was demoted to ${payload.newRole}.${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
+      case "customMessage": return `${payload.message}${payload.pingRoleIds ? ` ${payload.pingRoleIds.map(r => `<@&${r}>`).join(' ')}` : ''}${payload.pingUserIds ? ` ${payload.pingUserIds.map(u => `<@${u}>`).join(' ')}` : ''}`;
+      default: return `${event}: ${JSON.stringify(payload)}`;
     }
   }
 }
-
-/**
- * ============================================
- * FILEPATH: src/system/alliance/modules/broadcast/BroadcastModule.ts
- * ============================================
- */
