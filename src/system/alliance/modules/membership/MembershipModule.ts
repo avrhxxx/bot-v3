@@ -1,5 +1,6 @@
 /**
  * ============================================
+ * MODULE: MembershipModule
  * FILE: src/system/alliance/modules/membership/MembershipModule.ts
  * LAYER: SYSTEM (Alliance Membership Module)
  * ============================================
@@ -27,8 +28,8 @@
  */
 
 import { AllianceService } from "../../AllianceService";
-import { RoleModule } from "../role/RoleModule"; // <- poprawiona ścieżka
-import { BroadcastModule } from "../broadcast/BroadcastModule"; // <- poprawiona ścieżka
+import { RoleModule } from "../role/RoleModule";
+import { BroadcastModule } from "../broadcast/BroadcastModule";
 import { TransferLeaderSystem } from "../../TransferLeaderSystem";
 import { AllianceIntegrity } from "../../integrity/AllianceIntegrity";
 import { MutationGate } from "../../../engine/MutationGate";
@@ -56,7 +57,10 @@ export class MembershipModule {
       AllianceService.logAudit(allianceId, { action: "requestJoin", userId: actorId });
 
       // Notify staff-room
-      await BroadcastModule.sendCustomMessage(allianceId, `User <@${actorId}> has requested to join the alliance.`);
+      await BroadcastModule.sendCustomMessage(
+        allianceId,
+        `User <@${actorId}> has requested to join the alliance.`
+      );
       await BroadcastModule.announceJoinRequest(allianceId, actorId, ["R5", "R4"]);
     });
   }
@@ -67,7 +71,8 @@ export class MembershipModule {
       const alliance = AllianceService.getAllianceOrThrow(allianceId) as any;
 
       const totalMembers = (alliance.members?.length ?? 0) + 1;
-      if (totalMembers > AllianceIntegrity.MAX_MEMBERS) throw new Error("Alliance has reached the maximum member limit (100)");
+      if (totalMembers > AllianceIntegrity.MAX_MEMBERS)
+        throw new Error("Alliance has reached the maximum member limit (100)");
 
       alliance.members = alliance.members || [];
       alliance.members.push({ userId, role: "R3" });
@@ -90,7 +95,10 @@ export class MembershipModule {
       const alliance = AllianceService.getAllianceOrThrow(allianceId) as any;
       alliance.pendingJoins = (alliance.pendingJoins || []).filter(j => j.userId !== userId);
 
-      await BroadcastModule.sendCustomMessage(allianceId, `Join request for user <@${userId}> has been denied.`);
+      await BroadcastModule.sendCustomMessage(
+        allianceId,
+        `Join request for user <@${userId}> has been denied.`
+      );
       AllianceService.logAudit(allianceId, { action: "denyJoin", actorId, userId });
     });
   }
@@ -102,7 +110,10 @@ export class MembershipModule {
       alliance.members = (alliance.members || []).filter(m => m.userId !== actorId);
 
       const leaderExists = (alliance.members || []).some(m => m.role === "R5");
-      if (!leaderExists) console.warn(`[MembershipModule] Leader has been removed. Manual TransferLeaderSystem.transferLeadership required.`);
+      if (!leaderExists)
+        console.warn(
+          `[MembershipModule] Leader has been removed. Manual TransferLeaderSystem.transferLeadership required.`
+        );
 
       AllianceIntegrity.validate(alliance);
       await BroadcastModule.announceLeave(allianceId, actorId);
