@@ -31,6 +31,9 @@ export interface AllianceRoles {
   identityRoleId: string;
 }
 
+// Alias do przekazywania referencji członka w metodach
+export type AllianceMemberRef = { userId: string; role: "R3" | "R4" | "R5" };
+
 // ----------------- CONSTANTS -----------------
 const MAX_MEMBERS = 100; // maksymalna liczba członków w sojuszu
 const MAX_R4 = 10;       // maksymalna liczba ról R4
@@ -53,15 +56,22 @@ export class RoleModule {
     await member.roles.add([roles.r5RoleId, roles.identityRoleId]);
   }
 
-  static async assignRole(member: GuildMember, roleId: string) {
+  static async assignRole(member: GuildMember | AllianceMemberRef, roleId: string) {
     await MutationGate.runAtomically(async () => {
+      if ("userId" in member) {
+        // stub: można dodać pobranie GuildMember z userId
+        return;
+      }
       await member.roles.add(roleId);
     });
   }
 
   // ----------------- PROMOTION -----------------
-  static async promote(member: GuildMember, roles: AllianceRoles) {
+  static async promote(member: GuildMember, allianceId: string, roles: AllianceRoles) {
     await MutationGate.runAtomically(async () => {
+      const r4Count = await AllianceService.getR4Count(allianceId);
+      const totalMembers = await AllianceService.getTotalMembersByAlliance(allianceId);
+
       if (!member.roles.cache.has(roles.r3RoleId) && !member.roles.cache.has(roles.r4RoleId)) {
         throw new Error("Member cannot be promoted, not in R3 or R4");
       }
@@ -70,16 +80,17 @@ export class RoleModule {
         await member.roles.remove(roles.r3RoleId);
         await member.roles.add(roles.r4RoleId);
       } else if (member.roles.cache.has(roles.r4RoleId)) {
-        const r4Count = await AllianceService.getR4Count(member.guild.id);
         if (r4Count >= MAX_R4) throw new Error("Limit R4 osiągnięty");
         await member.roles.remove(roles.r4RoleId);
         await member.roles.add(roles.r5RoleId);
       }
+
+      if (totalMembers > MAX_MEMBERS) throw new Error("Limit członków przekroczony");
     });
   }
 
   // ----------------- DEMOTION -----------------
-  static async demote(member: GuildMember, roles: AllianceRoles) {
+  static async demote(member: GuildMember, allianceId: string, roles: AllianceRoles) {
     await MutationGate.runAtomically(async () => {
       if (member.roles.cache.has(roles.r5RoleId)) {
         await member.roles.remove(roles.r5RoleId);
