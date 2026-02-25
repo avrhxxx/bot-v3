@@ -1,3 +1,4 @@
+// File path: src/commands/sys/allianceDelete.ts
 /**
  * ============================================
  * COMMAND: Alliance Delete
@@ -26,7 +27,7 @@ import { AllianceRepo } from "../../data/Repositories";
 import { SafeMode } from "../../system/SafeMode";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 
-export const Command: Command = {
+export const AllianceDeleteCommand: Command = {
   data: new SlashCommandBuilder()
     .setName("alliance_delete")
     .setDescription("Delete an existing alliance (Owner Only, System Layer)")
@@ -108,4 +109,4 @@ export const Command: Command = {
   }
 };
 
-export default Command;
+export default AllianceDeleteCommand;
