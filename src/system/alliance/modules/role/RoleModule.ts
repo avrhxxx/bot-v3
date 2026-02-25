@@ -42,11 +42,14 @@ const MAX_R4 = 10;       // maksymalna liczba ról R4
 export class RoleModule {
 
   // ----------------- CREATE ROLES -----------------
-  static async createRoles(guild: Guild, tag: string): Promise<AllianceRoles> {
-    const r5 = await guild.roles.create({ name: `${tag} R5`, mentionable: false });
-    const r4 = await guild.roles.create({ name: `${tag} R4`, mentionable: false });
-    const r3 = await guild.roles.create({ name: `${tag} R3`, mentionable: false });
-    const identity = await guild.roles.create({ name: `[${tag}]`, mentionable: true });
+  static async createRoles(guild: Guild, allianceName: string): Promise<AllianceRoles> {
+    // Role R5, R4, R3 łączone z nazwą sojuszu bez spacji
+    const r5 = await guild.roles.create({ name: `R5${allianceName}`, mentionable: false });
+    const r4 = await guild.roles.create({ name: `R4${allianceName}`, mentionable: false });
+    const r3 = await guild.roles.create({ name: `R3${allianceName}`, mentionable: false });
+
+    // Rola tożsamościowa to po prostu nazwa sojuszu
+    const identity = await guild.roles.create({ name: allianceName, mentionable: true });
 
     return { r5RoleId: r5.id, r4RoleId: r4.id, r3RoleId: r3.id, identityRoleId: identity.id };
   }
