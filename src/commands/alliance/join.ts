@@ -14,7 +14,7 @@
  * NOTES:
  * - Checks if the user is already in an alliance
  * - Validates alliance member limits
- * - Sends a DM notification to the user
+ * - Sends a DM notification to the user with alliance tag + name
  *
  * ============================================
  */
@@ -47,12 +47,18 @@ export const JoinCommand: Command = {
       // 1️⃣ Use Orchestrator to submit join request atomically
       await AllianceOrchestrator.requestJoin(userId, interaction.guild.id);
 
-      // 2️⃣ Notify the user
-      await interaction.user.send(
-        "✅ Your request to join the alliance has been submitted and is awaiting approval."
-      );
+      // 2️⃣ Fetch alliance info for DM
+      const alliance = AllianceService.getAllianceByMember(userId)
+                       || AllianceService.getAllianceByLeaderOrOfficer(userId);
 
-      // 3️⃣ Confirm to the command issuer
+      // 3️⃣ Notify the user via DM
+      if (alliance) {
+        await interaction.user.send(
+          `✅ Your request to join **[${alliance.tag}] ${alliance.name}** has been submitted and is awaiting approval.`
+        ).catch(() => {}); // ignore DM failures
+      }
+
+      // 4️⃣ Confirm usage via ephemeral reply
       await interaction.reply({ content: "✅ Request submitted.", ephemeral: true });
     } catch (error: any) {
       await interaction.reply({
