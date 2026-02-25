@@ -71,6 +71,13 @@ export class BroadcastModule {
   }
 
   // ----------------- ALLIANCE-SPECIFIC -----------------
+
+  /**
+   * Join request:
+   * - Goes to staff-room
+   * - Only R4/R5 see it
+   * - Triggered by system when user uses join command
+   */
   static async announceJoinRequest(
     allianceId: string,
     userId: string,
@@ -82,6 +89,12 @@ export class BroadcastModule {
     this.emit("joinRequest", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
   }
 
+  /**
+   * Join accepted:
+   * - Goes to welcome channel
+   * - All alliance members see it
+   * - Only bot sends this message
+   */
   static async announceJoin(
     allianceId: string,
     userId: string,
@@ -93,17 +106,29 @@ export class BroadcastModule {
     this.emit("join", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
   }
 
+  /**
+   * Leave:
+   * - Goes to welcome channel
+   * - All alliance members see it
+   * - Only bot sends this message
+   */
   static async announceLeave(
     allianceId: string,
     userId: string,
     pingRoleIds?: string[],
     pingUserIds?: string[]
   ) {
-    const channelId = ChannelModule.getAnnounceChannel(allianceId);
+    const channelId = ChannelModule.getWelcomeChannel(allianceId);
     if (!channelId) return;
     this.emit("leave", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
   }
 
+  /**
+   * Promotion:
+   * - Goes to announce channel
+   * - All alliance members see it
+   * - Only bot sends this message
+   */
   static async announcePromotion(
     allianceId: string,
     userId: string,
@@ -116,6 +141,12 @@ export class BroadcastModule {
     this.emit("promotion", { allianceId, userId, newRole, channelId, pingRoleIds, pingUserIds });
   }
 
+  /**
+   * Demotion:
+   * - Goes to announce channel
+   * - All alliance members see it
+   * - Only bot sends this message
+   */
   static async announceDemotion(
     allianceId: string,
     userId: string,
@@ -128,6 +159,12 @@ export class BroadcastModule {
     this.emit("demotion", { allianceId, userId, newRole, channelId, pingRoleIds, pingUserIds });
   }
 
+  /**
+   * Custom message:
+   * - Goes to announce channel
+   * - All alliance members see it
+   * - Sent by R4/R5 via broadcast command
+   */
   static async sendCustomMessage(
     allianceId: string,
     message: string,
