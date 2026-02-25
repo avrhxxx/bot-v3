@@ -1,21 +1,36 @@
-import {
-  Client,
-  GatewayIntentBits,
-  REST,
-  Routes,
-  Interaction
-} from "discord.js";
+/**
+ * ============================================
+ * FILE: src/discord/client.ts
+ * LAYER: DISCORD CLIENT / BOT INITIALIZATION
+ * ============================================
+ *
+ * RESPONSIBILITIES:
+ * - Initialize Discord client
+ * - Register commands dynamically
+ * - Handle interaction dispatching
+ *
+ * CHANGES:
+ * - Removed deprecated XsysCommand
+ * - All commands loaded via CommandLoader / CommandRegistry
+ */
+
+import { Client, GatewayIntentBits, REST, Routes, Interaction } from "discord.js";
 import { config } from "../config/config";
 import { CommandRegistry } from "../commands/CommandRegistry";
 import { Dispatcher } from "../engine/Dispatcher";
-import { XsysCommand } from "../commands/XsysCommand";
+import { CommandLoader } from "../commands/loader/CommandLoader";
 
 export const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+  intents: [GatewayIntentBits.Guilds],
 });
 
 const registry = new CommandRegistry();
-registry.register(new XsysCommand());
+
+// 🔹 Load all commands dynamically
+(async () => {
+  const allCommands = await CommandLoader.loadAllCommands();
+  allCommands.forEach(cmd => registry.register(cmd));
+})();
 
 const dispatcher = new Dispatcher(registry);
 
@@ -25,9 +40,7 @@ export async function startDiscord() {
 
     const rest = new REST({ version: "10" }).setToken(config.token);
 
-    const commands = registry
-      .getAll()
-      .map(cmd => cmd.data.toJSON());
+    const commands = registry.getAll().map(cmd => cmd.data.toJSON());
 
     await rest.put(
       Routes.applicationGuildCommands(config.clientId, config.guildId),
