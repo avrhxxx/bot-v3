@@ -1,4 +1,6 @@
 // File path: src/commands/loader/CommandLoader.ts
+// fillpatch: CommandLoader responsible for dynamic loading of all commands 
+
 import fs from "fs";
 import path from "path";
 import { Command } from "../Command";
@@ -7,22 +9,29 @@ import { CommandRegistry } from "../CommandRegistry";
 // możemy użyć import { pathToFileURL } from "url"; i wtedy import(pathToFileURL(file).href)
 
 /**
- * fillpatch: CommandLoader responsible for dynamic loading of all commands 
- * (now independent of CommandDispatcher)
+ * CommandLoader is responsible for dynamically discovering and loading
+ * all command modules in the `commands` directory and its subdirectories.
+ *
+ * Advantages:
+ * - Fully decoupled from CommandDispatcher.
+ * - Handles both default and named exports for commands.
+ * - Provides console logging for success and failure per file.
  */
 export class CommandLoader {
   /**
-   * Load all command modules dynamically and register them into CommandRegistry.
-   * This replaces the old CommandDispatcher registration system.
+   * Load all commands recursively from the commands directory and register them.
    *
-   * Notes:
-   * - Supports both `export default Command` and `export const Command`.
-   * - Logs the file path and command name for debugging.
-   * - Skips non-.ts files and CommandLoader.ts itself.
+   * Behavior:
+   * - Skips CommandLoader.ts itself.
+   * - Only considers `.ts` files.
+   * - Registers commands into CommandRegistry automatically.
+   * - Logs both successes and warnings/failures.
    */
   static async loadAllCommands(): Promise<void> {
+    // Resolve base commands directory
     const commandsDir = path.resolve(__dirname, ".."); 
 
+    // Recursive directory walker
     const walkDir = (dir: string): string[] => {
       let results: string[] = [];
       const list = fs.readdirSync(dir, { withFileTypes: true });
@@ -47,11 +56,11 @@ export class CommandLoader {
           CommandRegistry.register(exportedCommand);
           console.log(`✅ Command loaded: ${exportedCommand.data.name} (${file})`);
         } else {
-          // ⚠️ Plik TS nie zawiera prawidłowej komendy (brak `data`)
+          // ⚠️ File TS does not contain a valid command (missing `data`)
           console.warn(`⚠️ No valid command found in ${file}`);
         }
       } catch (err) {
-        // ❌ Import lub inicjalizacja modułu nie powiodła się
+        // ❌ Import or initialization failed
         console.error(`❌ Failed to load command from ${file}:`, err);
       }
     }
