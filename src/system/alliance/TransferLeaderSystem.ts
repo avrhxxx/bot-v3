@@ -27,24 +27,20 @@
  */
 
 // ----------------- IMPORTY -----------------
-import { AllianceService } from "./AllianceService"; // pełna ścieżka
-import { RoleModule } from "./modules/role/RoleModule"; // role i przypisania
-import { BroadcastModule } from "./modules/broadcast/BroadcastModule"; // broadcasty
-import { MutationGate } from "../../engine/MutationGate"; // atomowość
-import { Alliance } from "./AllianceTypes"; // typy sojuszu
+import { AllianceService } from "./AllianceService";
+import { RoleModule } from "./modules/role/RoleModule";
+import { BroadcastModule } from "./modules/broadcast/BroadcastModule";
+import { MutationGate } from "../../engine/MutationGate";
+import { Alliance } from "./AllianceTypes";
 
 // ----------------- KLASA -----------------
 export class TransferLeaderSystem {
 
   // ----------------- MANUAL TRANSFER (R4 → R5 ONLY) -----------------
-  // Użycie: normalny workflow przez lidera (R5) w sojuszu
-  // Przekazuje leadership do R4 członka
-  // Nie wolno używać jeśli jesteś nie-liderem
   static async transferLeadership(actorId: string, allianceId: string, newLeaderId: string) {
     await MutationGate.runAtomically(async () => {
       const alliance: Alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-      // walidacja: tylko aktualny lider może przekazać leadership
       if (alliance.members.r5 !== actorId) {
         throw new Error("Only the current leader can transfer leadership.");
       }
@@ -54,24 +50,21 @@ export class TransferLeaderSystem {
         throw new Error("Leadership can only be transferred to an R4 member.");
       }
 
-      const oldLeaderId = alliance.members.r5;
-      if (!oldLeaderId) throw new Error("Alliance has no current leader.");
-
+      const oldLeaderId = alliance.members.r5!;
       const newLeaderMember = await AllianceService.fetchGuildMember(alliance.guildId, newLeaderId);
       const oldLeaderMember = await AllianceService.fetchGuildMember(alliance.guildId, oldLeaderId);
 
       await RoleModule.assignLeaderRoles(newLeaderMember, alliance.roles);
       await RoleModule.assignR4Roles(oldLeaderMember, alliance.roles);
 
-      // aktualizacja ról w członkostwie
       alliance.members.r4 = r4List.filter(id => id !== newLeaderId);
       alliance.members.r4.push(oldLeaderId);
       alliance.members.r5 = newLeaderId;
 
       await AllianceService.updateAlliance(alliance);
 
-      // broadcast i log audytu
-      await BroadcastModule.announceLeadershipChange(allianceId, actorId, newLeaderId);
+      // broadcast z identityRoleId = stary lider
+      await BroadcastModule.announceLeadershipChange(allianceId, oldLeaderId, newLeaderId, oldLeaderId);
       AllianceService.logAudit(allianceId, {
         action: "transferLeadership",
         actorId,
@@ -82,10 +75,6 @@ export class TransferLeaderSystem {
   }
 
   // ----------------- ADMIN / OWNER SET LEADER -----------------
-  // Użycie: tylko Bot Owner / Discord Owner / Admin
-  // Może ustawić lidera w sytuacjach awaryjnych lub inicjalizacji
-  // - Jeśli brak lidera, przypisuje nowego bez walidacji R4
-  // - Jeśli lider istnieje, nowy lider musi być R4
   static async setLeader(actorId: string, allianceId: string, newLeaderId: string) {
     await MutationGate.runAtomically(async () => {
       const alliance: Alliance = AllianceService.getAllianceOrThrow(allianceId);
@@ -94,18 +83,16 @@ export class TransferLeaderSystem {
       const newLeaderMember = await AllianceService.fetchGuildMember(alliance.guildId, newLeaderId);
       if (!newLeaderMember) throw new Error("Unable to fetch GuildMember for the new leader.");
 
-      // brak obecnego lidera
       if (!oldLeaderId) {
         await RoleModule.assignLeaderRoles(newLeaderMember, alliance.roles);
         alliance.members.r5 = newLeaderId;
         await AllianceService.updateAlliance(alliance);
 
-        await BroadcastModule.announceLeadershipChange(allianceId, actorId, newLeaderId);
+        await BroadcastModule.announceLeadershipChange(allianceId, "", newLeaderId, newLeaderId);
         AllianceService.logAudit(allianceId, { action: "setLeader", actorId, newLeaderId });
         return;
       }
 
-      // walidacja: nowy lider musi być R4
       const r4List = alliance.members.r4 || [];
       if (!r4List.includes(newLeaderId)) {
         throw new Error("New leader must be an R4 member.");
@@ -116,14 +103,13 @@ export class TransferLeaderSystem {
       await RoleModule.assignLeaderRoles(newLeaderMember, alliance.roles);
       await RoleModule.assignR4Roles(oldLeaderMember, alliance.roles);
 
-      // aktualizacja członkostwa
       alliance.members.r4 = r4List.filter(id => id !== newLeaderId);
       alliance.members.r4.push(oldLeaderId);
       alliance.members.r5 = newLeaderId;
 
       await AllianceService.updateAlliance(alliance);
 
-      await BroadcastModule.announceLeadershipChange(allianceId, actorId, newLeaderId);
+      await BroadcastModule.announceLeadershipChange(allianceId, oldLeaderId, newLeaderId, oldLeaderId);
       AllianceService.logAudit(allianceId, {
         action: "setLeader",
         actorId,
@@ -151,7 +137,6 @@ export class TransferLeaderSystem {
 
   // ----------------- BACKGROUND / ORPHAN CHECK (stub) -----------------
   static async checkOrphanLeaders() {
-    // stub do builda / background task
     return;
   }
 
