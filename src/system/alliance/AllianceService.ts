@@ -66,13 +66,42 @@ export class AllianceService {
 
   // ----------------- MEMBERS -----------------
   static async addMember(actorId: string, allianceId: string, userId: string): Promise<void> {
-    // fillpatch: dodanie członka do alliance.members + walidacja + logAudit
+    const alliance = this.getAllianceOrThrow(allianceId);
+
+    if (this.isMember(alliance, userId)) throw new Error("User is already a member");
+    if (this.getTotalMembers(alliance) >= MAX_MEMBERS) throw new Error("Alliance is full");
+
+    alliance.members.r3.push(userId);
+    this.checkOrphanState(alliance);
+    AllianceRepo.set(allianceId, alliance);
+
+    this.logAudit(allianceId, { action: "addMember", actorId, userId });
   }
+
   static async promoteToR4(actorId: string, allianceId: string, userId: string): Promise<void> {
-    // fillpatch: promocja członka z R3 do R4 + walidacja + logAudit
+    const alliance = this.getAllianceOrThrow(allianceId);
+
+    if (!alliance.members.r3.includes(userId)) throw new Error("User is not R3");
+    if (alliance.members.r4.length >= MAX_R4) throw new Error("Max R4 reached");
+
+    alliance.members.r3 = alliance.members.r3.filter(u => u !== userId);
+    alliance.members.r4.push(userId);
+    AllianceRepo.set(allianceId, alliance);
+
+    this.logAudit(allianceId, { action: "promoteToR4", actorId, userId });
   }
+
   static async removeMember(actorId: string, allianceId: string, userId: string): Promise<void> {
-    // fillpatch: usunięcie członka z alliance.members + walidacja + logAudit
+    const alliance = this.getAllianceOrThrow(allianceId);
+
+    alliance.members.r5 = alliance.members.r5.filter(u => u !== userId);
+    alliance.members.r4 = alliance.members.r4.filter(u => u !== userId);
+    alliance.members.r3 = alliance.members.r3.filter(u => u !== userId);
+
+    this.checkOrphanState(alliance);
+    AllianceRepo.set(allianceId, alliance);
+
+    this.logAudit(allianceId, { action: "removeMember", actorId, userId });
   }
 
   // ----------------- LEADERSHIP -----------------
@@ -100,28 +129,30 @@ export class AllianceService {
 
   // ----------------- HELPERS -----------------
   public static getAllianceOrThrow(id: string): Alliance {
-    // fillpatch: pobranie sojuszu z repo, rzutowanie lub throw
-    return {} as Alliance;
+    const alliance = AllianceRepo.get(id);
+    if (!alliance) throw new Error(`Alliance ${id} not found`);
+    return alliance;
   }
 
   private static isMember(alliance: Alliance, userId: string): boolean {
-    // fillpatch: sprawdzenie, czy userId jest w alliance.members
-    return false;
+    return alliance.members.r5.includes(userId)
+        || alliance.members.r4.includes(userId)
+        || alliance.members.r3.includes(userId);
   }
 
   private static getTotalMembers(alliance: Alliance): number {
-    // fillpatch: suma członków R3+R4+R5
-    return 0;
+    return alliance.members.r5.length + alliance.members.r4.length + alliance.members.r3.length;
   }
 
   private static checkOrphanState(alliance: Alliance): void {
-    // fillpatch: ustawienie alliance.orphaned w zależności od obecności R5
+    alliance.orphaned = alliance.members.r5.length === 0;
   }
 
   public static logAudit(
     allianceId: string,
     entry: Omit<{ id: string } & Record<string, any>, "id">
   ): void {
-    // fillpatch: zapis akcji do logów audytu
+    const id = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    db.journal.set(id, { id, allianceId, ...entry });
   }
 }
