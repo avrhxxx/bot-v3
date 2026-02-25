@@ -7,16 +7,14 @@
  * ============================================
  *
  * RESPONSIBILITY:
- * - Accept a user's request to join the alliance
+ * - Accept a user's join request
  * - Only R5 / R4 / leader can approve
- * - Integrates with MembershipModule via AllianceOrchestrator
+ * - Integrates with AllianceOrchestrator
+ * - Sends DM to the accepted user
  *
  * NOTES:
- * - Checks the leader/officer permissions
- * - Accepts the user directly (no pending fetch)
- * - Assigns the user to the alliance atomically
- * - Updates Discord roles
- * - Broadcasts acceptance to the alliance
+ * - Ephemeral reply confirms command usage only
+ * - Welcome channel broadcast handled separately
  *
  * ============================================
  */
@@ -27,54 +25,52 @@ import { AllianceService } from "../../system/alliance/AllianceService";
 import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
 
 export const AcceptCommand: Command = {
-  name: "accept",
-  description: "Accepts a user into your alliance",
   data: new SlashCommandBuilder()
     .setName("accept")
-    .setDescription("Accepts a user into your alliance")
+    .setDescription("Approve a user's request to join the alliance")
     .addUserOption(option =>
-      option.setName("user")
-            .setDescription("The user to accept")
-            .setRequired(true)
+      option
+        .setName("user")
+        .setDescription("The user to accept")
+        .setRequired(true)
     ),
-  execute: async (interaction: ChatInputCommandInteraction) => {
+
+  async execute(interaction: ChatInputCommandInteraction) {
     const actorId = interaction.user.id;
-    const targetUser = interaction.options.getUser("user");
+    const targetUser = interaction.options.getUser("user", true);
 
-    if (!targetUser) {
-      await interaction.reply({
-        content: "❌ You must specify a user to accept.",
-        ephemeral: true,
-      });
-      return;
-    }
-
-    // 1️⃣ Get the alliance for the actor (leader/officer)
+    // 1️⃣ Get alliance for leader/officer
     const alliance = await AllianceService.getAllianceByLeaderOrOfficer(actorId);
     if (!alliance) {
       await interaction.reply({
         content: "❌ You are not a leader or officer of any alliance.",
-        ephemeral: true,
+        ephemeral: true
       });
       return;
     }
 
     try {
-      // 2️⃣ Atomically accept the user via Orchestrator
+      // 2️⃣ Approve join request atomically
       await AllianceOrchestrator.approveJoin(actorId, alliance.id, targetUser.id);
 
-      // 3️⃣ Reply to the actor
+      // 3️⃣ DM the accepted user
+      await targetUser.send(
+        `🎉 You have been accepted into **[${alliance.tag}] ${alliance.name}**! Welcome!`
+      ).catch(() => { /* ignore DM errors */ });
+
+      // 4️⃣ Ephemeral confirmation (short, command-level only)
       await interaction.reply({
-        content: `✅ You have accepted <@${targetUser.id}> into the alliance ${alliance.tag}.`,
-        ephemeral: true,
+        content: "✅ You have approved the join request.",
+        ephemeral: true
       });
+
     } catch (error: any) {
       await interaction.reply({
         content: `❌ Failed to approve member: ${error.message}`,
-        ephemeral: true,
+        ephemeral: true
       });
     }
-  },
+  }
 };
 
 export default AcceptCommand;
