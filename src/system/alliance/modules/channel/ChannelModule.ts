@@ -52,7 +52,7 @@ export class ChannelModule {
 
     // WELCOME: widoczny dla wszystkich członków sojuszu (R3+), tylko bot może pisać
     await welcome.permissionOverwrites.set([
-      { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] },
+      { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] }, // nie-członkowie nie widzą
       { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] },
       { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel] },
       { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel] },
@@ -61,9 +61,9 @@ export class ChannelModule {
     // ANNOUNCE: widoczny dla wszystkich członków sojuszu (R3+), R4 i R5 mogą wysyłać wiadomości przez komendę broadcast
     await announce.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-      { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-      { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+      { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] }, // R3 widzi, nie może pisać
+      { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }, // R4 może pisać
+      { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }, // R5 może pisać
     ]);
 
     // CHAT: widoczny dla wszystkich członków sojuszu (R3+), wszyscy mogą pisać
