@@ -7,14 +7,13 @@
  * ============================================
  *
  * RESPONSIBILITY:
- * - Reject a user's request to join an alliance
- * - Only for R5 / R4 / leader
+ * - Reject a user's join request
+ * - Only R5 / R4 / leader can deny
  * - Integrates with AllianceOrchestrator
+ * - Sends DM to the denied user
  *
- * IMPLEMENTATION:
- * - Validate permissions (R5/R4/leader)
- * - Retrieve request from the join queue
- * - Deny the request and notify the user
+ * NOTES:
+ * - Ephemeral reply confirms command usage only
  *
  * ============================================
  */
@@ -22,11 +21,12 @@
 import { Command } from "../Command";
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
+import { AllianceService } from "../../system/alliance/AllianceService";
 
 export const DenyCommand: Command = {
   data: new SlashCommandBuilder()
     .setName("deny")
-    .setDescription("Rejects a user's request to join the alliance")
+    .setDescription("Reject a user's request to join the alliance")
     .addUserOption(option =>
       option
         .setName("member")
@@ -39,26 +39,32 @@ export const DenyCommand: Command = {
     const targetUser = interaction.options.getUser("member", true);
 
     if (!interaction.guild) {
-      await interaction.reply({ content: "❌ Cannot deny outside a guild.", ephemeral: true });
+      await interaction.reply({
+        content: "❌ Cannot deny outside a guild.",
+        ephemeral: true
+      });
       return;
     }
 
     try {
-      // 1️⃣ Atomically deny the join request via Orchestrator
+      // 1️⃣ Deny join request atomically
       await AllianceOrchestrator.denyJoin(actorId, interaction.guild.id, targetUser.id);
 
-      // 2️⃣ Notify the user in DM that they were denied
-      await targetUser.send(
-        `❌ Your alliance join request has been denied. You may try again later.`
-      ).catch(() => {
-        // ignore if DMs cannot be sent
+      // 2️⃣ Fetch alliance for DM context
+      const alliance = await AllianceService.getAllianceByLeaderOrOfficer(actorId);
+
+      if (alliance) {
+        await targetUser.send(
+          `❌ Your request to join **[${alliance.tag}] ${alliance.name}** has been denied.`
+        ).catch(() => { /* ignore DM errors */ });
+      }
+
+      // 3️⃣ Ephemeral confirmation (short)
+      await interaction.reply({
+        content: "✅ You have denied the join request.",
+        ephemeral: true
       });
 
-      // 3️⃣ Reply in the command channel
-      await interaction.reply({
-        content: `✅ User <@${targetUser.id}>'s join request has been denied.`,
-        ephemeral: false
-      });
     } catch (error: any) {
       await interaction.reply({
         content: `❌ Failed to deny join request: ${error.message}`,
