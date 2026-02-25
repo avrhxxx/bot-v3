@@ -18,53 +18,66 @@
  * ============================================
  */
 
-import { AllianceService } from "../../AllianceService";
 import { ChannelModule } from "../channel/ChannelModule";
-import { RoleModule } from "../role/RoleModule";
 
-/**
- * Payload for broadcasting alliance events
- */
+/** Allowed alliance roles */
+export type AllianceRole = "R3" | "R4" | "R5";
+
+/** Supported broadcast events */
+export type BroadcastEvent =
+  | "joinRequest"
+  | "join"
+  | "leave"
+  | "promotion"
+  | "demotion"
+  | "customMessage"
+  | "leadershipChange"
+  | "nameChange"
+  | "tagChange"
+  | "allianceRemoval";
+
+/** Payload for broadcasting alliance events */
 export interface BroadcastPayload {
   allianceId: string;
   userId?: string;
-  actorId?: string;          // added for custom message
+  actorId?: string;          // for custom messages
   oldLeaderId?: string;
   newLeaderId?: string;
-  newRole?: string;
+  newRole?: AllianceRole;
   message?: string;
   channelId: string;
   pingRoleIds?: string[];
   pingUserIds?: string[];
 }
 
-/**
- * BroadcastModule - emits events for alliance changes
- */
+/** Listener type for each event */
+type BroadcastListener<T extends BroadcastEvent> = (payload: BroadcastPayload) => void;
+
+/** BroadcastModule - emits events for alliance changes */
 export class BroadcastModule {
-  private static listeners: Record<string, ((...args: any[]) => void)[]> = {};
+  private static listeners: Partial<Record<BroadcastEvent, BroadcastListener<BroadcastEvent>[]>> = {};
 
   // ----------------- EVENT MANAGEMENT -----------------
-  static on(event: string, listener: (...args: any[]) => void) {
+  static on<T extends BroadcastEvent>(event: T, listener: BroadcastListener<T>) {
     if (!this.listeners[event]) this.listeners[event] = [];
-    this.listeners[event].push(listener);
+    this.listeners[event]!.push(listener as BroadcastListener<BroadcastEvent>);
   }
 
-  static emit(event: string, payload: BroadcastPayload) {
+  static emit<T extends BroadcastEvent>(event: T, payload: BroadcastPayload) {
     const eventListeners = this.listeners[event] ?? [];
     for (const listener of eventListeners) {
       try {
-        listener(payload);
+        (listener as BroadcastListener<T>)(payload);
       } catch (error) {
         console.error(`BroadcastModule: error in listener '${event}'`, error);
       }
     }
   }
 
-  static off(event: string, listener?: (...args: any[]) => void) {
+  static off<T extends BroadcastEvent>(event: T, listener?: BroadcastListener<T>) {
     if (!this.listeners[event]) return;
     if (!listener) delete this.listeners[event];
-    else this.listeners[event] = this.listeners[event].filter(l => l !== listener);
+    else this.listeners[event] = this.listeners[event]!.filter(l => l !== listener);
   }
 
   static clearAll() {
@@ -95,14 +108,13 @@ export class BroadcastModule {
     this.emit("join", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
   }
 
-  // ----------------- LEAVE (moved to announce channel) -----------------
   static async announceLeave(
     allianceId: string,
     userId: string,
     pingRoleIds?: string[],
     pingUserIds?: string[]
   ) {
-    const channelId = ChannelModule.getAnnounceChannel(allianceId); // changed
+    const channelId = ChannelModule.getAnnounceChannel(allianceId);
     if (!channelId) return;
     this.emit("leave", { allianceId, userId, channelId, pingRoleIds, pingUserIds });
   }
@@ -110,7 +122,7 @@ export class BroadcastModule {
   static async announcePromotion(
     allianceId: string,
     userId: string,
-    newRole: string,
+    newRole: AllianceRole,
     pingRoleIds?: string[],
     pingUserIds?: string[]
   ) {
@@ -122,7 +134,7 @@ export class BroadcastModule {
   static async announceDemotion(
     allianceId: string,
     userId: string,
-    newRole: string,
+    newRole: AllianceRole,
     pingRoleIds?: string[],
     pingUserIds?: string[]
   ) {
@@ -131,7 +143,6 @@ export class BroadcastModule {
     this.emit("demotion", { allianceId, userId, newRole, channelId, pingRoleIds, pingUserIds });
   }
 
-  // ----------------- CUSTOM MESSAGE (adds actorId prefix) -----------------
   static async sendCustomMessage(
     allianceId: string,
     message: string,
@@ -143,8 +154,6 @@ export class BroadcastModule {
     if (!channelId) return;
     this.emit("customMessage", { allianceId, actorId, message, channelId, pingRoleIds, pingUserIds });
   }
-
-  // ----------------- NEW ALLIANCE NOTIFICATIONS -----------------
 
   static async announceLeadershipChange(
     allianceId: string,
@@ -210,9 +219,9 @@ export class BroadcastModule {
   }
 
   // ----------------- MESSAGE FORMAT -----------------
-  static formatMessage(event: string, payload: BroadcastPayload): string {
-    const pingRoles = payload.pingRoleIds?.map(r => `<@&${r}>`).join(' ') ?? '';
-    const pingUsers = payload.pingUserIds?.map(u => `<@${u}>`).join(' ') ?? '';
+  static formatMessage(event: BroadcastEvent, payload: BroadcastPayload): string {
+    const pingRoles = (payload.pingRoleIds ?? []).map(r => `<@&${r}>`).join(' ');
+    const pingUsers = (payload.pingUserIds ?? []).map(u => `<@${u}>`).join(' ');
 
     switch (event) {
       case "joinRequest":
@@ -230,9 +239,7 @@ export class BroadcastModule {
       case "leadershipChange":
         return `👑 Leadership Change: <@${payload.oldLeaderId}> → <@${payload.newLeaderId}> ${pingRoles}`;
       case "nameChange":
-        return `${payload.message} ${pingRoles}`;
       case "tagChange":
-        return `${payload.message} ${pingRoles}`;
       case "allianceRemoval":
         return `${payload.message} ${pingRoles}`;
       default:
