@@ -8,13 +8,13 @@
  *
  * RESPONSIBILITY:
  * - Allows a user to request joining an alliance
- * - Adds the user to the join queue in AllianceOrchestrator
+ * - Adds the user to the join queue via AllianceOrchestrator
  * - Notifies R5 / R4 / leader about a new request
+ * - Sends DM to the user with alliance tag + name
  *
  * NOTES:
- * - Checks if the user is already in an alliance
- * - Validates alliance member limits
- * - Sends a DM notification to the user with alliance tag + name
+ * - SafeMode blocks new join requests
+ * - Member limit validation handled inside Orchestrator
  *
  * ============================================
  */
@@ -34,39 +34,48 @@ export const JoinCommand: Command = {
     const userId = interaction.user.id;
 
     if (!interaction.guild) {
-      await interaction.reply({ content: "❌ You cannot join outside a server.", ephemeral: true });
+      await interaction.reply({
+        content: "❌ You cannot join outside a server.",
+        ephemeral: true
+      });
       return;
     }
 
     if (SafeMode.isActive()) {
-      await interaction.reply({ content: "⛔ System in SAFE_MODE – cannot join an alliance.", ephemeral: true });
+      await interaction.reply({
+        content: "⛔ System in SAFE_MODE – cannot join an alliance.",
+        ephemeral: true
+      });
       return;
     }
 
     try {
-      // 1️⃣ Use Orchestrator to submit join request atomically
-      await AllianceOrchestrator.requestJoin(userId, interaction.guild.id);
+      const guildId = interaction.guild.id;
 
-      // 2️⃣ Fetch alliance info for DM
-      const alliance = AllianceService.getAllianceByMember(userId)
-                       || AllianceService.getAllianceByLeaderOrOfficer(userId);
+      // 1️⃣ Submit join request atomically
+      await AllianceOrchestrator.requestJoin(userId, guildId);
 
-      // 3️⃣ Notify the user via DM
-      if (alliance) {
-        await interaction.user.send(
-          `✅ Your request to join **[${alliance.tag}] ${alliance.name}** has been submitted and is awaiting approval.`
-        ).catch(() => {}); // ignore DM failures
-      }
+      // 2️⃣ Fetch alliance data for DM context
+      const alliance = AllianceService.getAllianceOrThrow(guildId);
 
-      // 4️⃣ Confirm usage via ephemeral reply
-      await interaction.reply({ content: "✅ Request submitted.", ephemeral: true });
+      // 3️⃣ DM the user with alliance tag + name
+      await interaction.user.send(
+        `✅ Your request to join **[${alliance.tag}] ${alliance.name}** has been submitted and is awaiting approval.`
+      ).catch(() => { /* ignore DM errors */ });
+
+      // 4️⃣ Ephemeral confirmation
+      await interaction.reply({
+        content: "✅ Join request submitted.",
+        ephemeral: true
+      });
+
     } catch (error: any) {
       await interaction.reply({
-        content: `❌ Failed to submit request: ${error.message}`,
-        ephemeral: true,
+        content: `❌ Failed to submit join request: ${error.message}`,
+        ephemeral: true
       });
     }
-  },
+  }
 };
 
 export default JoinCommand;
