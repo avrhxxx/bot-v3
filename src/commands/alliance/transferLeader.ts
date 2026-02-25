@@ -41,9 +41,15 @@ export const TransferLeaderCommand: Command = {
     const actorId = interaction.user.id;
     const newLeader = interaction.options.getUser("new_leader", true);
 
+    if (!interaction.guild) {
+      await interaction.reply({ content: "❌ Cannot transfer leadership outside a guild.", ephemeral: true });
+      return;
+    }
+
     try {
       // 1️⃣ Transfer leadership atomically via AllianceOrchestrator
-      await AllianceOrchestrator.transferLeader(actorId, newLeader.id, interaction.guild?.id!);
+      // Poprawiona kolejność argumentów: actorId, allianceId, newLeaderId
+      await AllianceOrchestrator.transferLeader(actorId, interaction.guild.id, newLeader.id);
 
       // 2️⃣ Confirmation message
       await interaction.reply({
