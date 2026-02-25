@@ -1,22 +1,3 @@
-/**
- * ============================================
- * MODULE: ChannelModule
- * FILE: src/system/alliance/channel/ChannelModule.ts
- * LAYER: SYSTEM (Alliance Channel Management Module)
- * ============================================
- *
- * RESPONSIBILITIES:
- * - Creating and managing alliance channels on Discord
- * - Setting visibility for R5/R4/R3, public, and non-members
- * - Keeping consistency with alliance category
- *
- * DEPENDENCIES:
- * - AllianceService (fetch alliance and roles)
- * - RoleModule (role consistency)
- *
- * ============================================
- */
-
 import { Guild, TextChannel, CategoryChannel, ChannelType, PermissionFlagsBits } from "discord.js";
 import { AllianceService } from "../AllianceService";
 import { RoleModule } from "../role/RoleModule";
@@ -24,14 +5,19 @@ import { RoleModule } from "../role/RoleModule";
 export class ChannelModule {
   private static channels: Record<string, Record<string, string>> = {};
 
+  // Tworzenie kanałów sojuszu
   static async createChannels(guild: Guild, allianceId: string, tag: string, name: string) {
     const alliance = AllianceService.getAllianceOrThrow(allianceId);
     const roles = alliance.roles;
 
     const createdChannels: Record<string, TextChannel> = {};
 
-    // Tworzenie kategorii dla sojuszu
-    const category = await guild.channels.create({ name, type: ChannelType.GuildCategory }) as CategoryChannel;
+    // Liczba członków w sojuszu
+    const memberCount = alliance.members.length;
+    const categoryName = `${tag} | ${name} | ${memberCount}/100`;
+
+    // Tworzenie kategorii
+    const category = await guild.channels.create({ name: categoryName, type: ChannelType.GuildCategory }) as CategoryChannel;
 
     // ----------------- Tworzenie kanałów -----------------
     const welcome = await guild.channels.create({ name: "welcome", type: ChannelType.GuildText, parent: category.id }) as TextChannel;
@@ -49,24 +35,20 @@ export class ChannelModule {
     const everyoneId = guild.roles.everyone.id;
 
     // ----------------- Ustawienia permisji -----------------
-
-    // WELCOME: widoczny dla wszystkich członków sojuszu (R3+), tylko bot może pisać
     await welcome.permissionOverwrites.set([
-      { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] }, // nie-członkowie nie widzą
+      { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] },
       { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] },
       { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel] },
       { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel] },
     ]);
 
-    // ANNOUNCE: widoczny dla wszystkich członków sojuszu (R3+), R4 i R5 mogą wysyłać wiadomości przez komendę broadcast
     await announce.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-      { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] }, // R3 widzi, nie może pisać
-      { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }, // R4 może pisać
-      { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }, // R5 może pisać
+      { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] },
+      { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+      { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
     ]);
 
-    // CHAT: widoczny dla wszystkich członków sojuszu (R3+), wszyscy mogą pisać
     await chat.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
       { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
@@ -74,7 +56,6 @@ export class ChannelModule {
       { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
     ]);
 
-    // STAFF-ROOM: widoczny tylko dla R4 i R5, mogą pisać, R3 i reszta nie widzi
     await staff.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] },
       { id: roles.r3RoleId, deny: [PermissionFlagsBits.ViewChannel] },
@@ -82,7 +63,6 @@ export class ChannelModule {
       { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
     ]);
 
-    // JOIN: widoczny tylko dla nie-członków sojuszu (everyone, bez R3-R5)
     await join.permissionOverwrites.set([
       { id: everyoneId, allow: [PermissionFlagsBits.ViewChannel] },
       { id: roles.r3RoleId, deny: [PermissionFlagsBits.ViewChannel] },
@@ -100,6 +80,23 @@ export class ChannelModule {
     };
 
     return this.channels[allianceId];
+  }
+
+  // ----------------- Aktualizacja licznika członków -----------------
+  static async updateMemberCount(allianceId: string) {
+    const alliance = AllianceService.getAllianceOrThrow(allianceId);
+    const count = alliance.members.length;
+    const channelIds = this.channels[allianceId];
+    if (!channelIds) return;
+
+    const guild = alliance.guild; // zakładamy, że alliance ma referencję do guild
+    const category = guild.channels.cache.get(channelIds.categoryId) as CategoryChannel;
+    if (!category) return;
+
+    const newName = `${alliance.tag} | ${alliance.name} | ${count}/100`;
+    if (category.name !== newName) {
+      await category.setName(newName);
+    }
   }
 
   // ----------------- GETTERY -----------------
