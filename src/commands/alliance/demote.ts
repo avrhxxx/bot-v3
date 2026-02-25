@@ -14,7 +14,7 @@
  * NOTES:
  * - Validates permissions
  * - Checks role limits
- * - Handles errors and SafeMode
+ * - Handles errors
  *
  * ============================================
  */
@@ -22,7 +22,6 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
-import { SafeMode } from "../../system/SafeMode";
 
 export const DemoteCommand: Command = {
   data: new SlashCommandBuilder()
@@ -44,10 +43,8 @@ export const DemoteCommand: Command = {
       return;
     }
 
-    if (SafeMode.isActive()) {
-      await interaction.reply({ content: "⛔ System in SAFE_MODE – cannot demote members.", ephemeral: true });
-      return;
-    }
+    // Placeholder for previous SafeMode check:
+    // if (SafeMode.isActive()) { ... }
 
     try {
       // 1️⃣ Execute demotion atomically via AllianceOrchestrator
