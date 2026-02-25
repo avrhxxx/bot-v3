@@ -18,7 +18,7 @@
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
-import { AllianceSystem } from "../../system/alliance/AllianceSystem";
+import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
 import { SafeMode } from "../../system/SafeMode";
 
 export const KickCommand: Command = {
@@ -47,8 +47,8 @@ export const KickCommand: Command = {
     }
 
     try {
-      // 1️⃣ Attempt to kick via AllianceSystem
-      const result = await AllianceSystem.kickMember(actorId, targetUser.id, interaction.guild.id);
+      // 1️⃣ Attempt to kick via AllianceOrchestrator atomically
+      const result = await AllianceOrchestrator.kickMember(actorId, targetUser.id, interaction.guild.id);
 
       // 2️⃣ Reply based on success
       if (result.success) {
