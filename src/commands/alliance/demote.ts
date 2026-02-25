@@ -9,7 +9,7 @@
  * RESPONSIBILITY:
  * - Demote an alliance member to a lower rank (R5 → R4 → R3)
  * - Only leader / R5 can demote
- * - Integrates with AllianceSystem
+ * - Integrates with AllianceOrchestrator
  *
  * NOTES:
  * - Validates permissions
@@ -21,7 +21,7 @@
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
-import { AllianceSystem } from "../../system/alliance/AllianceSystem";
+import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
 import { SafeMode } from "../../system/SafeMode";
 
 export const DemoteCommand: Command = {
@@ -36,7 +36,7 @@ export const DemoteCommand: Command = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const userId = interaction.user.id;
+    const actorId = interaction.user.id;
     const targetUser = interaction.options.getUser("member", true);
 
     if (!interaction.guild) {
@@ -50,12 +50,12 @@ export const DemoteCommand: Command = {
     }
 
     try {
-      // 1️⃣ Call demoteMember in AllianceSystem
-      const result = await AllianceSystem.demoteMember(userId, targetUser.id, interaction.guild.id);
+      // 1️⃣ Execute demotion atomically via AllianceOrchestrator
+      await AllianceOrchestrator.demote(actorId, interaction.guild.id, targetUser.id);
 
       // 2️⃣ Notify success
       await interaction.reply({
-        content: `✅ <@${targetUser.id}> has been demoted to **${result.newRank}** in the alliance.`,
+        content: `✅ <@${targetUser.id}> has been demoted in the alliance.`,
         ephemeral: false
       });
     } catch (error: any) {
