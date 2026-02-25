@@ -27,7 +27,7 @@
  */
 
 import { AllianceService } from "../../AllianceService";
-import { RoleModule, AllianceRoles } from "../rol/RoleModule";
+import { RoleModule } from "../role/RoleModule"; // <- poprawiona ścieżka
 import { BroadcastModule } from "../broadcast/BroadcastModule";
 import { TransferLeaderSystem } from "../../TransferLeaderSystem";
 import { AllianceIntegrity } from "../../integrity/AllianceIntegrity";
@@ -145,22 +145,4 @@ export class MembershipModule {
   static async demoteUser(actorId: string, allianceId: string, userId: string, newRole: string): Promise<void> {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId) as any;
-      const member = (alliance.members || []).find(m => m.userId === userId);
-      if (!member) throw new Error("User not found in alliance");
-
-      member.role = newRole;
-
-      AllianceIntegrity.validate(alliance);
-
-      await BroadcastModule.announceDemotion(allianceId, userId, newRole, undefined, ["Indify"]);
-
-      AllianceService.logAudit(allianceId, { action: "demote", actorId, userId, newRole });
-    });
-  }
-}
-
-/**
- * ============================================
- * FILEPATH: src/system/alliance/modules/membership/MembershipModule.ts
- * ============================================
- */
+      const member = (alliance.members || []).find(m
