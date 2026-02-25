@@ -91,7 +91,7 @@ export class AllianceService {
     alliance.members.r4 = alliance.members.r4 || [];
     if (alliance.members.r4.length >= MAX_R4) throw new Error("Max R4 reached");
 
-    alliance.members.r3 = alliance.members.r3.filter(u => u !== userId);
+    alliance.members.r3 = alliance.members.r3.filter((u: string) => u !== userId);
     alliance.members.r4.push(userId);
     AllianceRepo.set(allianceId, alliance);
 
@@ -102,8 +102,8 @@ export class AllianceService {
     const alliance = this.getAllianceOrThrow(allianceId);
 
     if (alliance.members.r5 === userId) alliance.members.r5 = null;
-    alliance.members.r4 = alliance.members.r4?.filter(u => u !== userId) || [];
-    alliance.members.r3 = alliance.members.r3?.filter(u => u !== userId) || [];
+    alliance.members.r4 = alliance.members.r4?.filter((u: string) => u !== userId) || [];
+    alliance.members.r3 = alliance.members.r3?.filter((u: string) => u !== userId) || [];
 
     this.checkOrphanState(alliance);
     AllianceRepo.set(allianceId, alliance);
@@ -124,8 +124,8 @@ export class AllianceService {
     alliance.tag = newTag;
     AllianceRepo.set(allianceId, alliance);
 
-    await RoleModule.updateTag(allianceId, newTag); // stub dla builda
-    await BroadcastModule.updateTag(allianceId, newTag); // stub dla builda
+    await RoleModule.updateTag(allianceId, newTag);
+    await BroadcastModule.updateTag(allianceId, newTag);
 
     this.logAudit(allianceId, { action: "updateTag", actorId, oldTag, newTag });
   }
@@ -137,7 +137,7 @@ export class AllianceService {
     alliance.name = newName;
     AllianceRepo.set(allianceId, alliance);
 
-    await BroadcastModule.updateName(allianceId, newName); // stub dla builda
+    await BroadcastModule.updateName(allianceId, newName);
 
     this.logAudit(allianceId, { action: "updateName", actorId, oldName, newName });
   }
@@ -157,8 +157,8 @@ export class AllianceService {
     PendingDeletionRepo.delete(allianceId);
     AllianceRepo.delete(allianceId);
 
-    await BroadcastModule.removeAlliance(allianceId); // stub dla builda
-    await RoleModule.removeRoles(alliance.roles); // stub dla builda
+    await BroadcastModule.removeAlliance(allianceId);
+    await RoleModule.removeRoles(alliance.roles);
 
     this.logAudit(allianceId, { action: "confirmDelete", actorId });
   }
@@ -176,10 +176,22 @@ export class AllianceService {
         || alliance.members.r3?.includes(userId);
   }
 
-  private static getTotalMembers(alliance: Alliance): number {
+  public static getTotalMembers(alliance: Alliance): number {
     return (alliance.members.r5 ? 1 : 0)
          + (alliance.members.r4?.length || 0)
          + (alliance.members.r3?.length || 0);
+  }
+
+  public static getAllianceByLeaderOrOfficer(userId: string): Alliance | undefined {
+    return AllianceRepo.getAll().find(alliance =>
+      alliance.members.r5 === userId || alliance.members.r4?.includes(userId)
+    );
+  }
+
+  public static getAllianceByMember(userId: string): Alliance | undefined {
+    return AllianceRepo.getAll().find(alliance =>
+      alliance.members.r3?.includes(userId)
+    );
   }
 
   private static checkOrphanState(alliance: Alliance): void {
