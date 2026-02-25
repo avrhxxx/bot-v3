@@ -8,7 +8,7 @@
  *
  * RESPONSIBILITY:
  * - Allows a member to leave their current alliance
- * - Integrates with AllianceSystem
+ * - Integrates with AllianceOrchestrator
  * - Sends confirmation message
  *
  * NOTES:
@@ -20,7 +20,7 @@
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
-import { AllianceSystem } from "../../system/alliance/AllianceSystem";
+import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
 import { SafeMode } from "../../system/SafeMode";
 
 export const LeaveCommand: Command = {
@@ -42,8 +42,8 @@ export const LeaveCommand: Command = {
     }
 
     try {
-      // 1️⃣ Attempt to leave the alliance
-      const result = await AllianceSystem.leaveAlliance(userId, interaction.guild.id);
+      // 1️⃣ Attempt to leave the alliance atomically via orchestrator
+      const result = await AllianceOrchestrator.leaveAlliance(userId, interaction.guild.id);
 
       // 2️⃣ Confirmation message
       await interaction.reply({
