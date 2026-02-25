@@ -27,7 +27,7 @@
 
 import { AllianceService } from "../AllianceService";
 import { MembershipModule } from "../MembershipModule";
-import { RoleModule } from "../RoleModule/RoleModule";
+import { RoleModule } from "../role/RoleModule";
 import { ChannelModule } from "../ChannelModule/ChannelModule";
 import { BroadcastModule } from "../BroadcastModule/BroadcastModule";
 import { TransferLeaderSystem } from "../TransferLeaderSystem";
@@ -43,17 +43,19 @@ export class SystemInitializer {
     await MutationGate.initLocks();
 
     // 2️⃣ Załadowanie danych z repozytoriów
-    await AllianceService.loadAllAlliances();
+    if (AllianceService.loadAllAlliances) {
+      await AllianceService.loadAllAlliances();
+    }
 
     // 3️⃣ Synchronizacja ról i kanałów z Discord
-    await RoleModule.syncAllRoles();
-    await ChannelModule.syncAllChannels();
+    if (RoleModule.syncAllRoles) await RoleModule.syncAllRoles();
+    if (ChannelModule.syncAllChannels) await ChannelModule.syncAllChannels();
 
     // 4️⃣ Ładowanie wszystkich komend (system + użytkownik)
-    await CommandLoader.loadAllCommands();
+    if (CommandLoader.loadAllCommands) await CommandLoader.loadAllCommands();
 
     // 5️⃣ Walidacja spójności wszystkich sojuszy
-    await AllianceService.validateAll();
+    if (AllianceService.validateAll) await AllianceService.validateAll();
 
     // 6️⃣ Start zadań w tle (rollback liderów, backupy)
     SystemInitializer.startBackgroundTasks();
