@@ -33,7 +33,6 @@ export class TransferLeaderSystem {
   // ----------------- MANUAL TRANSFER (R4 → R5 ONLY) -----------------
   static async transferLeadership(actorId: string, allianceId: string, newLeaderId: string) {
     await MutationGate.runAtomically(async () => {
-
       const alliance: Alliance = await AllianceService.getAllianceOrThrow(allianceId);
 
       // Validate that the actor is the current leader
@@ -84,7 +83,6 @@ export class TransferLeaderSystem {
   // ----------------- ADMIN / OWNER SET LEADER -----------------
   static async setLeader(actorId: string, allianceId: string, newLeaderId: string) {
     await MutationGate.runAtomically(async () => {
-
       const alliance: Alliance = await AllianceService.getAllianceOrThrow(allianceId);
       const oldLeaderId = alliance.members.r5;
 
