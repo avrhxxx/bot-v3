@@ -1,3 +1,4 @@
+// File path: src/commands/sys/setLeader.ts
 /**
  * ============================================
  * COMMAND: Set Leader
@@ -13,6 +14,7 @@
  *
  * NOTES:
  * - Updates the alliance membership and roles
+ * - Uses TransferLeaderSystem.setLeader under the hood
  * - Sends confirmation message to the command executor
  *
  * ============================================
@@ -46,16 +48,19 @@ export const SetLeaderCommand: Command = {
     const identifier = interaction.options.getString("identifier", true);
     const newLeader = interaction.options.getUser("leader", true);
 
+    // ----------------- CHECK OWNER -----------------
     if (!Ownership.isBotOwner(executorId) && !Ownership.isDiscordOwner(executorId)) {
       await interaction.reply({ content: "⛔ Only BotOwner or DiscordOwner can execute this command.", ephemeral: true });
       return;
     }
 
+    // ----------------- CHECK SAFE MODE -----------------
     if (SafeMode.isActive()) {
       await interaction.reply({ content: "⛔ System in SAFE_MODE – cannot assign leader.", ephemeral: true });
       return;
     }
 
+    // ----------------- FETCH ALLIANCE -----------------
     const alliance = AllianceSystem.getAllianceByTagOrName(identifier);
     if (!alliance) {
       await interaction.reply({ content: `❌ No alliance found with tag or name \`${identifier}\`.`, ephemeral: true });
@@ -63,10 +68,19 @@ export const SetLeaderCommand: Command = {
     }
 
     try {
+      // ----------------- SET LEADER SYSTEM -----------------
+      // korzystamy z TransferLeaderSystem.setLeader, aby admin/owner mógł wymusić lidera
       await AllianceSystem.setLeaderSystem(alliance, newLeader.id);
-      await interaction.reply({ content: `✅ <@${newLeader.id}> has been assigned as the leader of alliance \`${alliance.tag}\`.`, ephemeral: false });
+
+      await interaction.reply({
+        content: `✅ <@${newLeader.id}> has been assigned as the leader of alliance \`${alliance.tag}\`.`,
+        ephemeral: false
+      });
     } catch (error: any) {
-      await interaction.reply({ content: `❌ Failed to set leader: ${error.message}`, ephemeral: true });
+      await interaction.reply({
+        content: `❌ Failed to set leader: ${error.message}`,
+        ephemeral: true
+      });
     }
   }
 };
