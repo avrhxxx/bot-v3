@@ -45,7 +45,7 @@ export const DenyCommand: Command = {
 
     try {
       // 1️⃣ Atomically deny the join request via Orchestrator
-      await AllianceOrchestrator.approveJoin(actorId, interaction.guild.id, targetUser.id, false);
+      await AllianceOrchestrator.denyJoin(actorId, interaction.guild.id, targetUser.id);
 
       // 2️⃣ Notify the user in DM that they were denied
       await targetUser.send(
