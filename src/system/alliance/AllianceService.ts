@@ -119,8 +119,8 @@ export class AllianceService {
     alliance.tag = newTag;
     AllianceRepo.set(allianceId, alliance);
 
-    await RoleModule.updateTag(allianceId, newTag);
-    await BroadcastModule.updateTag(allianceId, newTag);
+    await RoleModule.updateTag(allianceId, newTag); // stub dla builda
+    await BroadcastModule.updateTag(allianceId, newTag); // stub dla builda
 
     this.logAudit(allianceId, { action: "updateTag", actorId, oldTag, newTag });
   }
@@ -132,7 +132,7 @@ export class AllianceService {
     alliance.name = newName;
     AllianceRepo.set(allianceId, alliance);
 
-    await BroadcastModule.updateName(allianceId, newName);
+    await BroadcastModule.updateName(allianceId, newName); // stub dla builda
 
     this.logAudit(allianceId, { action: "updateName", actorId, oldName, newName });
   }
@@ -152,8 +152,8 @@ export class AllianceService {
     PendingDeletionRepo.delete(allianceId);
     AllianceRepo.delete(allianceId);
 
-    await BroadcastModule.removeAlliance(allianceId);
-    await RoleModule.removeRoles(alliance.roles);
+    await BroadcastModule.removeAlliance(allianceId); // stub dla builda
+    await RoleModule.removeRoles(alliance.roles); // stub dla builda
 
     this.logAudit(allianceId, { action: "confirmDelete", actorId });
   }
@@ -197,4 +197,13 @@ export class AllianceService {
   static async updateAlliance(alliance: Alliance) {
     AllianceRepo.set(alliance.id, alliance); // stub do builda
   }
+
+  static async loadAllAlliances() {
+    // stub do builda
+  }
+
+  static async validateAll() {
+    // stub do builda
+  }
+
 }
