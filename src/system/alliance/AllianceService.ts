@@ -38,6 +38,7 @@ import { AllianceIntegrity } from "./integrity/AllianceIntegrity";
 import { BroadcastModule } from "./modules/broadcast/BroadcastModule";
 import { RoleModule } from "./modules/role/RoleModule";
 import { TransferLeaderSystem } from "./TransferLeaderSystem";
+import { db } from "../../data/Database";
 
 export interface PendingDeletionRecord {
   requestedBy: string;
@@ -111,20 +112,51 @@ export class AllianceService {
 
   // ----------------- UPDATE -----------------
   static async updateTag(actorId: string, allianceId: string, newTag: string): Promise<void> {
-    // fillpatch: logika update tagu i walidacja spójności
+    const alliance = this.getAllianceOrThrow(allianceId);
+    const oldTag = alliance.tag;
+
+    // Aktualizacja w encji
+    alliance.tag = newTag;
+    AllianceRepo.set(allianceId, alliance);
+
+    // Synchronizacja z modułami (Role, Broadcast)
+    await RoleModule.updateTag(allianceId, newTag);
+    await BroadcastModule.updateTag(allianceId, newTag);
+
+    this.logAudit(allianceId, { action: "updateTag", actorId, oldTag, newTag });
   }
 
   static async updateName(actorId: string, allianceId: string, newName: string): Promise<void> {
-    // fillpatch: logika update nazwy i walidacja spójności
+    const alliance = this.getAllianceOrThrow(allianceId);
+    const oldName = alliance.name;
+
+    alliance.name = newName;
+    AllianceRepo.set(allianceId, alliance);
+
+    await BroadcastModule.updateName(allianceId, newName);
+
+    this.logAudit(allianceId, { action: "updateName", actorId, oldName, newName });
   }
 
   // ----------------- DELETION -----------------
   static requestDelete(actorId: string, allianceId: string): void {
-    // fillpatch: dodanie rekordu do PendingDeletionRepo
+    const alliance = this.getAllianceOrThrow(allianceId);
+    PendingDeletionRepo.set(allianceId, alliance);
+
+    this.logAudit(allianceId, { action: "requestDelete", actorId });
   }
 
   static async confirmDelete(actorId: string, allianceId: string): Promise<void> {
-    // fillpatch: usunięcie sojuszu z repo + logAudit
+    const alliance = PendingDeletionRepo.get(allianceId);
+    if (!alliance) throw new Error("No pending deletion for this alliance");
+
+    PendingDeletionRepo.delete(allianceId);
+    AllianceRepo.delete(allianceId);
+
+    await BroadcastModule.removeAlliance(allianceId);
+    await RoleModule.removeRoles(alliance.roles);
+
+    this.logAudit(allianceId, { action: "confirmDelete", actorId });
   }
 
   // ----------------- HELPERS -----------------
