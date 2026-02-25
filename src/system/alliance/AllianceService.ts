@@ -95,7 +95,8 @@ export class AllianceService {
   static async removeMember(actorId: string, allianceId: string, userId: string): Promise<void> {
     const alliance = this.getAllianceOrThrow(allianceId);
 
-    alliance.members.r5 = alliance.members.r5.filter(u => u !== userId);
+    // Poprawiona obsługa lidera (r5 jako pojedynczy członek)
+    if (alliance.members.r5 === userId) alliance.members.r5 = null;
     alliance.members.r4 = alliance.members.r4.filter(u => u !== userId);
     alliance.members.r3 = alliance.members.r3.filter(u => u !== userId);
 
@@ -167,17 +168,17 @@ export class AllianceService {
   }
 
   private static isMember(alliance: Alliance, userId: string): boolean {
-    return alliance.members.r5.includes(userId)
+    return alliance.members.r5 === userId
         || alliance.members.r4.includes(userId)
         || alliance.members.r3.includes(userId);
   }
 
   private static getTotalMembers(alliance: Alliance): number {
-    return alliance.members.r5.length + alliance.members.r4.length + alliance.members.r3.length;
+    return (alliance.members.r5 ? 1 : 0) + alliance.members.r4.length + alliance.members.r3.length;
   }
 
   private static checkOrphanState(alliance: Alliance): void {
-    alliance.orphaned = alliance.members.r5.length === 0;
+    alliance.orphaned = !alliance.members.r5;
   }
 
   public static logAudit(
