@@ -1,4 +1,3 @@
-// File path: src/commands/sys/allianceDelete.ts
 /**
  * ============================================
  * COMMAND: Alliance Delete
@@ -21,25 +20,23 @@
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
-import { Ownership } from "../../system/Ownership";
+import { Ownership } from "../../system/Ownership/Ownership";
 import { MutationGate } from "../../engine/MutationGate";
 import { AllianceRepo } from "../../data/Repositories";
 import { SafeMode } from "../../system/SafeMode";
-import { AllianceSystem } from "../../features/alliance/AllianceSystem";
+import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 
 export const Command: Command = {
   data: new SlashCommandBuilder()
     .setName("alliance_delete")
     .setDescription("Delete an existing alliance (Owner Only, System Layer)")
     .addStringOption(option =>
-      option
-        .setName("tag")
+      option.setName("tag")
         .setDescription("3-character tag of the alliance to delete")
         .setRequired(false)
     )
     .addStringOption(option =>
-      option
-        .setName("name")
+      option.setName("name")
         .setDescription("Full name of the alliance to delete")
         .setRequired(false)
     ),
@@ -75,7 +72,6 @@ export const Command: Command = {
       return;
     }
 
-    // Find alliance by tag or name
     let alliance = tagInput ? AllianceRepo.getByTag(tagInput, interaction.guild.id) : undefined;
     if (!alliance && nameInput) {
       alliance = AllianceRepo.getByName(nameInput, interaction.guild.id);
