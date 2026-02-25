@@ -9,7 +9,7 @@
  * RESPONSIBILITY:
  * - Promote a member to a higher rank in the alliance
  * - Only leader / R5 can promote
- * - Integrates with AllianceSystem
+ * - Integrates with AllianceOrchestrator
  *
  * NOTES:
  * - Checks if command is used inside a guild
@@ -21,7 +21,7 @@
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
-import { AllianceSystem } from "../../system/alliance/AllianceSystem";
+import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
 import { SafeMode } from "../../system/SafeMode";
 
 export const PromoteCommand: Command = {
@@ -50,8 +50,8 @@ export const PromoteCommand: Command = {
     }
 
     try {
-      // 1️⃣ Promote member via AllianceSystem
-      const result = await AllianceSystem.promoteMember(actorId, targetUser.id, interaction.guild.id);
+      // 1️⃣ Promote member atomically via AllianceOrchestrator
+      const result = await AllianceOrchestrator.promoteMember(actorId, targetUser.id, interaction.guild.id);
 
       // 2️⃣ Confirmation message
       await interaction.reply({
