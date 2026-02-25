@@ -1,3 +1,4 @@
+// File path: src/commands/sys/allianceCreate.ts
 /**
  * ============================================
  * COMMAND: Alliance Create
@@ -31,7 +32,7 @@ import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { AllianceRepo } from "../../data/Repositories";
 import { SafeMode } from "../../system/SafeMode";
 
-export const Command: Command = {
+export const AllianceCreateCommand: Command = {
   data: new SlashCommandBuilder()
     .setName("alliance_create")
     .setDescription("Create a new alliance (Owner Only, System Layer)")
@@ -173,4 +174,4 @@ export const Command: Command = {
   }
 };
 
-export default Command;
+export default AllianceCreateCommand;
