@@ -1,4 +1,3 @@
-// File path: src/commands/sys/allianceCreate.ts
 /**
  * ============================================
  * COMMAND: Alliance Create
@@ -26,9 +25,9 @@
 import crypto from "crypto";
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
-import { Ownership } from "../../system/Ownership";
+import { Ownership } from "../../system/Ownership/Ownership";
 import { MutationGate } from "../../engine/MutationGate";
-import { AllianceSystem } from "../../features/alliance/AllianceSystem";
+import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { AllianceRepo } from "../../data/Repositories";
 import { SafeMode } from "../../system/SafeMode";
 
@@ -85,7 +84,7 @@ export const Command: Command = {
     const name = interaction.options.getString("name", true);
     const leaderUser = interaction.options.getUser("leader", true);
 
-    // 1️⃣ Validate tag (3 chars, letters/numbers)
+    // 1️⃣ Validate tag
     if (!/^[A-Z0-9]{3}$/.test(tag)) {
       await interaction.reply({
         content: "❌ Alliance tag must be exactly 3 characters: letters (A-Z) or numbers (0-9) only.",
@@ -94,7 +93,7 @@ export const Command: Command = {
       return;
     }
 
-    // 2️⃣ Validate name (letters + spaces, max 32)
+    // 2️⃣ Validate name
     if (!/^[A-Za-z\s]{1,32}$/.test(name)) {
       await interaction.reply({
         content: "❌ Alliance name can only contain letters and spaces, max 32 characters.",
@@ -123,7 +122,6 @@ export const Command: Command = {
     try {
       const domainId = crypto.randomUUID();
 
-      // Typowanie zwracanej wartości dla TS
       type InfraResult = {
         roles: { r5RoleId: string; [key: string]: string };
         channels: { categoryId: string; [key: string]: string };
@@ -136,14 +134,12 @@ export const Command: Command = {
           requireGlobalLock: true
         },
         async () => {
-          // Create roles/channels infrastructure
           const infra = await AllianceSystem.createInfrastructure({
             guild: interaction.guild!,
             tag,
             leaderId: leaderUser.id
           });
 
-          // Save alliance to repo
           AllianceRepo.set({
             id: domainId,
             guildId: interaction.guild!.id,
