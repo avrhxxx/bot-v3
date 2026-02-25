@@ -9,10 +9,6 @@
  * - Wywoływanie MutationGate
  * - Brak logiki domenowej (tylko koordynacja)
  *
- * ZASADA:
- * - Tutaj wykonujemy runAtomically
- * - Moduły wykonują czystą logikę
- *
  * ============================================
  */
 
@@ -30,9 +26,15 @@ export class AllianceOrchestrator {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-      await MembershipModule.requestJoin(actorId, allianceId);
+      // 🚨 Check member limit BEFORE adding pending
+      const totalMembers = (alliance.members.r5 ? 1 : 0)
+                         + (alliance.members.r4?.length || 0)
+                         + (alliance.members.r3?.length || 0);
+      if (totalMembers >= 100) throw new Error("Alliance is full – cannot submit join request");
 
-      // Staff-room → ping tylko R4 + R5
+      await MembershipModule.addJoinRequest(actorId, allianceId);
+
+      // Notify staff-room → ping tylko R4 + R5
       await BroadcastModule.announceJoinRequest(
         allianceId,
         actorId,
@@ -46,14 +48,32 @@ export class AllianceOrchestrator {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-      await MembershipModule.approveJoin(actorId, allianceId, userId);
+      // 🚨 Check member limit BEFORE accept
+      const totalMembers = (alliance.members.r5 ? 1 : 0)
+                         + (alliance.members.r4?.length || 0)
+                         + (alliance.members.r3?.length || 0);
+      if (totalMembers >= 100) throw new Error("Alliance has reached maximum members");
 
-      // Publiczne → ping identity role
+      await MembershipModule.acceptMember(actorId, allianceId, userId);
+
+      // Public announce → ping identity role
       await BroadcastModule.announceJoin(
         allianceId,
         userId,
         [alliance.roles.identityRoleId]
       );
+    });
+  }
+
+  // ----------------- DENY JOIN -----------------
+  static async denyJoin(actorId: string, allianceId: string, userId: string) {
+    await MutationGate.runAtomically(async () => {
+      const alliance = AllianceService.getAllianceOrThrow(allianceId);
+
+      await MembershipModule.denyMember(actorId, allianceId, userId);
+
+      // Staff notification optional
+      // await BroadcastModule.announceDeny(allianceId, userId);
     });
   }
 
@@ -108,7 +128,6 @@ export class AllianceOrchestrator {
   static async transferLeader(actorId: string, allianceId: string, newLeaderId: string) {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
-
       const oldLeaderId = alliance.members.r5;
 
       await TransferLeaderSystem.transferLeadership(actorId, allianceId, newLeaderId);
