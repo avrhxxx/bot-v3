@@ -9,12 +9,12 @@
  * RESPONSIBILITY:
  * - Accept a user's request to join the alliance
  * - Only R5 / R4 / leader can approve
- * - Integrates with MembershipModule
+ * - Integrates with MembershipModule via AllianceOrchestrator
  *
  * NOTES:
  * - Checks the leader/officer permissions
  * - Fetches pending join request
- * - Assigns the user to the alliance
+ * - Assigns the user to the alliance atomically
  * - Updates Discord roles
  * - Broadcasts acceptance to the alliance
  *
@@ -23,10 +23,8 @@
 
 import { ChatInputCommandInteraction } from "discord.js";
 import { Command } from "../Command";
-import { MembershipModule } from "../../system/alliance/modules/membership/MembershipModule";
 import { AllianceService } from "../../system/alliance/AllianceService";
-import { RoleModule } from "../../system/alliance/modules/role/RoleModule";
-import { BroadcastModule } from "../../system/alliance/modules/broadcast/BroadcastModule";
+import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
 
 export const AcceptCommand: Command = {
   name: "accept",
@@ -45,7 +43,7 @@ export const AcceptCommand: Command = {
     }
 
     // 2️⃣ Get the pending join request
-    const joinRequest = await MembershipModule.getPendingRequest(alliance.id);
+    const joinRequest = await AllianceService.getPendingRequest(alliance.id);
     if (!joinRequest) {
       await interaction.reply({
         content: "❌ No pending join requests to approve.",
@@ -54,35 +52,21 @@ export const AcceptCommand: Command = {
       return;
     }
 
-    // 3️⃣ Check permissions (R5 / R4 / Leader)
-    const isAuthorized = await MembershipModule.canApprove(actorId, alliance.id);
-    if (!isAuthorized) {
+    try {
+      // 3️⃣ Atomically approve via AllianceOrchestrator
+      await AllianceOrchestrator.approveJoin(actorId, alliance.id, joinRequest.userId);
+
+      // 4️⃣ Reply to the actor
       await interaction.reply({
-        content: "❌ You do not have permission to approve members.",
+        content: `✅ You have accepted <@${joinRequest.userId}> into the alliance ${alliance.tag}.`,
         ephemeral: true,
       });
-      return;
+    } catch (error: any) {
+      await interaction.reply({
+        content: `❌ Failed to approve member: ${error.message}`,
+        ephemeral: true,
+      });
     }
-
-    // 4️⃣ Add the member to the alliance
-    await MembershipModule.acceptMember(joinRequest.userId, alliance.id);
-
-    // 5️⃣ Assign Discord roles
-    if (joinRequest.member) {
-      await RoleModule.assignRole(joinRequest.member, alliance.roles.r3RoleId);
-    }
-
-    // 6️⃣ Broadcast the acceptance to the alliance
-    await BroadcastModule.broadcast(
-      alliance.id,
-      `✅ User <@${joinRequest.userId}> has been accepted into alliance ${alliance.tag}!`
-    );
-
-    // 7️⃣ Reply to the actor
-    await interaction.reply({
-      content: `✅ You have accepted <@${joinRequest.userId}> into the alliance ${alliance.tag}.`,
-      ephemeral: true,
-    });
   },
 };
 
