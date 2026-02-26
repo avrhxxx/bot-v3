@@ -6,35 +6,27 @@
  * ============================================
  *
  * RESPONSIBILITY:
- * - Przechowuje listę użytkowników z uprawnieniami systemowymi
- * - Umożliwia sprawdzenie, czy dany userId ma prawo wykonywać komendy owner-only
+ * - Defines server authority IDs from environment variables
+ * - Provides helper to check if a user is authorized
  *
  * NOTES:
- * - authority IDs pobierane ze zmiennej środowiskowej `AUTHORITY_IDS`
- * - Komenda global broadcast będzie korzystać z tego modułu
+ * - Minimal version for system-level commands (e.g., global broadcast)
+ * - IDs are read from process.env.AUTHORITY_IDS as comma-separated string
+ *
  * ============================================
  */
 
-export class Ownership {
-  private static authorityIds: string[] = process.env.AUTHORITY_IDS
-    ? process.env.AUTHORITY_IDS.split(",").map(id => id.trim())
-    : [];
+export namespace Ownership {
+  // 🔑 Odczyt z ENV: np. "123456789012345678,987654321098765432"
+  const rawIds = process.env.AUTHORITY_IDS || "";
+  export const AUTHORITY_IDS: string[] = rawIds.split(",").map(id => id.trim()).filter(Boolean);
 
   /**
-   * Sprawdza, czy podany userId znajduje się wśród authority IDs
-   * @param userId - ID użytkownika do sprawdzenia
+   * Sprawdza, czy dany użytkownik ma prawa authority
+   * @param userId - ID użytkownika Discord
    * @returns boolean
    */
-  public static isAuthority(userId: string): boolean {
-    return this.authorityIds.includes(userId);
-  }
-
-  /**
-   * (Opcjonalnie) metoda zwracająca wszystkie authority IDs
-   */
-  public static getAllAuthorities(): string[] {
-    return [...this.authorityIds];
+  export function isAuthority(userId: string): boolean {
+    return AUTHORITY_IDS.includes(userId);
   }
 }
-
-export default Ownership;
