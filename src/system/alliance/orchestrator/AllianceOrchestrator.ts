@@ -4,10 +4,10 @@
  * LAYER: APPLICATION (Orchestration Layer)
  * ============================================
  *
- * ODPOWIEDZIALNOŚĆ:
- * - Spinanie modułów w operacje atomowe
- * - Wywoływanie MutationGate
- * - Brak logiki domenowej (tylko koordynacja)
+ * RESPONSIBILITIES:
+ * - Orchestrate modules into atomic operations
+ * - Invoke MutationGate
+ * - No domain logic (coordination only)
  *
  * ============================================
  */
@@ -26,7 +26,6 @@ export class AllianceOrchestrator {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-      // 🚨 Check member limit BEFORE adding pending
       const totalMembers = (alliance.members.r5 ? 1 : 0)
                          + (alliance.members.r4?.length || 0)
                          + (alliance.members.r3?.length || 0);
@@ -34,7 +33,6 @@ export class AllianceOrchestrator {
 
       await MembershipModule.addJoinRequest(actorId, allianceId);
 
-      // Notify staff-room → ping tylko R4 + R5
       await BroadcastModule.announceJoinRequest(
         allianceId,
         actorId,
@@ -48,7 +46,6 @@ export class AllianceOrchestrator {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-      // 🚨 Check member limit BEFORE accept
       const totalMembers = (alliance.members.r5 ? 1 : 0)
                          + (alliance.members.r4?.length || 0)
                          + (alliance.members.r3?.length || 0);
@@ -56,7 +53,6 @@ export class AllianceOrchestrator {
 
       await MembershipModule.acceptMember(actorId, allianceId, userId);
 
-      // Public announce → ping identity role
       await BroadcastModule.announceJoin(
         allianceId,
         userId,
@@ -71,9 +67,6 @@ export class AllianceOrchestrator {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
       await MembershipModule.denyMember(actorId, allianceId, userId);
-
-      // Staff notification optional
-      // await BroadcastModule.announceDeny(allianceId, userId);
     });
   }
 
