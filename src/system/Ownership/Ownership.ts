@@ -1,126 +1,102 @@
 /**
  * ============================================
  * FILE: src/system/Ownership/Ownership.ts
- * LAYER: SYSTEM (Ownership & Security)
+ * LAYER: SYSTEM
  * ============================================
  *
  * ODPOWIEDZIALNOŚĆ:
- * - Przechowywanie i kontrola właścicieli bota i serwera Discord
- * - Walidacja i transfer własności
- * - Współpraca z SafeMode, MutationGate i Health
+ * - Przechowywanie i kontrola właścicieli globalnych (Shadow Authority)
+ * - Nadawanie roli Shadow Authority w Discord
+ * - Sprawdzenia uprawnień (bot owner lub guild owner)
  *
  * ZALEŻNOŚCI:
- * - OwnershipRepo (persistencja danych)
- * - MutationGate (atomiczne operacje i blokady globalne)
- * - SafeMode (tryb bezpieczny systemu)
- * - Health (monitorowanie stanu systemu)
- *
- * UWAGA:
- * - Wszystkie operacje mutujące wymagają MutationGate
- * - enforceInvariant aktywuje SafeMode jeśli brak Bot Ownera
+ * - discord.js (Client, Guild)
  *
  * ============================================
  */
 
-// ----------------- IMPORTY -----------------
-// Poprawione ścieżki po przeniesieniu plików Ownership do folderu Ownership/
-import { OwnershipRepo } from "../data/Repositories";
-import { MutationGate } from "../engine/MutationGate";
-import { SafeMode } from "./Ownership/SafeMode"; // <- nowa ścieżka
-import { Health } from "./Ownership/Health"; // <- nowa ścieżka
+import { Client, Guild, Role, ColorResolvable } from "discord.js";
 
-// ----------------- KLUCZE -----------------
-const BOT_OWNER_KEY = "BOT_OWNER";
-const DISCORD_OWNER_KEY = "DISCORD_OWNER";
+const ROLE_NAME = "Shadow Authority";
+const ROLE_COLOR: ColorResolvable = "#4B0082"; // ciemnofioletowy
 
+/**
+ * Obsługa globalnych właścicieli botów (Shadow Authority)
+ * Obsługuje maksymalnie dwóch użytkowników, oddzielonych przecinkiem w zmiennej środowiskowej AUTHORITY_IDS
+ */
 export class Ownership {
-  // ----------------- INITIALIZATION -----------------
-  static async initialize(botOwnerId: string, discordOwnerId: string) {
-    await MutationGate.execute(
-      {
-        operation: "OWNERSHIP_INITIALIZE",
-        actor: botOwnerId,
-        requireGlobalLock: true
-      },
-      async () => {
-        const existingBotOwner = OwnershipRepo.get(BOT_OWNER_KEY);
-        if (existingBotOwner) {
-          throw new Error("Bot Owner is already initialized and cannot be overwritten.");
-        }
+  private static authorityIds: Set<string> = new Set();
 
-        OwnershipRepo.set(BOT_OWNER_KEY, botOwnerId);
-        OwnershipRepo.set(DISCORD_OWNER_KEY, discordOwnerId);
+  /**
+   * Inicjalizacja z ENV
+   */
+  static initFromEnv() {
+    const env = process.env.AUTHORITY_IDS || "";
+    const ids = env.split(",").map(s => s.trim()).filter(Boolean).slice(0, 2);
+    this.authorityIds = new Set(ids);
+  }
+
+  /**
+   * Sprawdza, czy userId jest globalnym właścicielem (Shadow Authority)
+   */
+  static isAuthority(userId: string): boolean {
+    return this.authorityIds.has(userId);
+  }
+
+  /**
+   * Sprawdza, czy userId jest właścicielem guild
+   */
+  static isGuildOwner(userId: string, guild: Guild): boolean {
+    return guild.ownerId === userId;
+  }
+
+  /**
+   * Weryfikuje uprawnienia Shadow Authority, rzuca błąd jeśli brak
+   */
+  static requireAuthority(userId: string, guild?: Guild) {
+    if (!this.isAuthority(userId) && !(guild && this.isGuildOwner(userId, guild))) {
+      throw new Error("User is not Shadow Authority or Guild Owner.");
+    }
+  }
+
+  /**
+   * Tworzy rolę Shadow Authority w każdej guildzie i przydziela ją użytkownikom
+   */
+  static async syncRoles(client: Client) {
+    for (const [, guild] of client.guilds.cache) {
+      await this.ensureRole(guild);
+    }
+  }
+
+  private static async ensureRole(guild: Guild) {
+    let role: Role | undefined = guild.roles.cache.find(r => r.name === ROLE_NAME);
+    if (!role) {
+      try {
+        role = await guild.roles.create({
+          name: ROLE_NAME,
+          color: ROLE_COLOR,
+          reason: "Automatyczne tworzenie roli Shadow Authority",
+        });
+        console.log(`✅ Role '${ROLE_NAME}' created in guild ${guild.name}`);
+      } catch (err) {
+        console.error(`❌ Failed to create role '${ROLE_NAME}' in guild ${guild.name}:`, err);
+        return;
       }
-    );
-  }
-
-  // ----------------- GETTERS -----------------
-  static getBotOwner(): string | undefined {
-    return OwnershipRepo.get(BOT_OWNER_KEY);
-  }
-
-  static getDiscordOwner(): string | undefined {
-    return OwnershipRepo.get(DISCORD_OWNER_KEY);
-  }
-
-  static isBotOwner(userId: string): boolean {
-    return this.getBotOwner() === userId;
-  }
-
-  static isDiscordOwner(userId: string): boolean {
-    return this.getDiscordOwner() === userId;
-  }
-
-  // ----------------- TRANSFERS -----------------
-  static async transferBotOwner(actorId: string, newOwnerId: string) {
-    if (!this.isBotOwner(actorId)) {
-      throw new Error("Only the current Bot Owner can transfer ownership.");
     }
 
-    if (SafeMode.isActive()) {
-      throw new Error("Ownership transfer is blocked: system is in SAFE_MODE.");
-    }
+    for (const userId of this.authorityIds) {
+      const member = await guild.members.fetch(userId).catch(() => null);
+      if (!member) continue;
 
-    const health = Health.get();
-    if (health.state !== "HEALTHY") {
-      throw new Error("Ownership transfer blocked: system health is not HEALTHY.");
-    }
-
-    await MutationGate.execute(
-      {
-        operation: "BOT_OWNER_TRANSFER",
-        actor: actorId,
-        requireGlobalLock: true
-      },
-      async () => {
-        OwnershipRepo.set(BOT_OWNER_KEY, newOwnerId);
+      if (!member.roles.cache.has(role.id)) {
+        await member.roles.add(role).catch(err => {
+          console.error(`❌ Failed to assign role '${ROLE_NAME}' to user ${userId}:`, err);
+        });
+        console.log(`✅ Role '${ROLE_NAME}' assigned to user ${userId} in guild ${guild.name}`);
       }
-    );
-  }
-
-  static async setDiscordOwner(actorId: string, newOwnerId: string) {
-    if (!this.isBotOwner(actorId)) {
-      throw new Error("Only the Bot Owner can assign the Discord Owner.");
-    }
-
-    await MutationGate.execute(
-      {
-        operation: "DISCORD_OWNER_SET",
-        actor: actorId,
-        requireGlobalLock: true
-      },
-      async () => {
-        OwnershipRepo.set(DISCORD_OWNER_KEY, newOwnerId);
-      }
-    );
-  }
-
-  // ----------------- INVARIANTS -----------------
-  static enforceInvariant() {
-    const botOwner = OwnershipRepo.get(BOT_OWNER_KEY);
-
-    if (!botOwner) {
-      SafeMode.activate("BOT_OWNER_MISSING");
     }
   }
 }
+
+// --- Inicjalizacja z ENV ---
+Ownership.initFromEnv();
