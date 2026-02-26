@@ -1,5 +1,4 @@
-// src/modules/rules/RulesModule.ts
-import { AllianceService } from "../../AllianceService";
+import { AllianceService } from "../../AllianceServices";
 
 export class RulesModule {
   static validateJoin(allianceId: string, memberId: string) {
