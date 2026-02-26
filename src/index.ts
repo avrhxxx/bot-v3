@@ -1,21 +1,31 @@
-import path from "path";
-import { performance } from "perf_hooks";
-
 import { startDiscord } from "./discord/client";
 
+type Alliance = { id: string };
+
 class AllianceRepo {
-  static getAll() { return []; }
+  static getAll(): Alliance[] {
+    return [];
+  }
 }
+
 class SnapshotRepo {
-  static get(id: string) { return undefined; }
+  static get(id: string): unknown {
+    return undefined;
+  }
 }
+
 class Ownership {
   static initFromEnv() {}
-  static syncRoles(client: any) { return Promise.resolve(); }
+  static syncRoles(client: unknown) { 
+    return Promise.resolve(); 
+  }
 }
+
 class CommandLoader {
-  static async loadAllCommands() {}
+  static async loadAllCommands(): Promise<void> {}
 }
+
+Ownership.initFromEnv();
 
 async function bootstrap() {
   console.log("System booting...");
