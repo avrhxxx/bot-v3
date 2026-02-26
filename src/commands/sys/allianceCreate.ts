@@ -8,7 +8,7 @@
  *
  * RESPONSIBILITY:
  * - Create a new alliance
- * - Owner-only and system-layer command
+ * - Shadow Authority only (global system control)
  * - Sets both tag and full alliance name
  * - Assigns initial leader (R5)
  * - Creates roles and channels via AllianceSystem
@@ -17,8 +17,8 @@
  * NOTES:
  * - Validates tag (3 characters, letters/numbers, unique per guild)
  * - Validates name (letters + spaces, max 32 characters, unique per guild)
- * - Only Bot Owner or Discord Owner can execute
- * - SafeMode usage removed
+ * - SafeMode usage removed (module no longer exists)
+ * - Shadow Authority defined in Ownership.ts (AUTHORITY_IDS from ENV)
  *
  * ============================================
  */
@@ -30,12 +30,11 @@ import { Ownership } from "../../system/Ownership/Ownership";
 import { MutationGate } from "../../engine/MutationGate";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { AllianceRepo } from "../../data/Repositories";
-// Removed: import { SafeMode } from "../../system/SafeMode"; ✅ SafeMode no longer exists
 
 export const AllianceCreateCommand: Command = {
   data: new SlashCommandBuilder()
     .setName("alliance_create")
-    .setDescription("Create a new alliance (Owner Only, System Layer)")
+    .setDescription("Create a new alliance (Shadow Authority Only, System Layer)")
     .addStringOption(option =>
       option
         .setName("tag")
@@ -51,7 +50,7 @@ export const AllianceCreateCommand: Command = {
     .addUserOption(option =>
       option
         .setName("leader")
-        .setDescription("User ID of the alliance leader")
+        .setDescription("User who becomes initial R5 (alliance leader)")
         .setRequired(true)
     ),
   ownerOnly: true,
@@ -60,16 +59,16 @@ export const AllianceCreateCommand: Command = {
   async execute(interaction: ChatInputCommandInteraction) {
     const userId = interaction.user.id;
 
+    // 1️⃣ Command must be executed inside a guild
     if (!interaction.guild) {
       await interaction.reply({ content: "❌ Cannot create alliance outside a guild.", ephemeral: true });
       return;
     }
 
-    // ✅ SafeMode check removed because module no longer exists
-
-    if (!Ownership.isBotOwner(userId) && !Ownership.isDiscordOwner(userId)) {
+    // 2️⃣ Shadow Authority check (defined in Ownership.ts via AUTHORITY_IDS)
+    if (!Ownership.isAuthority(userId)) {
       await interaction.reply({
-        content: "⛔ Only Bot Owner or Discord Owner can execute this command.",
+        content: "⛔ Only Shadow Authority can execute this command.",
         ephemeral: true
       });
       return;
@@ -79,7 +78,7 @@ export const AllianceCreateCommand: Command = {
     const name = interaction.options.getString("name", true);
     const leaderUser = interaction.options.getUser("leader", true);
 
-    // 1️⃣ Validate tag
+    // 3️⃣ Validate tag format (exactly 3 uppercase letters/numbers)
     if (!/^[A-Z0-9]{3}$/.test(tag)) {
       await interaction.reply({
         content: "❌ Alliance tag must be exactly 3 characters: letters (A-Z) or numbers (0-9) only.",
@@ -88,7 +87,7 @@ export const AllianceCreateCommand: Command = {
       return;
     }
 
-    // 2️⃣ Validate name
+    // 4️⃣ Validate name format (letters + spaces, max 32 chars)
     if (!/^[A-Za-z\s]{1,32}$/.test(name)) {
       await interaction.reply({
         content: "❌ Alliance name can only contain letters and spaces, max 32 characters.",
@@ -97,7 +96,7 @@ export const AllianceCreateCommand: Command = {
       return;
     }
 
-    // 3️⃣ Check uniqueness within the guild
+    // 5️⃣ Ensure uniqueness within the guild
     if (AllianceRepo.getByTag(tag, interaction.guild.id)) {
       await interaction.reply({
         content: `❌ Alliance tag \`${tag}\` already exists. Please choose a different tag.`,
@@ -122,6 +121,7 @@ export const AllianceCreateCommand: Command = {
         channels: { categoryId: string; [key: string]: string };
       };
 
+      // 6️⃣ Atomic infrastructure creation via MutationGate
       const result: InfraResult = await MutationGate.execute(
         {
           operation: "ALLIANCE_CREATE",
@@ -129,12 +129,14 @@ export const AllianceCreateCommand: Command = {
           requireGlobalLock: true
         },
         async () => {
+          // Create Discord roles & channels
           const infra = await AllianceSystem.createInfrastructure({
             guild: interaction.guild!,
             tag,
             leaderId: leaderUser.id
           });
 
+          // Persist domain object in repository
           AllianceRepo.set({
             id: domainId,
             guildId: interaction.guild!.id,
@@ -151,10 +153,12 @@ export const AllianceCreateCommand: Command = {
         }
       );
 
+      // 7️⃣ Success response
       await interaction.reply({
-        content: `✅ Alliance created successfully with tag \`${tag}\` and name \`${name}\`.\n` +
-                 `R5 Role ID: ${result.roles.r5RoleId}\n` +
-                 `Category ID: ${result.channels.categoryId}`,
+        content:
+          `✅ Alliance created successfully with tag \`${tag}\` and name \`${name}\`.\n` +
+          `R5 Role ID: ${result.roles.r5RoleId}\n` +
+          `Category ID: ${result.channels.categoryId}`,
         ephemeral: false
       });
 
