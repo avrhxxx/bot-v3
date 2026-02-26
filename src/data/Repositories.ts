@@ -1,19 +1,20 @@
 // src/data/Repositories.ts
 
 import { db } from "./Database";
-import { Alliance } from "../system/alliance/AllianceTypes";
-import { OwnershipRecord } from "../system/Ownership";
+
+// Minimal temporary domain types (clean build stubs)
+
+type Alliance = {
+  id: string;
+};
+
+type OwnershipRecord = {
+  userId: string;
+};
 
 /**
  * =====================================================
  * REPOSITORY LAYER – Bot-V3
- * =====================================================
- *
- * Controlled access to the in-memory domain database.
- * Pure domain state only. No monitoring or snapshots.
- * Database → Repository → Domain Systems
- *
- * Legacy systems removed: SnapshotRepo, HealthRepo
  * =====================================================
  */
 
@@ -84,7 +85,4 @@ export const PendingDeletionRepo = {
   }
 };
 
-// ---------------------------
-// Direct DB export (advanced internal usage)
-// ---------------------------
 export { db };
