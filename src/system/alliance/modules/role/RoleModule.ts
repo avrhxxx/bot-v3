@@ -23,6 +23,7 @@ import { MutationGate } from "../../../engine/MutationGate";
 import { AllianceService } from "../../AllianceService";
 import { BroadcastModule } from "../broadcast/BroadcastModule";
 
+// ----------------- INTERFACES -----------------
 export interface AllianceRoles {
   r5RoleId: string;
   r4RoleId: string;
@@ -32,26 +33,40 @@ export interface AllianceRoles {
 
 export type AllianceMemberRef = { userId: string; role: "R3" | "R4" | "R5" };
 
+// ----------------- CLASS -----------------
 export class RoleModule {
   // ----------------- CREATE ROLES -----------------
+  /**
+   * Create Discord roles for a new alliance.
+   * Returns the IDs of all created roles.
+   */
   static async createRoles(guild: Guild, allianceName: string): Promise<AllianceRoles> {
-    const r5 = await guild.roles.create({ name: `R5${allianceName}`, mentionable: false });
-    const r4 = await guild.roles.create({ name: `R4${allianceName}`, mentionable: false });
-    const r3 = await guild.roles.create({ name: `R3${allianceName}`, mentionable: false });
+    const r5 = await guild.roles.create({ name: `R5-${allianceName}`, mentionable: false });
+    const r4 = await guild.roles.create({ name: `R4-${allianceName}`, mentionable: false });
+    const r3 = await guild.roles.create({ name: `R3-${allianceName}`, mentionable: false });
     const identity = await guild.roles.create({ name: allianceName, mentionable: true });
 
     return { r5RoleId: r5.id, r4RoleId: r4.id, r3RoleId: r3.id, identityRoleId: identity.id };
   }
 
   // ----------------- ASSIGN ROLES -----------------
+  /**
+   * Assign R5 + Identity roles to a leader.
+   */
   static async assignLeaderRoles(member: GuildMember, roles: AllianceRoles) {
     await member.roles.add([roles.r5RoleId, roles.identityRoleId]);
   }
 
+  /**
+   * Assign R4 role to a member.
+   */
   static async assignR4Roles(member: GuildMember, roles: AllianceRoles) {
     await member.roles.add(roles.r4RoleId);
   }
 
+  /**
+   * Assign any role to a member (supports user references or GuildMember objects)
+   */
   static async assignRole(member: GuildMember | AllianceMemberRef, roleId: string) {
     await MutationGate.runAtomically(async () => {
       if ("userId" in member) {
@@ -64,6 +79,9 @@ export class RoleModule {
   }
 
   // ----------------- PROMOTION / DEMOTION (DISCORD ONLY) -----------------
+  /**
+   * Promote member by swapping roles (oldRoleId optional)
+   */
   static async promote(member: GuildMember, newRoleId: string, oldRoleId?: string) {
     await MutationGate.runAtomically(async () => {
       if (oldRoleId) await member.roles.remove(oldRoleId);
@@ -71,10 +89,20 @@ export class RoleModule {
     });
   }
 
+  /**
+   * Demote member by swapping roles (oldRoleId optional)
+   */
   static async demote(member: GuildMember, newRoleId: string, oldRoleId?: string) {
     await MutationGate.runAtomically(async () => {
       if (oldRoleId) await member.roles.remove(oldRoleId);
       await member.roles.add(newRoleId);
     });
   }
+
+  // ----------------- FUTURE EXTENSIONS -----------------
+  /**
+   * Optional: utility methods for bulk role assignments,
+   * removing all roles, or syncing with MembershipModule
+   * can be added here.
+   */
 }
