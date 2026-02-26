@@ -6,25 +6,25 @@
  * ============================================
  *
  * RESPONSIBILITY:
- * - Tworzenie ról R5, R4, R3 i identity
- * - Przypisywanie ról do członków
- * - Promocje i demacje członków (R3 -> R4 -> R5)
- * - Walidacja limitów ról w sojuszu
- * - HasRole helper
- * - Emitowanie broadcastów przy promocji/demacji
+ * - Creating roles R5, R4, R3, and identity
+ * - Assigning roles to members
+ * - Promoting/demoting members (R3 -> R4 -> R5)
+ * - Validating role limits within alliance
+ * - hasRole helper
+ * - Broadcasting promotions/demotions
  *
  * DEPENDENCIES:
- * - AllianceService (pobranie danych sojuszu, audyt, liczenie członków)
- * - MutationGate (atomowość operacji)
- * - BroadcastModule (emisja wydarzeń)
+ * - AllianceService (fetch alliance data, audit, member counts)
+ * - MutationGate (atomic operations)
+ * - BroadcastModule (event broadcasting)
  *
  * ============================================
  */
 
-import { Guild, GuildMember } from "discord.js"; // discord.js types
-import { MutationGate } from "../../../engine/MutationGate"; // atomic operations
-import { AllianceService } from "../../AllianceService"; // alliance data / limits
-import { BroadcastModule } from "../broadcast/BroadcastModule"; // broadcast events
+import { Guild, GuildMember } from "discord.js";
+import { MutationGate } from "../../../engine/MutationGate";
+import { AllianceService } from "../../AllianceService";
+import { BroadcastModule } from "../broadcast/BroadcastModule";
 
 // ----------------- INTERFACES -----------------
 export interface AllianceRoles {
@@ -34,24 +34,20 @@ export interface AllianceRoles {
   identityRoleId: string;
 }
 
-// Alias do przekazywania referencji członka w metodach
 export type AllianceMemberRef = { userId: string; role: "R3" | "R4" | "R5" };
 
 // ----------------- CONSTANTS -----------------
-const MAX_MEMBERS = 100; // maksymalna liczba członków w sojuszu
-const MAX_R4 = 10;       // maksymalna liczba ról R4
+const MAX_MEMBERS = 100;
+const MAX_R4 = 10;
 
-// ----------------- ROLE MODULE CLASS -----------------
+// ----------------- ROLE MODULE -----------------
 export class RoleModule {
 
   // ----------------- CREATE ROLES -----------------
   static async createRoles(guild: Guild, allianceName: string): Promise<AllianceRoles> {
-    // Role R5, R4, R3 łączone z nazwą sojuszu bez spacji
     const r5 = await guild.roles.create({ name: `R5${allianceName}`, mentionable: false });
     const r4 = await guild.roles.create({ name: `R4${allianceName}`, mentionable: false });
     const r3 = await guild.roles.create({ name: `R3${allianceName}`, mentionable: false });
-
-    // Rola tożsamościowa to po prostu nazwa sojuszu
     const identity = await guild.roles.create({ name: allianceName, mentionable: true });
 
     return { r5RoleId: r5.id, r4RoleId: r4.id, r3RoleId: r3.id, identityRoleId: identity.id };
@@ -60,7 +56,6 @@ export class RoleModule {
   // ----------------- ASSIGN ROLES -----------------
   static async assignLeaderRoles(member: GuildMember, roles: AllianceRoles) {
     await member.roles.add([roles.r5RoleId, roles.identityRoleId]);
-    // broadcast nie jest potrzebny – TransferLeaderSystem wywołuje announceLeadershipChange
   }
 
   static async assignRole(member: GuildMember | AllianceMemberRef, roleId: string) {
@@ -81,25 +76,21 @@ export class RoleModule {
       const totalMembers = await AllianceService.getTotalMembersByAlliance(allianceId);
 
       if (!member.roles.cache.has(roles.r3RoleId) && !member.roles.cache.has(roles.r4RoleId)) {
-        throw new Error("Member cannot be promoted, not in R3 or R4");
+        throw new Error("Member cannot be promoted: not in R3 or R4");
       }
 
       if (member.roles.cache.has(roles.r3RoleId)) {
         await member.roles.remove(roles.r3RoleId);
         await member.roles.add(roles.r4RoleId);
-
-        // broadcast promocji
         await BroadcastModule.announcePromotion(allianceId, member.id, "R4", [roles.identityRoleId]);
       } else if (member.roles.cache.has(roles.r4RoleId)) {
-        if (r4Count >= MAX_R4) throw new Error("Limit R4 osiągnięty");
+        if (r4Count >= MAX_R4) throw new Error("Cannot promote: R4 role limit reached");
         await member.roles.remove(roles.r4RoleId);
         await member.roles.add(roles.r5RoleId);
-
-        // broadcast promocji
         await BroadcastModule.announcePromotion(allianceId, member.id, "R5", [roles.identityRoleId]);
       }
 
-      if (totalMembers > MAX_MEMBERS) throw new Error("Limit członków przekroczony");
+      if (totalMembers > MAX_MEMBERS) throw new Error("Cannot promote: total alliance member limit exceeded");
     });
   }
 
@@ -127,7 +118,7 @@ export class RoleModule {
     const r4Count = await AllianceService.getR4Count(allianceId);
     const totalMembers = await AllianceService.getTotalMembersByAlliance(allianceId);
 
-    if (r4Count > MAX_R4) throw new Error("Limit R4 przekroczony");
-    if (totalMembers > MAX_MEMBERS) throw new Error("Limit członków przekroczony");
+    if (r4Count > MAX_R4) throw new Error("R4 role limit exceeded");
+    if (totalMembers > MAX_MEMBERS) throw new Error("Total alliance member limit exceeded");
   }
 }
