@@ -9,13 +9,12 @@
  * RESPONSIBILITY:
  * - Accept a user's join request
  * - Only R5 / R4 / leader can approve
- * - Can be used only in #staff-room
  * - Sends DM to the accepted user
  *
  * ============================================
  */
 
-import { ChatInputCommandInteraction, SlashCommandBuilder, GuildMember, GuildChannel } from "discord.js";
+import { ChatInputCommandInteraction, SlashCommandBuilder, GuildMember } from "discord.js";
 import { Command } from "../Command";
 import { AllianceManager } from "../../system/alliance/AllianceManager";
 
@@ -33,27 +32,24 @@ export const AcceptCommand: Command = {
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guild) return;
 
-    const channel = interaction.channel;
-    if (!(channel instanceof GuildChannel) || channel.name !== "staff-room") {
-      await interaction.reply({ content: "❌ This command can only be used in #staff-room.", ephemeral: true });
-      return;
-    }
-
     const actor = interaction.member as GuildMember;
     const targetUser = interaction.options.getMember("user", true) as GuildMember;
 
-    const alliance = await AllianceManager.getAllianceByLeaderOrOfficer(actor.id);
-    if (!alliance) {
-      await interaction.reply({ content: "❌ You are not a leader or officer of any alliance.", ephemeral: true });
-      return;
-    }
-
     try {
+      // Pobieramy sojusz, w którym actor jest R4, R5 lub liderem
+      const alliance = await AllianceManager.getAllianceByLeaderOrOfficer(actor.id);
+      if (!alliance) {
+        await interaction.reply({ content: "❌ You are not a leader or officer of any alliance.", ephemeral: true });
+        return;
+      }
+
+      // Akceptacja członka do sojuszu
       await AllianceManager.approveJoin(actor.id, alliance.id, targetUser.id);
 
+      // Wysyłka powiadomienia do akceptowanego użytkownika
       await targetUser.send(
         `🎉 You have been accepted into **[${alliance.tag}] ${alliance.name}**! Welcome!`
-      ).catch(() => {});
+      ).catch(() => {}); // DM może się nie powieść
 
       await interaction.reply({ content: "✅ You have approved the join request.", ephemeral: true });
 
