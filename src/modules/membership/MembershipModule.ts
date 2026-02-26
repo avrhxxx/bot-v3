@@ -1,8 +1,7 @@
-// src/modules/membership/MembershipModule.ts
 import { RulesModule } from "../rules/RulesModule";
 import { BroadcastModule } from "../broadcast/BroadcastModule";
 import { RoleModule } from "../role/RoleModule";
-import { AllianceService } from "../../AllianceService";
+import { AllianceService } from "../../AllianceServices";
 import { MutationGate } from "../../engine/MutationGate";
 
 export class MembershipModule {
