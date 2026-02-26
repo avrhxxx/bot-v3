@@ -1,6 +1,7 @@
 /**
  * ============================================
  * FILE: src/system/alliance/integrity/AllianceIntegrity.ts
+ * MODULE: AllianceIntegrity
  * LAYER: SYSTEM (Alliance Integrity & Validation)
  * ============================================
  *
@@ -15,6 +16,7 @@
  * NOTE:
  * - Validation considers all roles in total limits
  * - No rollback is performed – mutations should be atomic
+ * - Intended to be used by MembershipModule, RoleModule, ChannelModule
  *
  * ============================================
  */
@@ -22,11 +24,16 @@
 import { Alliance, AllianceRoles, AllianceChannels, AllianceMember } from "../AllianceTypes";
 
 export class AllianceIntegrity {
-  static MAX_MEMBERS = 100;   // Total members limit (R5+R4+R3)
-  static MAX_R4 = 10;         // Maximum moderators (R4)
+  /** Total members limit (R5+R4+R3) */
+  static MAX_MEMBERS = 100;
+
+  /** Maximum moderators (R4) */
+  static MAX_R4 = 10;
 
   /**
    * Validate the entire alliance
+   * @param alliance - alliance data to validate
+   * @throws Error if integrity checks fail
    */
   static validate(alliance: Alliance): void {
     if (!alliance.roles) throw new Error("Alliance missing roles");
@@ -46,9 +53,9 @@ export class AllianceIntegrity {
 
   /** Validate that all required roles exist */
   private static validateRoles(roles: AllianceRoles) {
-    const requiredRoles = ["r5RoleId", "r4RoleId", "r3RoleId", "identityRoleId"];
+    const requiredRoles: (keyof AllianceRoles)[] = ["r5RoleId", "r4RoleId", "r3RoleId", "identityRoleId"];
     for (const r of requiredRoles) {
-      if (!roles[r as keyof AllianceRoles]) {
+      if (!roles[r]) {
         throw new Error(`Missing role ID: ${r}`);
       }
     }
@@ -76,7 +83,7 @@ export class AllianceIntegrity {
 
   /** Validate that all required channels exist */
   private static validateChannels(channels: AllianceChannels) {
-    const requiredChannels = [
+    const requiredChannels: (keyof AllianceChannels)[] = [
       "categoryId",
       "leadershipChannelId",
       "officersChannelId",
@@ -84,22 +91,22 @@ export class AllianceIntegrity {
       "joinChannelId",
     ];
     for (const c of requiredChannels) {
-      if (!channels[c as keyof AllianceChannels]) {
+      if (!channels[c]) {
         throw new Error(`Missing channel ID: ${c}`);
       }
     }
   }
 
-  /** Ensure there is only one leader (R5) */
+  /** Ensure there is exactly one leader (R5) */
   private static validateLeader(members: AllianceMember[]) {
     const leaders = members.filter(m => m.role === "R5");
-    if (leaders.length > 1) throw new Error("Multiple leaders detected");
+    if (leaders.length !== 1) throw new Error("Invalid number of leaders (R5) detected");
   }
 
   /** Validate total members and R4 limits */
   private static validateLimits(members: AllianceMember[]) {
     const r4Count = members.filter(m => m.role === "R4").length;
-    const totalCount = members.length; // Total R5 + R4 + R3
+    const totalCount = members.length;
 
     if (r4Count > this.MAX_R4) {
       throw new Error(`Too many R4 members: ${r4Count}`);
