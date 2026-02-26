@@ -10,14 +10,14 @@
  * - Allows the alliance leader (R5) to change the alliance name
  * - Validates new name format (letters and spaces only)
  * - Can be used only in #staff-room
+ * - Integrates with AllianceManager
  *
  * ============================================
  */
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
-import { AllianceSystem } from "../../system/alliance/AllianceSystem";
-import { AllianceService } from "../../system/alliance/AllianceService";
+import { AllianceManager } from "../../system/alliance/AllianceManager";
 
 export const UpdateNameCommand: Command = {
   data: new SlashCommandBuilder()
@@ -44,7 +44,7 @@ export const UpdateNameCommand: Command = {
     const actorId = interaction.user.id;
     const newName = interaction.options.getString("name", true);
 
-    const alliance = await AllianceService.getAllianceByMember(actorId);
+    const alliance = await AllianceManager.getAllianceByMember(actorId);
     if (!alliance || alliance.members.r5 !== actorId) {
       await interaction.reply({
         content: "❌ Only R5 can update the alliance name.",
@@ -62,7 +62,7 @@ export const UpdateNameCommand: Command = {
     }
 
     try {
-      await AllianceSystem.updateName(actorId, interaction.guild.id, newName);
+      await AllianceManager.updateName(actorId, alliance.id, newName);
 
       await interaction.reply({
         content: `✅ Alliance name has been successfully updated to \`${newName}\`.`,
