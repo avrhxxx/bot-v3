@@ -21,6 +21,7 @@
 
 import { ChatInputCommandInteraction, SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ComponentType } from "discord.js";
 import { Command } from "../Command";
+import { AllianceManager } from "../../system/alliance/AllianceManager";
 
 export const HelpCommand: Command = {
   data: new SlashCommandBuilder()
@@ -28,7 +29,7 @@ export const HelpCommand: Command = {
     .setDescription("Display detailed help for all alliance commands"),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const pages = [];
+    const pages: EmbedBuilder[] = [];
 
     // ----------------- Page 1 -----------------
     pages.push(new EmbedBuilder()
@@ -131,11 +132,9 @@ export const HelpCommand: Command = {
         return;
       }
 
-      if (btnInteraction.customId === "prev") {
-        currentPage = (currentPage === 0) ? pages.length - 1 : currentPage - 1;
-      } else if (btnInteraction.customId === "next") {
-        currentPage = (currentPage === pages.length - 1) ? 0 : currentPage + 1;
-      }
+      currentPage = btnInteraction.customId === "prev"
+        ? (currentPage === 0 ? pages.length - 1 : currentPage - 1)
+        : (currentPage === pages.length - 1 ? 0 : currentPage + 1);
 
       await btnInteraction.update({ embeds: [pages[currentPage]] });
     });
