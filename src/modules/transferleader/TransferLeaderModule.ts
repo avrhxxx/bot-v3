@@ -7,10 +7,13 @@ import { MutationGate } from "../../engine/MutationGate";
 
 export class TransferLeaderModule {
   static async transferLeadership(allianceId: string, newLeaderId: string) {
-    await MutationGate.execute({ actor: newLeaderId, operation: 'TRANSFER_LEADER', allianceId }, async () => {
-      RulesModule.validateLeaderChange(allianceId, newLeaderId);
-      RoleModule.assignLeaderRole(allianceId, newLeaderId);
-      BroadcastModule.notifyLeaderChange(allianceId, newLeaderId);
-    });
+    await MutationGate.execute(
+      { actor: newLeaderId, operation: "TRANSFER_LEADER", allianceId },
+      async () => {
+        RulesModule.validateLeaderChange(allianceId, newLeaderId);
+        RoleModule.assignLeaderRole(allianceId, newLeaderId);
+        BroadcastModule.notifyLeaderChange(allianceId, newLeaderId);
+      }
+    );
   }
 }
