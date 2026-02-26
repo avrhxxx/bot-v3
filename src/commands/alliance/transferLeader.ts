@@ -10,15 +10,14 @@
  * - Allows the current leader to transfer leadership to another member
  * - Only R5 can execute
  * - Can be used only in #staff-room
- * - Integrates with AllianceOrchestrator
+ * - Integrates with AllianceManager
  *
  * ============================================
  */
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
-import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
-import { AllianceService } from "../../system/alliance/AllianceService";
+import { AllianceManager } from "../../system/alliance/AllianceManager";
 
 export const TransferLeaderCommand: Command = {
   data: new SlashCommandBuilder()
@@ -34,7 +33,7 @@ export const TransferLeaderCommand: Command = {
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guild) return;
 
-    // ✅ Only #staff-room
+    // ✅ Only in #staff-room
     if (interaction.channel?.name !== "staff-room") {
       await interaction.reply({
         content: "❌ This command can only be used in #staff-room.",
@@ -44,9 +43,9 @@ export const TransferLeaderCommand: Command = {
     }
 
     const actorId = interaction.user.id;
-    const newLeader = interaction.options.getUser("new_leader", true);
+    const newLeaderId = interaction.options.getUser("new_leader", true).id;
 
-    const alliance = await AllianceService.getAllianceByMember(actorId);
+    const alliance = await AllianceManager.getAllianceByMember(actorId);
     if (!alliance || alliance.members.r5 !== actorId) {
       await interaction.reply({
         content: "❌ Only R5 can transfer leadership.",
@@ -56,10 +55,10 @@ export const TransferLeaderCommand: Command = {
     }
 
     try {
-      await AllianceOrchestrator.transferLeader(actorId, interaction.guild.id, newLeader.id);
+      await AllianceManager.transferLeader(actorId, alliance.id, newLeaderId);
 
       await interaction.reply({
-        content: `✅ Leadership has been successfully transferred to <@${newLeader.id}>.`,
+        content: `✅ Leadership has been successfully transferred to <@${newLeaderId}>.`,
         ephemeral: false
       });
     } catch (error: any) {
