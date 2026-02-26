@@ -7,11 +7,14 @@ import { MutationGate } from "../../engine/MutationGate";
 
 export class MembershipModule {
   static async addMember(allianceId: string, memberId: string) {
-    await MutationGate.execute({ actor: memberId, operation: 'ADD_MEMBER', allianceId }, async () => {
-      RulesModule.validateJoin(allianceId, memberId);
-      AllianceService.addMember(allianceId, memberId);
-      await RoleModule.assignMemberRoles(allianceId, memberId);
-      BroadcastModule.notifyJoin(allianceId, memberId);
-    });
+    await MutationGate.execute(
+      { actor: memberId, operation: "ADD_MEMBER", allianceId },
+      async () => {
+        RulesModule.validateJoin(allianceId, memberId);
+        AllianceService.addMember(allianceId, memberId);
+        await RoleModule.assignMemberRoles(allianceId, memberId);
+        BroadcastModule.notifyJoin(allianceId, memberId);
+      }
+    );
   }
 }
