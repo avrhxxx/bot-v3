@@ -12,6 +12,7 @@
  * ============================================
  */
 
+import { GuildMember } from "discord.js"; // Poprawny typ Discord
 import { MembershipModule } from "../modules/membership/MembershipModule";
 import { RoleModule } from "../modules/role/RoleModule";
 import { BroadcastModule } from "../modules/broadcast/BroadcastModule";
@@ -22,7 +23,7 @@ import { MutationGate } from "../../engine/MutationGate";
 export class AllianceOrchestrator {
 
   // ----------------- JOIN REQUEST -----------------
-  static async join(actorId: string, allianceId: string) {
+  static async join(actorId: GuildMember, allianceId: string) {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
@@ -35,14 +36,14 @@ export class AllianceOrchestrator {
 
       await BroadcastModule.announceJoinRequest(
         allianceId,
-        actorId,
+        actorId.id,
         [alliance.roles.r4RoleId, alliance.roles.r5RoleId]
       );
     });
   }
 
   // ----------------- APPROVE JOIN -----------------
-  static async approveJoin(actorId: string, allianceId: string, userId: string) {
+  static async approveJoin(actorId: GuildMember, allianceId: string, user: GuildMember) {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
@@ -51,27 +52,27 @@ export class AllianceOrchestrator {
                          + (alliance.members.r3?.length || 0);
       if (totalMembers >= 100) throw new Error("Alliance has reached maximum members");
 
-      await MembershipModule.acceptMember(actorId, allianceId, userId);
+      await MembershipModule.acceptMember(actorId, allianceId, user);
 
       await BroadcastModule.announceJoin(
         allianceId,
-        userId,
+        user.id,
         [alliance.roles.identityRoleId]
       );
     });
   }
 
   // ----------------- DENY JOIN -----------------
-  static async denyJoin(actorId: string, allianceId: string, userId: string) {
+  static async denyJoin(actorId: GuildMember, allianceId: string, user: GuildMember) {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-      await MembershipModule.denyMember(actorId, allianceId, userId);
+      await MembershipModule.denyMember(actorId, allianceId, user);
     });
   }
 
   // ----------------- LEAVE -----------------
-  static async leave(actorId: string, allianceId: string) {
+  static async leave(actorId: GuildMember, allianceId: string) {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
@@ -79,22 +80,22 @@ export class AllianceOrchestrator {
 
       await BroadcastModule.announceLeave(
         allianceId,
-        actorId,
+        actorId.id,
         [alliance.roles.identityRoleId]
       );
     });
   }
 
   // ----------------- PROMOTE -----------------
-  static async promote(actorId: string, allianceId: string, userId: string) {
+  static async promote(actorId: GuildMember, allianceId: string, user: GuildMember) {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-      await RoleModule.promote(userId, allianceId, alliance.roles);
+      await RoleModule.promote(user, allianceId, alliance.roles);
 
       await BroadcastModule.announcePromotion(
         allianceId,
-        userId,
+        user.id,
         "R4",
         [alliance.roles.identityRoleId]
       );
@@ -102,15 +103,15 @@ export class AllianceOrchestrator {
   }
 
   // ----------------- DEMOTE -----------------
-  static async demote(actorId: string, allianceId: string, userId: string) {
+  static async demote(actorId: GuildMember, allianceId: string, user: GuildMember) {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
 
-      await RoleModule.demote(userId, allianceId, alliance.roles);
+      await RoleModule.demote(user, allianceId, alliance.roles);
 
       await BroadcastModule.announceDemotion(
         allianceId,
-        userId,
+        user.id,
         "R3",
         [alliance.roles.identityRoleId]
       );
@@ -118,24 +119,24 @@ export class AllianceOrchestrator {
   }
 
   // ----------------- TRANSFER LEADER -----------------
-  static async transferLeader(actorId: string, allianceId: string, newLeaderId: string) {
+  static async transferLeader(actorId: GuildMember, allianceId: string, newLeader: GuildMember) {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
-      const oldLeaderId = alliance.members.r5;
+      const oldLeaderId = alliance.members.r5?.id;
 
-      await TransferLeaderSystem.transferLeadership(actorId, allianceId, newLeaderId);
+      await TransferLeaderSystem.transferLeadership(actorId, allianceId, newLeader);
 
       await BroadcastModule.announceLeadershipChange(
         allianceId,
         oldLeaderId!,
-        newLeaderId,
+        newLeader.id,
         alliance.roles.identityRoleId
       );
     });
   }
 
   // ----------------- UPDATE TAG -----------------
-  static async updateTag(actorId: string, allianceId: string, newTag: string) {
+  static async updateTag(actorId: GuildMember, allianceId: string, newTag: string) {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
       const oldTag = alliance.tag;
@@ -152,7 +153,7 @@ export class AllianceOrchestrator {
   }
 
   // ----------------- UPDATE NAME -----------------
-  static async updateName(actorId: string, allianceId: string, newName: string) {
+  static async updateName(actorId: GuildMember, allianceId: string, newName: string) {
     await MutationGate.runAtomically(async () => {
       const alliance = AllianceService.getAllianceOrThrow(allianceId);
       const oldName = alliance.name;
