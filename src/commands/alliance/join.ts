@@ -1,3 +1,4 @@
+// File path: src/commands/alliance/join.ts
 /**
  * ============================================
  * COMMAND: Join
@@ -6,11 +7,14 @@
  * ============================================
  *
  * RESPONSIBILITY:
- * - Allows a user to request joining an alliance
+ * - Allows a non-member to request joining an alliance
  * - Adds the user to the join queue via AllianceOrchestrator
  * - Notifies R5 / R4 / leader about a new request
  * - Sends DM to the user with alliance tag + name
- * - Restricts command usage to join channels only
+ *
+ * NOTES:
+ * - Can be used only in #join channel
+ * - Member limit validation handled inside Orchestrator
  *
  * ============================================
  */
@@ -19,7 +23,6 @@ import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
 import { AllianceService } from "../../system/alliance/AllianceService";
-import { ChannelModule } from "../../system/alliance/channel/ChannelModule";
 
 export const JoinCommand: Command = {
   data: new SlashCommandBuilder()
@@ -27,8 +30,6 @@ export const JoinCommand: Command = {
     .setDescription("Submit a request to join an alliance"),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const userId = interaction.user.id;
-
     if (!interaction.guild) {
       await interaction.reply({
         content: "❌ You cannot join outside a server.",
@@ -37,14 +38,8 @@ export const JoinCommand: Command = {
       return;
     }
 
-    const guildId = interaction.guild.id;
-    const channelId = interaction.channelId;
-
-    // ----------------- Weryfikacja kanału join -----------------
-    const isJoinChannel = Object.values(ChannelModule["channels"][guildId] || {})
-      .some(id => id === channelId);
-
-    if (!isJoinChannel) {
+    // ✅ Check if the command is used in a #join channel
+    if (interaction.channel?.name !== "join") {
       await interaction.reply({
         content: "❌ This channel is not a valid #join channel for any alliance.",
         ephemeral: true
@@ -52,10 +47,11 @@ export const JoinCommand: Command = {
       return;
     }
 
-    // ----------------- Sprawdzenie, czy użytkownik już jest w sojuszu -----------------
-    const existingAllianceId = AllianceService.getAllianceByMember(userId);
-    if (existingAllianceId) {
-      const existingAlliance = AllianceService.getAllianceOrThrow(existingAllianceId);
+    const userId = interaction.user.id;
+
+    // ✅ Check if the user is already in an alliance
+    const existingAlliance = await AllianceService.getAllianceByMember(userId);
+    if (existingAlliance) {
       await interaction.reply({
         content: `❌ You are already a member of **[${existingAlliance.tag}] ${existingAlliance.name}**.`,
         ephemeral: true
@@ -64,17 +60,16 @@ export const JoinCommand: Command = {
     }
 
     try {
-      // 1️⃣ Submit join request atomically
-      await AllianceOrchestrator.requestJoin(userId, guildId, channelId);
+      // 1️⃣ Submit join request
+      await AllianceOrchestrator.requestJoin(userId, interaction.guild.id);
 
-      // 2️⃣ Fetch alliance data for DM context
-      const alliance = AllianceService.getAllianceByJoinChannel(channelId);
-      if (!alliance) throw new Error("Alliance not found for this join channel.");
+      // 2️⃣ Fetch alliance info for DM context
+      const alliance = AllianceService.getAllianceOrThrow(interaction.guild.id);
 
-      // 3️⃣ DM the user with alliance tag + name
+      // 3️⃣ DM the user
       await interaction.user.send(
         `✅ Your request to join **[${alliance.tag}] ${alliance.name}** has been submitted and is awaiting approval.`
-      ).catch(() => { /* ignore DM errors */ });
+      ).catch(() => {});
 
       // 4️⃣ Ephemeral confirmation
       await interaction.reply({
