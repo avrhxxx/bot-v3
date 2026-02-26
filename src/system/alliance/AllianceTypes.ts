@@ -5,17 +5,17 @@
  * ============================================
  *
  * ODPOWIEDZIALNOŚĆ:
- * - Definicja typów sojuszu
- * - Reprezentacja ról, członków i kanałów Discord
- * - Podstawa do walidacji i logiki modułów sojuszy
+ * - Definicja typów domenowych sojuszu
+ * - Spójna reprezentacja członków, ról i kanałów
+ * - Wspólna podstawa dla wszystkich modułów
  *
- * ZALEŻNOŚCI:
- * - Brak bezpośrednich zależności
+ * ARCHITEKTURA:
+ * Database → Repository → AllianceManager → Modules
  *
- * UWAGA:
- * - Typy używane w całym systemie sojuszy i modułach powiązanych
- * - Zachowują spójność z RoleModule, BroadcastModule i TransferLeaderSystem
- * - Usunięto HealthState i powiązane aliasy
+ * WAŻNE:
+ * - Brak legacy HealthState
+ * - Brak SnapshotRepo
+ * - Snapshot może istnieć jako osobny system (nie core)
  *
  * ============================================
  */
@@ -23,85 +23,61 @@
 export type AllianceRole = "R3" | "R4" | "R5";
 
 /**
- * Typ członka sojuszu – userId i rola w kontekście list r3/r4/r5
- */
-export interface AllianceMember {
-  userId: string;
-  role: AllianceRole;
-}
-
-/**
- * Role Discord dla sojuszu
+ * Struktura ról Discord powiązanych z sojuszem
  */
 export interface AllianceRoles {
-  r5RoleId: string;          // Discord role ID dla lidera
-  r4RoleId: string;          // Discord role ID dla moderatorów
-  r3RoleId: string;          // Discord role ID dla członków
-  identityRoleId: string;    // ping-only role, zawsze powiązana z użytkownikiem
+  r5RoleId: string;        // Lider
+  r4RoleId: string;        // Oficerowie
+  r3RoleId: string;        // Członkowie
+  identityRoleId: string;  // Rola identyfikacyjna (ping/tag)
 }
 
 /**
- * Kanały Discord powiązane z sojuszem
+ * Struktura kanałów Discord powiązanych z sojuszem
  */
 export interface AllianceChannels {
-  categoryId: string;            // Kategoria główna sojuszu na Discord
+  categoryId: string;
 
-  leadershipChannelId: string;   // Kanał tylko dla R5
-  officersChannelId: string;     // Kanał dla R5 + R4
-  membersChannelId: string;      // Kanał dla R5 + R4 + R3
-  joinChannelId: string;         // Kanał publicznych zgłoszeń do sojuszu
+  leadershipChannelId: string; // tylko R5
+  officersChannelId: string;   // R5 + R4
+  membersChannelId: string;    // R5 + R4 + R3
+  joinChannelId: string;       // publiczne zgłoszenia
 
-  announceChannelId: string;     // Kanał, w którym bot ogłasza wiadomości od R5/R4
-  welcomeChannelId: string;      // Kanał, w którym bot wita nowych członków
+  announceChannelId: string;   // broadcast
+  welcomeChannelId: string;    // powitania
 }
 
 /**
- * Struktura sojuszu
+ * Główna struktura domenowa sojuszu
  */
 export interface Alliance {
-  id: string;                     // Unikalne ID wewnętrzne sojuszu
-  guildId: string;                 // ID serwera Discord
 
-  tag: string;                     // Dokładnie 3 alfanumeryczne znaki
-  name: string;                    // Pełna nazwa sojuszu
+  // --- CORE ---
+  id: string;          // Wewnętrzne ID systemowe
+  guildId: string;     // ID serwera Discord
 
-  // Teraz osobne tablice dla r5, r4, r3
+  tag: string;         // 3 znaki alfanumeryczne (walidowane w komendzie)
+  name: string;        // Pełna nazwa sojuszu
+
+  // --- MEMBERS ---
   members: {
-    r5?: string | null;            // Lider – tylko jeden, może być null
-    r4: string[];                  // Moderators
-    r3: string[];                  // Regular members
+    r5: string | null;  // Lider (max 1)
+    r4: string[];       // Oficerowie
+    r3: string[];       // Członkowie
   };
 
+  // --- INFRASTRUCTURE ---
   roles: AllianceRoles;
   channels: AllianceChannels;
 
-  orphaned: boolean;               // true jeśli brak prawidłowej struktury liderów
-  createdAt: number;               // Timestamp utworzenia sojuszu
+  // --- STATE ---
+  orphaned: boolean;    // true jeśli brak lidera
+  createdAt: number;    // timestamp utworzenia
+  updatedAt?: number;   // opcjonalnie przy zmianach
 
-  pendingJoins?: { userId: string; requestedAt: number }[];
+  // --- JOIN SYSTEM ---
+  pendingJoins?: {
+    userId: string;
+    requestedAt: number;
+  }[];
 }
-
-/**
- * Snapshot sojuszu
- */
-export interface AllianceSnapshot {
-  allianceId: string;
-  checksum: string;
-  memberCount: number;
-  r5Count: number;
-  r4Count: number;
-  r3Count: number;
-  orphaned: boolean;
-  createdAt: number;
-  snapshotAt: number;
-}
-
-/**
- * Alias typów używanych w repozytoriach
- */
-export type SnapshotRecord = AllianceSnapshot;
-export type OwnershipRecord = string;
-
-// ============================================
-// FILEPATH: src/system/alliance/AllianceTypes.ts
-// ============================================
