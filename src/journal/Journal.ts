@@ -1,16 +1,11 @@
 import type { JournalEntry } from './JournalTypes';
 
 let nextId = 1;
-
 export class Journal {
   private static entries: JournalEntry[] = [];
 
   static create(entry: Omit<JournalEntry, 'id' | 'status'>): JournalEntry {
-    const newEntry: JournalEntry = {
-      id: nextId++,
-      status: 'PENDING',
-      ...entry
-    };
+    const newEntry: JournalEntry = { id: nextId++, status: 'PENDING', ...entry };
     this.entries.push(newEntry);
     return newEntry;
   }
