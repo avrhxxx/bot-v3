@@ -1,29 +1,6 @@
+// File path: src/index.ts
 // ============================================
-// FILE: src/index.ts
 // LAYER: BOOTSTRAP / ENTRYPOINT
-// ============================================
-//
-// GŁÓWNY PUNKT WEJŚCIA BOTA "bot-v3"
-//
-// ODPOWIEDZIALNOŚĆ:
-// - Inicjalizacja wszystkich modułów systemu
-// - Weryfikacja integralności danych sojuszy
-// - Załadowanie wszystkich komend
-// - Uruchomienie klienta Discord.js
-// - Synchronizacja ról Shadow Authority
-//
-// ZALEŻNOŚCI:
-// - system/* (Ownership)
-// - data/* (Database, Repositories)
-// - engine/* (Dispatcher, MutationGate)
-// - commands/* (CommandLoader, CommandRegistry)
-// - system/alliance/* (AllianceService, AllianceSystem, TransferLeaderSystem)
-//
-// UWAGA ARCHITEKTONICZNA:
-// - NODE_ENV=build → Railway deploy/build
-// - NODE_ENV=production → runtime
-// - Operacje mutacyjne wykonuje Orchestrator i MutationGate
-//
 // ============================================
 
 import path from "path";
@@ -33,23 +10,13 @@ import { startDiscord } from "./discord/client";
 import { AllianceRepo, SnapshotRepo } from "./data/Repositories";
 import { CommandLoader } from "./commands/loader/CommandLoader";
 
-// -------- NOWY FOLDER OWNERSHIP --------
 import { Ownership } from "./system/Ownership/Ownership";
 
 // -------------------------
 // INIT SHADOW AUTHORITY FROM ENV
 // -------------------------
-const authorityEnv = process.env.AUTHORITY_IDS || ""; // max 2 IDs, comma-separated
-const authorityIds = authorityEnv.split(",").map(s => s.trim()).filter(Boolean).slice(0, 2);
-
-if (authorityIds.length === 0) {
-  console.error("❌ AUTHORITY_IDS environment variable is missing or empty.");
-  // SafeMode no longer exists → można rzucić błąd lub zatrzymać bootstrap
-  process.exit(1);
-}
-
-Ownership.initFromEnv(); // Inicjalizuje z AUTHORITY_IDS
-console.log(`✅ Shadow Authority initialized from environment: ${authorityIds.join(", ")}`);
+Ownership.initFromEnv(); 
+// Funkcja initFromEnv() sama loguje i ogranicza do 2 osób
 
 // -------------------------
 // MODULE DEFINITION
@@ -106,8 +73,6 @@ async function bootstrap() {
       // SnapshotService został usunięty → pomijamy
     }
   }
-
-  // TODO: Health checks / SafeMode logika usunięta
 
   await CommandLoader.loadAllCommands();
   console.log("All commands loaded successfully.");
