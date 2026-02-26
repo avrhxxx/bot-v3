@@ -32,19 +32,22 @@ export const GlobalBroadcastCommand: Command = {
         .setDescription("Message to broadcast")
         .setRequired(true)
     ),
-  ownerOnly: true, // zgodnie z planem systemowych komend
+  ownerOnly: true,
 
   async execute(interaction: ChatInputCommandInteraction) {
     const userId = interaction.user.id;
 
-    if (!interaction.guild) {
-      await interaction.reply({ content: "❌ This command can only be used inside a guild.", ephemeral: true });
+    // ✅ Sprawdzenie authority
+    if (!Ownership.isAuthority(userId)) {
+      await interaction.reply({
+        content: "⛔ You do not have permission to use this command.",
+        ephemeral: true
+      });
       return;
     }
 
-    // ✅ Sprawdzenie authority
-    if (!Ownership.isAuthority(userId)) {
-      await interaction.reply({ content: "⛔ You do not have permission to use this command.", ephemeral: true });
+    if (!interaction.guild) {
+      await interaction.reply({ content: "❌ This command can only be used inside a guild.", ephemeral: true });
       return;
     }
 
@@ -52,14 +55,19 @@ export const GlobalBroadcastCommand: Command = {
     const channelId = process.env.GLOBAL_CHAT_CHANNEL_ID;
 
     if (!channelId) {
-      await interaction.reply({ content: "❌ Global chat channel ID is not set in environment.", ephemeral: true });
+      await interaction.reply({
+        content: "❌ Global chat channel ID is not set in environment variables (GLOBAL_CHAT_CHANNEL_ID).",
+        ephemeral: true
+      });
       return;
     }
 
     const targetChannel = interaction.guild.channels.cache.get(channelId) as TextChannel | undefined;
-
     if (!targetChannel) {
-      await interaction.reply({ content: "❌ Could not find the global chat channel in this guild.", ephemeral: true });
+      await interaction.reply({
+        content: "❌ Could not find the global chat channel in this guild.",
+        ephemeral: true
+      });
       return;
     }
 
@@ -67,6 +75,7 @@ export const GlobalBroadcastCommand: Command = {
       await targetChannel.send(messageContent);
       await interaction.reply({ content: "✅ Message broadcasted globally.", ephemeral: true });
     } catch (error: any) {
+      console.error("Global broadcast error:", error);
       await interaction.reply({ content: `❌ Failed to send message: ${error.message}`, ephemeral: true });
     }
   }
