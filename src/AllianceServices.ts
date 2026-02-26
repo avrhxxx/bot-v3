@@ -1,5 +1,5 @@
-// src/AllianceServices.ts
 import { getCollection } from './mongo/mongoClient';
+import { Document } from 'mongodb';
 
 export interface Alliance {
   id: string;
@@ -20,17 +20,14 @@ export interface AllianceAudit {
 }
 
 export class AllianceService {
-  // Kolekcja sojuszy
   private static get alliances() {
-    return getCollection<Alliance>('alliances');
+    return getCollection<Alliance & Document>('alliances');
   }
 
-  // Kolekcja logów audytowych
   private static get auditLogs() {
-    return getCollection<AllianceAudit>('alliance_audit');
+    return getCollection<AllianceAudit & Document>('alliance_audit');
   }
 
-  /** Tworzy nowy sojusz */
   static async createAlliance(id: string, name: string) {
     const now = new Date();
     await this.alliances.insertOne({
@@ -45,20 +42,16 @@ export class AllianceService {
     await this.logAction(id, 'CREATE_ALLIANCE', 'SYSTEM', { name });
   }
 
-  /** Dodaje członka do sojuszu */
   static async addMember(allianceId: string, memberId: string) {
     const result = await this.alliances.updateOne(
       { id: allianceId },
       { $addToSet: { members: memberId }, $set: { updatedAt: new Date() } }
     );
-    if (result.matchedCount === 0) {
-      throw new Error(`[AllianceService] Alliance ${allianceId} not found`);
-    }
+    if (result.matchedCount === 0) throw new Error(`Alliance ${allianceId} not found`);
     console.log(`[AllianceService] addMember: ${memberId} to ${allianceId}`);
     await this.logAction(allianceId, 'ADD_MEMBER', memberId);
   }
 
-  /** Usuwa członka z sojuszu */
   static async removeMember(allianceId: string, memberId: string) {
     await this.alliances.updateOne(
       { id: allianceId },
@@ -68,7 +61,6 @@ export class AllianceService {
     await this.logAction(allianceId, 'REMOVE_MEMBER', memberId);
   }
 
-  /** Przenosi lidera */
   static async transferLeader(allianceId: string, newLeaderId: string) {
     await this.alliances.updateOne(
       { id: allianceId },
@@ -78,12 +70,10 @@ export class AllianceService {
     await this.logAction(allianceId, 'TRANSFER_LEADER', newLeaderId);
   }
 
-  /** Pobiera dokument sojuszu */
   static async getAlliance(allianceId: string): Promise<Alliance | null> {
     return this.alliances.findOne({ id: allianceId });
   }
 
-  /** Loguje akcję w audycie */
   private static async logAction(
     allianceId: string,
     action: string,
