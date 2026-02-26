@@ -1,31 +1,6 @@
-// File: src/engine/Dispatcher.ts
-/**
- * ============================================
- * ENGINE: Dispatcher
- * FILE: src/engine/Dispatcher.ts
- * ============================================
- *
- * RESPONSIBILITY:
- * - Executes mutations safely
- * - Handles journal logging
- * - Supports global and alliance-specific locks
- *
- * CHANGES:
- * - Removed SafeMode, Health, SnapshotService
- * - All mutations go through MutationGate
- */
-
 import { MutationGate, MutationOptions } from "./MutationGate";
-import { Journal } from "../journal/Journal";
-import { GlobalLock } from "../locks/GlobalLock";
-import { AllianceLock } from "../locks/AllianceLock";
 
 export class Dispatcher {
-  /**
-   * Execute a mutation atomically using MutationGate
-   * @param options MutationOptions describing the operation
-   * @param handler Async function performing the mutation
-   */
   static async executeMutation<T>(
     options: MutationOptions,
     handler: () => Promise<T> | T
@@ -39,9 +14,6 @@ export class Dispatcher {
     }
   }
 
-  /**
-   * Helper for running any code atomically without specifying a lock
-   */
   static async runAtomically<T>(handler: () => Promise<T> | T): Promise<T> {
     return MutationGate.execute({ actor: "SYSTEM", operation: "ATOMIC_RUN" }, handler);
   }
