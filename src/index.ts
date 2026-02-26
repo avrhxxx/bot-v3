@@ -1,4 +1,3 @@
-// src/index.ts
 import { startDiscord, ClientStub } from './discord/client';
 import { AllianceOrkiestror } from './orkiestror/AllianceOrkiestror';
 import { AliasIntegrity } from './integrity/AliasIntegrity';
@@ -14,7 +13,7 @@ async function bootstrap() {
   const client: ClientStub = await startDiscord();
   console.log('[Bootstrap] Discord client started.');
 
-  // 3️⃣ Inicjalizacja sojuszy / orchestration
+  // 3️⃣ Sample orchestration
   console.log('[Bootstrap] Initializing alliances...');
   await AllianceOrkiestror.addMember('alliance1', 'member1');
   await AllianceOrkiestror.transferLeader('alliance1', 'member1');
@@ -34,7 +33,7 @@ async function keepAlive(): Promise<void> {
   setInterval(() => {
     console.log('[Bootstrap] Heartbeat...');
   }, 60_000);
-  return new Promise(() => {});
+  return new Promise(() => {}); // blokada procesu
 }
 
 bootstrap().catch(err => {
