@@ -1,50 +1,11 @@
-/**
- * ============================================
- * FILE: src/config/config.ts
- * LAYER: CONFIG / ENVIRONMENT
- * ============================================
- *
- * ODPOWIEDZIALNOŚĆ:
- * - Zarządzanie konfiguracją bota Discord
- * - Przechowywanie tokenów, clientId, guildId
- * - Obsługa dodatkowych flag środowiskowych:
- *     - GENERATE_IMPORTS (true/false) -> automatyczne generowanie importów komend
- *     - CHECK_PROCESS   (true/false) -> pre-boot check wszystkich modułów
- * - Walidacja zmiennych środowiskowych przy starcie
- *
- * ZALEŻNOŚCI:
- * - Brak (tylko process.env)
- *
- * FILPATCH:
- * - Dodane nowe zmienne GENERATE_IMPORTS i CHECK_PROCESS
- * - Walidacja natychmiastowa po imporcie
- *
- * ============================================
- */
+// src/config/config.ts
 
 export const config = {
-  token: process.env.BOT_TOKEN as string,
-  clientId: process.env.CLIENT_ID as string,
-  guildId: process.env.GUILD_ID as string,
-  generateImports: process.env.GENERATE_IMPORTS === "true",
-  checkProcess: process.env.CHECK_PROCESS === "true",
+  discordToken: process.env.DISCORD_TOKEN || '',
+  mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/bot-v3',
+  environment: process.env.NODE_ENV || 'development',
+  port: parseInt(process.env.PORT || '3000', 10)
 };
 
-// -------------------------
-// Walidacja zmiennych środowiskowych przy starcie
-// -------------------------
-function validateConfig() {
-  const missing = [];
-  if (!config.token) missing.push("BOT_TOKEN");
-  if (!config.clientId) missing.push("CLIENT_ID");
-  if (!config.guildId) missing.push("GUILD_ID");
-
-  if (missing.length > 0) {
-    throw new Error(
-      `Missing required environment variables: ${missing.join(", ")}`
-    );
-  }
-}
-
-// Uruchom walidację natychmiast po importowaniu config
-validateConfig();
+// Możesz teraz importować:
+// import { config } from './config';
