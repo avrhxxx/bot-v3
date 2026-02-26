@@ -29,7 +29,7 @@ import { BroadcastModule } from "./modules/broadcast/BroadcastModule";
 import { ChannelModule } from "./modules/channel/ChannelModule";
 import { TransferLeaderSystem } from "./TransferLeaderSystem";
 
-import { AllianceRepo, PendingDeletionRepo } from "../../data/Repositories";
+import { AllianceRepo } from "../../data/Repositories";
 
 const MAX_MEMBERS = 100;
 const MAX_R4 = 10;
@@ -39,6 +39,14 @@ export class AllianceManager {
   // =========================================================
   // CREATE
   // =========================================================
+  /**
+   * Tworzy nowy sojusz na serwerze Discord:
+   * - sprawdza unikalność tagu i nazwy
+   * - zapisuje podstawowe dane w repo
+   * - tworzy role Discord
+   * - tworzy kanały i kategorię
+   * - inicjalizuje broadcast
+   */
   static async createAlliance(
     actorId: string,
     guild: Guild,
@@ -46,7 +54,6 @@ export class AllianceManager {
     tag: string,
     name: string
   ): Promise<void> {
-
     // ---- uniqueness check ----
     const allAlliances = AllianceRepo.getAll();
     if (allAlliances.some(a => a.tag.toLowerCase() === tag.toLowerCase()))
@@ -89,6 +96,11 @@ export class AllianceManager {
   // =========================================================
   // MEMBERS
   // =========================================================
+  /**
+   * Dodaje nowego członka (R3) do sojuszu
+   * - aktualizuje repo
+   * - dynamicznie aktualizuje nazwę kategorii
+   */
   static async addMember(actorId: string, allianceId: string, userId: string) {
     const alliance = this.getAllianceOrThrow(allianceId);
 
@@ -106,6 +118,12 @@ export class AllianceManager {
     Helpers.logAudit(allianceId, { action: "addMember", actorId, userId });
   }
 
+  /**
+   * Promuje członka R3 do R4
+   * - sprawdza limit R4
+   * - aktualizuje repo
+   * - dynamicznie aktualizuje nazwę kategorii
+   */
   static async promoteToR4(actorId: string, allianceId: string, userId: string) {
     const alliance = this.getAllianceOrThrow(allianceId);
 
@@ -125,6 +143,11 @@ export class AllianceManager {
     Helpers.logAudit(allianceId, { action: "promoteToR4", actorId, userId });
   }
 
+  /**
+   * Usuwa członka z sojuszu (wszystkie role)
+   * - aktualizuje repo
+   * - dynamicznie aktualizuje nazwę kategorii
+   */
   static async removeMember(actorId: string, allianceId: string, userId: string) {
     const alliance = this.getAllianceOrThrow(allianceId);
 
@@ -143,6 +166,11 @@ export class AllianceManager {
   // =========================================================
   // LEADERSHIP
   // =========================================================
+  /**
+   * Przenosi lidera na nowego użytkownika
+   * - wywołuje TransferLeaderSystem
+   * - dynamicznie aktualizuje kategorię
+   */
   static async transferLeadership(actorId: string, allianceId: string, newLeaderId: string) {
     await TransferLeaderSystem.transferLeadership(actorId, allianceId, newLeaderId);
 
@@ -153,6 +181,12 @@ export class AllianceManager {
   // =========================================================
   // UPDATE
   // =========================================================
+  /**
+   * Aktualizuje tag sojuszu
+   * - sprawdza unikalność
+   * - aktualizuje repo
+   * - aktualizuje role Discord, broadcast, kategorię
+   */
   static async updateTag(actorId: string, allianceId: string, newTag: string) {
     const alliance = this.getAllianceOrThrow(allianceId);
 
@@ -165,11 +199,17 @@ export class AllianceManager {
 
     await RoleModule.updateTag(allianceId, newTag);
     await BroadcastModule.updateTag(allianceId, newTag);
-    await ChannelModule.updateCategoryName(allianceId); // ❗
+    await ChannelModule.updateCategoryName(allianceId); // ❗ dynamic update
 
     Helpers.logAudit(allianceId, { action: "updateTag", actorId, oldTag, newTag });
   }
 
+  /**
+   * Aktualizuje nazwę sojuszu
+   * - sprawdza unikalność
+   * - aktualizuje repo
+   * - aktualizuje broadcast i kategorię
+   */
   static async updateName(actorId: string, allianceId: string, newName: string) {
     const alliance = this.getAllianceOrThrow(allianceId);
 
@@ -181,7 +221,7 @@ export class AllianceManager {
     AllianceRepo.set(allianceId, alliance);
 
     await BroadcastModule.updateName(allianceId, newName);
-    await ChannelModule.updateCategoryName(allianceId); // ❗
+    await ChannelModule.updateCategoryName(allianceId); // ❗ dynamic update
 
     Helpers.logAudit(allianceId, { action: "updateName", actorId, oldName, newName });
   }
@@ -189,16 +229,16 @@ export class AllianceManager {
   // =========================================================
   // DELETE
   // =========================================================
-  static requestDelete(actorId: string, allianceId: string) {
-    const alliance = this.getAllianceOrThrow(allianceId);
-    PendingDeletionRepo.set(allianceId, alliance);
-
-    Helpers.logAudit(allianceId, { action: "requestDelete", actorId });
-  }
-
+  /**
+   * Usuwa sojusz natychmiastowo poprzez komendę systemową Alliance Delete
+   * - usuwa kanały/kategorię Discord
+   * - usuwa role Discord
+   * - usuwa broadcast
+   * - usuwa wpis w repozytorium
+   */
   static async confirmDelete(actorId: string, guild: Guild, allianceId: string) {
-    const alliance = PendingDeletionRepo.get(allianceId);
-    if (!alliance) throw new Error("No pending deletion");
+    const alliance = AllianceRepo.get(allianceId);
+    if (!alliance) throw new Error(`Alliance ${allianceId} not found`);
 
     // ---- remove infrastructure ----
     await ChannelModule.deleteChannels(guild, allianceId);
@@ -210,7 +250,6 @@ export class AllianceManager {
     await BroadcastModule.removeAlliance(allianceId);
 
     // ---- remove repo entries ----
-    PendingDeletionRepo.delete(allianceId);
     AllianceRepo.delete(allianceId);
 
     Helpers.logAudit(allianceId, { action: "confirmDelete", actorId });
@@ -219,6 +258,9 @@ export class AllianceManager {
   // =========================================================
   // HELPERS
   // =========================================================
+  /**
+   * Pobiera sojusz z repo lub rzuca wyjątek
+   */
   public static getAllianceOrThrow(id: string): Alliance {
     const alliance = AllianceRepo.get(id);
     if (!alliance) throw new Error(`Alliance ${id} not found`);
