@@ -11,7 +11,7 @@ async function bootstrap() {
 
   // 2️⃣ Initialize alliances (stub)
   console.log('[Bootstrap] Initializing alliances...');
-  // tu możesz załadować sojusze z DB w przyszłości
+  // tu możesz w przyszłości załadować sojusze z DB
 
   // 3️⃣ Sample orchestration
   console.log('[Bootstrap] Performing sample orchestration...');
@@ -23,6 +23,7 @@ async function bootstrap() {
   AliasIntegrity.checkAlliance('alliance1');
 
   console.log('[Bootstrap] System boot completed. Discord client running.');
+  console.log('[Bootstrap] Bot is active on Railway.');
 
   // 5️⃣ Keep process alive
   await keepAlive();
@@ -33,13 +34,12 @@ async function bootstrap() {
  */
 async function keepAlive(): Promise<void> {
   console.log('[Bootstrap] Keeping process alive...');
-  // prosty heartbeat co 1 min
   setInterval(() => {
     console.log('[Bootstrap] Heartbeat...');
   }, 60_000);
 
-  // blokujemy funkcję, żeby Node nie zakończył procesu
-  return new Promise(() => {}); 
+  // Blokujemy funkcję, aby Node nie zakończył procesu
+  return new Promise(() => {});
 }
 
 bootstrap().catch(err => {
