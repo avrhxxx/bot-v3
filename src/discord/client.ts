@@ -1,23 +1,17 @@
-/**
- * Minimalny Discord client stub do buildu w Railway
- */
-export async function startDiscord(): Promise<ClientStub> {
-  console.log("Discord stub started.");
-
-  const client: ClientStub = {
-    on: () => {},               // obsługa eventów
-    login: async () => "ok",    // login stub
-    users: { cache: new Map() }, 
-    dispatch: () => {},         // jeśli wywołujesz dispatch w kodzie
-  };
-
-  return client;
-}
-
-// Minimalny typ klienta
+// src/discord/client.ts
 export type ClientStub = {
   on(event: string, listener: (...args: any[]) => void): void;
   login(): Promise<string>;
-  users: { cache: Map<any, any> };
   dispatch(): void;
+  users: { cache: Map<any, any> };
 };
+
+export async function startDiscord(): Promise<ClientStub> {
+  console.log('Discord stub started.');
+  return {
+    on: () => {},
+    login: async () => 'ok',
+    dispatch: () => {},
+    users: { cache: new Map() },
+  };
+}
