@@ -1,4 +1,24 @@
 // File path: src/commands/sys/allianceDelete.ts
+/**
+ * ============================================
+ * COMMAND: Alliance Delete
+ * FILE: src/commands/sys/allianceDelete.ts
+ * LAYER: SYSTEM
+ * ============================================
+ *
+ * RESPONSIBILITY:
+ * - Deletes an existing alliance
+ * - Only Shadow Authority can execute
+ * - Integrates with AllianceSystem and MutationGate
+ *
+ * NOTES:
+ * - Can delete by either unique tag or unique alliance name
+ * - No backup/archiving implemented yet
+ * - System layer and owner-only command
+ *
+ * ============================================
+ */
+
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { Ownership } from "../../system/Ownership/Ownership";
@@ -20,18 +40,19 @@ export const AllianceDeleteCommand: Command = {
         .setDescription("Full name of the alliance to delete")
         .setRequired(false)
     ),
-  ownerOnly: true,
+  ownerOnly: true, // system-level owner-only command
   systemLayer: true,
 
   async execute(interaction: ChatInputCommandInteraction) {
     const userId: string = interaction.user.id;
 
+    // 1️⃣ Sprawdzenie, czy komenda jest używana w guildzie
     if (!interaction.guild) {
       await interaction.reply({ content: "❌ Cannot delete alliance outside a guild.", ephemeral: true });
       return;
     }
 
-    // ✅ Shadow Authority check
+    // 2️⃣ Sprawdzenie uprawnień Shadow Authority
     if (!Ownership.isAuthority(userId)) {
       await interaction.reply({
         content: "⛔ Only Shadow Authority can execute this command.",
@@ -40,6 +61,7 @@ export const AllianceDeleteCommand: Command = {
       return;
     }
 
+    // 3️⃣ Pobranie parametrów tag i name
     const tagInput: string | undefined = interaction.options.getString("tag")?.toUpperCase();
     const nameInput: string | undefined = interaction.options.getString("name");
 
@@ -51,6 +73,7 @@ export const AllianceDeleteCommand: Command = {
       return;
     }
 
+    // 4️⃣ Znalezienie sojuszu w repo
     let alliance = tagInput ? AllianceRepo.getByTag(tagInput, interaction.guild.id) : undefined;
     if (!alliance && nameInput) {
       alliance = AllianceRepo.getByName(nameInput, interaction.guild.id);
@@ -65,6 +88,7 @@ export const AllianceDeleteCommand: Command = {
     }
 
     try {
+      // 5️⃣ Usunięcie infrastruktury sojuszu atomowo przez MutationGate
       await MutationGate.execute(
         { operation: "ALLIANCE_DELETE", actor: userId, requireGlobalLock: true },
         async () => {
@@ -73,6 +97,7 @@ export const AllianceDeleteCommand: Command = {
         }
       );
 
+      // 6️⃣ Potwierdzenie usunięcia
       await interaction.reply({
         content: `✅ Alliance \`${alliance.name}\` (${alliance.tag}) has been deleted successfully.`,
         ephemeral: false
