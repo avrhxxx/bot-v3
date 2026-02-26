@@ -23,8 +23,8 @@ import { Alliance } from "../../AllianceTypes";
 export class RulesModule {
   // ----------------- CONSTANTS -----------------
   static readonly MAX_MEMBERS = 100;  // R3 + R4 + R5
-  static readonly MAX_R4 = 10;       // max number of R4 members
-  static readonly MAX_R5 = 1;        // must be exactly 1 leader
+  static readonly MAX_R4 = 10;        // max number of R4 members
+  static readonly MAX_R5 = 1;         // must be exactly 1 leader
 
   // ----------------- VALIDATE TOTAL MEMBERS -----------------
   static validateTotalMembers(alliance: Alliance) {
