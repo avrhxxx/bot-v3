@@ -7,14 +7,9 @@
  * ============================================
  *
  * RESPONSIBILITY:
- * - Allows the alliance leader to change the alliance name
+ * - Allows the alliance leader (R5) to change the alliance name
  * - Validates new name format (letters and spaces only)
- * - Integrates with AllianceSystem
- *
- * NOTES:
- * - Only the leader can execute this command
- * - Name max length: 32 characters
- * - Sends confirmation or error message
+ * - Can be used only in #staff-room
  *
  * ============================================
  */
@@ -22,7 +17,7 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
-import { SafeMode } from "../../system/SafeMode";
+import { AllianceService } from "../../system/alliance/AllianceService";
 
 export const UpdateNameCommand: Command = {
   data: new SlashCommandBuilder()
@@ -36,26 +31,39 @@ export const UpdateNameCommand: Command = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const actorId = interaction.user.id;
-    const newName = interaction.options.getString("name", true);
+    if (!interaction.guild) return;
 
-    if (!interaction.guild) {
-      await interaction.reply({ content: "❌ Cannot update name outside a guild.", ephemeral: true });
+    if (interaction.channel?.name !== "staff-room") {
+      await interaction.reply({
+        content: "❌ This command can only be used in #staff-room.",
+        ephemeral: true
+      });
       return;
     }
 
-    if (SafeMode.isActive()) {
-      await interaction.reply({ content: "⛔ System in SAFE_MODE – cannot update alliance name.", ephemeral: true });
+    const actorId = interaction.user.id;
+    const newName = interaction.options.getString("name", true);
+
+    const alliance = await AllianceService.getAllianceByMember(actorId);
+    if (!alliance || alliance.members.r5 !== actorId) {
+      await interaction.reply({
+        content: "❌ Only R5 can update the alliance name.",
+        ephemeral: true
+      });
       return;
     }
 
     if (!/^[A-Za-z\s]{1,32}$/.test(newName)) {
-      await interaction.reply({ content: "❌ Name can only contain letters (A-Z) and spaces, max 32 characters.", ephemeral: true });
+      await interaction.reply({
+        content: "❌ Name can only contain letters (A-Z) and spaces, max 32 characters.",
+        ephemeral: true
+      });
       return;
     }
 
     try {
       await AllianceSystem.updateName(actorId, interaction.guild.id, newName);
+
       await interaction.reply({
         content: `✅ Alliance name has been successfully updated to \`${newName}\`.`,
         ephemeral: false
