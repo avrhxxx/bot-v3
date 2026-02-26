@@ -8,22 +8,18 @@
  *
  * RESPONSIBILITY:
  * - Allows a member to leave their current alliance
- * - Integrates with AllianceOrchestrator
+ * - Integrates with AllianceManager
  * - Sends confirmation message
  *
  * NOTES:
  * - Checks if the command is used inside a guild
- * - SafeMode references removed (module no longer exists)
  *
  * ============================================
  */
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
-import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
-
-// SafeMode import removed because the module no longer exists
-// import { SafeMode } from "../../system/SafeMode";
+import { AllianceManager } from "../../system/alliance/AllianceManager";
 
 export const LeaveCommand: Command = {
   data: new SlashCommandBuilder()
@@ -38,17 +34,11 @@ export const LeaveCommand: Command = {
       return;
     }
 
-    // SafeMode check removed because the module no longer exists
-    // if (SafeMode.isActive()) {
-    //   await interaction.reply({ content: "⛔ System in SAFE_MODE – cannot leave alliance.", ephemeral: true });
-    //   return;
-    // }
-
     try {
-      // 1️⃣ Attempt to leave the alliance atomically via orchestrator
-      const result = await AllianceOrchestrator.leaveAlliance(userId, interaction.guild.id);
+      // Attempt to leave the alliance via manager
+      const result = await AllianceManager.leaveAlliance(userId, interaction.guild.id);
 
-      // 2️⃣ Confirmation message
+      // Confirmation message
       await interaction.reply({
         content: `✅ You have successfully left the alliance \`${result.tag}\`.`,
         ephemeral: false
