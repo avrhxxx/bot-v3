@@ -1,24 +1,37 @@
+// File path: src/commands/sys/changeRoleColor.ts
 /**
  * ============================================
  * FILE: src/commands/sys/changeRoleColor.ts
- * LAYER: COMMAND / System
+ * LAYER: COMMAND / SYSTEM
  * ============================================
  *
  * RESPONSIBILITY:
- * - Allows authorized users (Shadow Authority) to change the color of an existing role.
- * - Only affects roles that the system manages, e.g., Shadow Authority roles.
+ * - Allows Shadow Authority to change the color of an existing role.
+ * - Intended for system-managed roles (e.g., Shadow Authority role).
  *
  * DEPENDENCIES:
- * - discord.js (Client, CommandInteraction, Permissions, Role)
- * - OwnerModule (authorization)
+ * - discord.js (ChatInputCommandInteraction, Role)
+ * - Ownership (authorization via AUTHORITY_IDS from ENV)
+ *
+ * NOTES:
+ * - OwnerModule removed (no longer exists)
+ * - Authorization handled via Ownership.isAuthority()
  *
  * ============================================
  */
 
-import { ChatInputCommandInteraction, SlashCommandBuilder, PermissionsBitField, Role, Guild } from "discord.js";
-import { OwnerModule } from "../../system/OwnerModule/OwnerModule";
+import {
+  ChatInputCommandInteraction,
+  SlashCommandBuilder,
+  Role
+} from "discord.js";
+
+import { Ownership } from "../../system/Ownership/Ownership";
 
 // ----------------- HEX VALIDATION -----------------
+/**
+ * Validates hex color format (#RRGGBB)
+ */
 function isValidHexColor(hex: string): boolean {
   return /^#([0-9A-Fa-f]{6})$/.test(hex);
 }
@@ -42,29 +55,54 @@ export const data = new SlashCommandBuilder()
 
 // ----------------- COMMAND EXECUTION -----------------
 export async function execute(interaction: ChatInputCommandInteraction) {
-  // ----------------- CHECK AUTHORIZATION -----------------
+
   const userId = interaction.user.id;
-  if (!OwnerModule.isBotOwner(userId)) {
-    await interaction.reply({ content: "❌ You do not have permission to use this command.", ephemeral: true });
+
+  // 1️⃣ Must be used inside a guild
+  if (!interaction.guild) {
+    await interaction.reply({
+      content: "❌ This command can only be used inside a guild.",
+      ephemeral: true
+    });
     return;
   }
 
-  // ----------------- GET OPTIONS -----------------
+  // 2️⃣ Shadow Authority authorization check
+  if (!Ownership.isAuthority(userId)) {
+    await interaction.reply({
+      content: "⛔ Only Shadow Authority can execute this command.",
+      ephemeral: true
+    });
+    return;
+  }
+
+  // 3️⃣ Get options
   const role = interaction.options.getRole("role", true) as Role;
   const color = interaction.options.getString("color", true);
 
-  // ----------------- VALIDATE HEX -----------------
+  // 4️⃣ Validate hex format
   if (!isValidHexColor(color)) {
-    await interaction.reply({ content: "❌ Invalid hex color. Please provide a color in format #RRGGBB.", ephemeral: true });
+    await interaction.reply({
+      content: "❌ Invalid hex color. Please provide a color in format #RRGGBB.",
+      ephemeral: true
+    });
     return;
   }
 
-  // ----------------- CHANGE ROLE COLOR -----------------
+  // 5️⃣ Change role color
   try {
     await role.setColor(color, `Changed by Shadow Authority ${interaction.user.tag}`);
-    await interaction.reply({ content: `✅ The role ${role.name} color has been changed to ${color}.` });
+
+    await interaction.reply({
+      content: `✅ The role ${role.name} color has been changed to ${color}.`
+    });
+
   } catch (error) {
     console.error("Failed to change role color:", error);
-    await interaction.reply({ content: "❌ Failed to change the role color.", ephemeral: true });
+
+    await interaction.reply({
+      content: "❌ Failed to change the role color.",
+      ephemeral: true
+    });
   }
 }
