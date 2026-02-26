@@ -31,12 +31,7 @@ export class AllianceService {
   static async createAlliance(id: string, name: string) {
     const now = new Date();
     await this.alliances.insertOne({
-      id,
-      name,
-      members: [],
-      leader: undefined,
-      createdAt: now,
-      updatedAt: now,
+      id, name, members: [], leader: undefined, createdAt: now, updatedAt: now
     });
     console.log(`[AllianceService] createAlliance: ${id} (${name})`);
     await this.logAction(id, 'CREATE_ALLIANCE', 'SYSTEM', { name });
@@ -50,15 +45,6 @@ export class AllianceService {
     if (result.matchedCount === 0) throw new Error(`Alliance ${allianceId} not found`);
     console.log(`[AllianceService] addMember: ${memberId} to ${allianceId}`);
     await this.logAction(allianceId, 'ADD_MEMBER', memberId);
-  }
-
-  static async removeMember(allianceId: string, memberId: string) {
-    await this.alliances.updateOne(
-      { id: allianceId },
-      { $pull: { members: memberId }, $set: { updatedAt: new Date() } }
-    );
-    console.log(`[AllianceService] removeMember: ${memberId} from ${allianceId}`);
-    await this.logAction(allianceId, 'REMOVE_MEMBER', memberId);
   }
 
   static async transferLeader(allianceId: string, newLeaderId: string) {
@@ -80,12 +66,6 @@ export class AllianceService {
     actor: string,
     details?: Record<string, any>
   ) {
-    await this.auditLogs.insertOne({
-      allianceId,
-      action,
-      actor,
-      timestamp: new Date(),
-      details,
-    });
+    await this.auditLogs.insertOne({ allianceId, action, actor, timestamp: new Date(), details });
   }
 }
