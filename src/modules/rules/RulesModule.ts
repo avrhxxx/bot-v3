@@ -1,9 +1,6 @@
+// src/modules/rules/RulesModule.ts
 export class RulesModule {
   static validateJoin(allianceId: string, memberId: string) {
-    console.log(`[Rules] Validating join of ${memberId} to ${allianceId}`);
-  }
-
-  static validateLeaderChange(allianceId: string, newLeaderId: string) {
-    console.log(`[Rules] Validating leader change to ${newLeaderId} in ${allianceId}`);
+    console.log(`[RulesModule] validateJoin ${memberId} in ${allianceId}`);
   }
 }
