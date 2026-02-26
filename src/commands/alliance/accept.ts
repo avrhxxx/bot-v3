@@ -15,10 +15,9 @@
  * ============================================
  */
 
-import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
+import { ChatInputCommandInteraction, SlashCommandBuilder, GuildMember, GuildChannel } from "discord.js";
 import { Command } from "../Command";
-import { AllianceService } from "../../system/alliance/AllianceService";
-import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
+import { AllianceManager } from "../../system/alliance/AllianceManager";
 
 export const AcceptCommand: Command = {
   data: new SlashCommandBuilder()
@@ -34,48 +33,32 @@ export const AcceptCommand: Command = {
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guild) return;
 
-    // ✅ Ensure command is used in #staff-room
-    if (interaction.channel?.name !== "staff-room") {
-      await interaction.reply({
-        content: "❌ This command can only be used in #staff-room.",
-        ephemeral: true
-      });
+    const channel = interaction.channel;
+    if (!(channel instanceof GuildChannel) || channel.name !== "staff-room") {
+      await interaction.reply({ content: "❌ This command can only be used in #staff-room.", ephemeral: true });
       return;
     }
 
-    const actorId = interaction.user.id;
-    const targetUser = interaction.options.getUser("user", true);
+    const actor = interaction.member as GuildMember;
+    const targetUser = interaction.options.getMember("user", true) as GuildMember;
 
-    // 1️⃣ Get alliance for leader/officer
-    const alliance = await AllianceService.getAllianceByLeaderOrOfficer(actorId);
+    const alliance = await AllianceManager.getAllianceByLeaderOrOfficer(actor.id);
     if (!alliance) {
-      await interaction.reply({
-        content: "❌ You are not a leader or officer of any alliance.",
-        ephemeral: true
-      });
+      await interaction.reply({ content: "❌ You are not a leader or officer of any alliance.", ephemeral: true });
       return;
     }
 
     try {
-      // 2️⃣ Approve join request
-      await AllianceOrchestrator.approveJoin(actorId, alliance.id, targetUser.id);
+      await AllianceManager.approveJoin(actor.id, alliance.id, targetUser.id);
 
-      // 3️⃣ DM the accepted user
       await targetUser.send(
         `🎉 You have been accepted into **[${alliance.tag}] ${alliance.name}**! Welcome!`
       ).catch(() => {});
 
-      // 4️⃣ Ephemeral confirmation
-      await interaction.reply({
-        content: "✅ You have approved the join request.",
-        ephemeral: true
-      });
+      await interaction.reply({ content: "✅ You have approved the join request.", ephemeral: true });
 
     } catch (error: any) {
-      await interaction.reply({
-        content: `❌ Failed to approve member: ${error.message}`,
-        ephemeral: true
-      });
+      await interaction.reply({ content: `❌ Failed to approve member: ${error.message}`, ephemeral: true });
     }
   }
 };
