@@ -18,7 +18,7 @@
  * - Validates tag (3 characters, letters/numbers, unique per guild)
  * - Validates name (letters + spaces, max 32 characters, unique per guild)
  * - Only Bot Owner or Discord Owner can execute
- * - SafeMode prevents execution
+ * - SafeMode usage removed
  *
  * ============================================
  */
@@ -30,7 +30,7 @@ import { Ownership } from "../../system/Ownership/Ownership";
 import { MutationGate } from "../../engine/MutationGate";
 import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 import { AllianceRepo } from "../../data/Repositories";
-import { SafeMode } from "../../system/SafeMode";
+// Removed: import { SafeMode } from "../../system/SafeMode"; ✅ SafeMode no longer exists
 
 export const AllianceCreateCommand: Command = {
   data: new SlashCommandBuilder()
@@ -65,13 +65,7 @@ export const AllianceCreateCommand: Command = {
       return;
     }
 
-    if (SafeMode.isActive()) {
-      await interaction.reply({
-        content: "⛔ System in SAFE_MODE – structural commands blocked.",
-        ephemeral: true
-      });
-      return;
-    }
+    // ✅ SafeMode check removed because module no longer exists
 
     if (!Ownership.isBotOwner(userId) && !Ownership.isDiscordOwner(userId)) {
       await interaction.reply({
