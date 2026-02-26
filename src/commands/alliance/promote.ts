@@ -16,7 +16,7 @@
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
-import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
+import { AllianceManager } from "../../system/alliance/AllianceManager";
 
 export const PromoteCommand: Command = {
   data: new SlashCommandBuilder()
@@ -41,9 +41,12 @@ export const PromoteCommand: Command = {
     const targetUser = interaction.options.getUser("member", true);
 
     try {
-      const result = await AllianceOrchestrator.promoteMember(actorId, targetUser.id, interaction.guild.id);
+      const result = await AllianceManager.promoteMember(actorId, targetUser.id, interaction.guild.id);
 
-      await interaction.reply({ content: `✅ <@${targetUser.id}> has been promoted to **${result.newRank}**.`, ephemeral: false });
+      await interaction.reply({
+        content: `✅ <@${targetUser.id}> has been promoted to **${result.newRank}**.`,
+        ephemeral: false
+      });
     } catch (error: any) {
       await interaction.reply({ content: `❌ Failed to promote member: ${error.message}`, ephemeral: true });
     }
