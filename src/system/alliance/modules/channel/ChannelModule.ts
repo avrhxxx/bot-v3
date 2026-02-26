@@ -1,118 +1,194 @@
-import { Guild, TextChannel, CategoryChannel, VoiceChannel, ChannelType, PermissionFlagsBits, OverwriteResolvable } from "discord.js";
+/**
+ * ==========================================================
+ * 📁 src/system/alliance/modules/ChannelModule.ts
+ * ==========================================================
+ *
+ * ChannelModule odpowiada WYŁĄCZNIE za infrastrukturę Discord:
+ *
+ * - Tworzenie kategorii i kanałów sojuszu
+ * - Usuwanie kanałów
+ * - Ochronę przed ręcznym usunięciem
+ * - Aktualizację nazwy kategorii
+ *
+ * ❗ NIE przechowuje trwałych danych
+ * ❗ NIE jest warstwą persistence
+ *
+ * ID kanałów MUSZĄ być zapisane w repository (repositories.ts)
+ * przez AllianceManager po wywołaniu createChannels().
+ *
+ * Ten moduł jest warstwą infra, nie data layer.
+ */
+
+import {
+  Guild,
+  TextChannel,
+  CategoryChannel,
+  VoiceChannel,
+  ChannelType,
+  PermissionFlagsBits,
+  OverwriteResolvable,
+  Channel
+} from "discord.js";
 import { AllianceService } from "../AllianceService";
 
 export class ChannelModule {
-  // ----------------- IN-MEMORY CACHE -----------------
+
+  /**
+   * =====================================================
+   * RUNTIME CACHE
+   * =====================================================
+   *
+   * Cache istnieje wyłącznie podczas działania bota.
+   * Nie jest źródłem prawdy.
+   * Po restarcie powinien być odbudowany z repository.
+   */
   private static channels: Record<string, Record<string, string>> = {};
 
-  // ----------------- HELPER: GET ALL MEMBERS -----------------
-  static getAllMembers(allianceId: string): { userId: string; roleId: string }[] {
-    const alliance = AllianceService.getAllianceOrThrow(allianceId);
-    const members: { userId: string; roleId: string }[] = [];
+  /**
+   * =====================================================
+   * CREATE CHANNELS (ONLY ENTRY POINT)
+   * =====================================================
+   *
+   * Tworzy pełną infrastrukturę sojuszu:
+   * - kategorię
+   * - 5 kanałów tekstowych
+   * - 2 kanały głosowe
+   *
+   * Zwraca mapę ID.
+   *
+   * ⚠ AllianceManager musi zapisać te ID w repository.
+   */
+  static async createChannels(
+    guild: Guild,
+    allianceId: string,
+    tag: string,
+    name: string
+  ) {
 
-    if (alliance.members.r3) alliance.members.r3.forEach(u => members.push({ userId: u, roleId: alliance.roles.r3RoleId }));
-    if (alliance.members.r4) alliance.members.r4.forEach(u => members.push({ userId: u, roleId: alliance.roles.r4RoleId }));
-    if (alliance.members.r5) members.push({ userId: alliance.members.r5, roleId: alliance.roles.r5RoleId });
-
-    return members;
-  }
-
-  // ----------------- HELPER: GENERATE PERMISSIONS -----------------
-  private static generateOverwrites(guild: Guild, allianceRoles: Record<string, string>, config: Record<string, { view?: boolean; send?: boolean; connect?: boolean }>): OverwriteResolvable[] {
-    const everyoneId = guild.roles.everyone.id;
-    const overwrites: OverwriteResolvable[] = [];
-
-    for (const [key, perms] of Object.entries(config)) {
-      const roleId = key === "everyone" ? everyoneId : allianceRoles[key];
-      const allow: bigint[] = [];
-      const deny: bigint[] = [];
-
-      if (perms.view !== undefined) perms.view ? allow.push(PermissionFlagsBits.ViewChannel) : deny.push(PermissionFlagsBits.ViewChannel);
-      if (perms.send !== undefined) perms.send ? allow.push(PermissionFlagsBits.SendMessages) : deny.push(PermissionFlagsBits.SendMessages);
-      if (perms.connect !== undefined) perms.connect ? allow.push(PermissionFlagsBits.Connect) : deny.push(PermissionFlagsBits.Connect);
-
-      overwrites.push({ id: roleId, allow, deny });
+    if (this.channels[allianceId]) {
+      throw new Error("Channels already exist for this alliance.");
     }
 
-    return overwrites;
-  }
-
-  // ----------------- CREATE CHANNELS -----------------
-  static async createChannels(guild: Guild, allianceId: string, tag: string, name: string) {
     const alliance = AllianceService.getAllianceOrThrow(allianceId);
-    const memberCount = this.getAllMembers(allianceId).length;
-    const categoryName = `🏰 ${tag} | ${name} | ${memberCount}/100`;
+    const memberCount = this.getMemberCount(allianceId);
 
-    const category = await guild.channels.create({ name: categoryName, type: ChannelType.GuildCategory }) as CategoryChannel;
+    const category = await guild.channels.create({
+      name: `🏰 ${tag} | ${name} | ${memberCount}/100`,
+      type: ChannelType.GuildCategory
+    }) as CategoryChannel;
 
-    // ----------------- Tworzenie kanałów -----------------
-    const channels = {
-      welcome: await guild.channels.create({ name: "👋 welcome", type: ChannelType.GuildText, parent: category.id }) as TextChannel,
-      announce: await guild.channels.create({ name: "📢 announce", type: ChannelType.GuildText, parent: category.id }) as TextChannel,
-      chat: await guild.channels.create({ name: "💬 chat", type: ChannelType.GuildText, parent: category.id }) as TextChannel,
-      staff: await guild.channels.create({ name: "🛡 staff-room", type: ChannelType.GuildText, parent: category.id }) as TextChannel,
-      join: await guild.channels.create({ name: "✋ join", type: ChannelType.GuildText, parent: category.id }) as TextChannel,
-      generalVC: await guild.channels.create({ name: "🎤 General VC", type: ChannelType.GuildVoice, parent: category.id }) as VoiceChannel,
-      staffVC: await guild.channels.create({ name: "🎤 Staff VC", type: ChannelType.GuildVoice, parent: category.id }) as VoiceChannel,
-    };
+    const created = await this.createChildChannels(guild, category);
 
-    // ----------------- PERMISSIONS CONFIG -----------------
-    const permsConfig: Record<string, Record<string, { view?: boolean; send?: boolean; connect?: boolean }>> = {
-      welcome: { everyone: { view: false }, r3RoleId: { view: true }, r4RoleId: { view: true }, r5RoleId: { view: true } },
-      announce: { everyone: { view: false, send: false }, r3RoleId: { view: true, send: false }, r4RoleId: { view: true, send: true }, r5RoleId: { view: true, send: true } },
-      chat: { everyone: { view: false, send: false }, r3RoleId: { view: true, send: true }, r4RoleId: { view: true, send: true }, r5RoleId: { view: true, send: true } },
-      staff: { everyone: { view: false }, r3RoleId: { view: false }, r4RoleId: { view: true, send: true }, r5RoleId: { view: true, send: true } },
-      join: { everyone: { view: true }, r3RoleId: { view: false }, r4RoleId: { view: false }, r5RoleId: { view: false } },
-      generalVC: { everyone: { view: false, connect: false }, r3RoleId: { view: true, connect: true }, r4RoleId: { view: true, connect: true }, r5RoleId: { view: true, connect: true } },
-      staffVC: { everyone: { view: false, connect: false }, r3RoleId: { view: false, connect: false }, r4RoleId: { view: true, connect: true }, r5RoleId: { view: true, connect: true } },
-    };
-
-    // ----------------- APPLY PERMISSIONS -----------------
-    for (const [key, channel] of Object.entries(channels)) {
-      const overwrites = this.generateOverwrites(guild, alliance.roles, permsConfig[key]);
-      await channel.permissionOverwrites.set(overwrites);
-    }
-
-    // ----------------- CACHE -----------------
-    this.channels[allianceId] = {
+    const result = {
       categoryId: category.id,
-      welcomeId: channels.welcome.id,
-      announceId: channels.announce.id,
-      chatId: channels.chat.id,
-      staffId: channels.staff.id,
-      joinId: channels.join.id,
-      generalVCId: channels.generalVC.id,
-      staffVCId: channels.staffVC.id,
+      ...created
     };
 
-    return this.channels[allianceId];
+    this.channels[allianceId] = result;
+
+    return result;
   }
 
-  // ----------------- UPDATE CATEGORY NAME (ONLY MODULE) -----------------
-  static async updateCategoryName(guild: Guild, allianceId: string, tag?: string, name?: string) {
-    const categoryId = this.channels[allianceId]?.categoryId;
-    if (!categoryId) return;
+  /**
+   * =====================================================
+   * DELETE CHANNELS (ONLY ENTRY POINT)
+   * =====================================================
+   *
+   * Usuwa wszystkie kanały należące do sojuszu.
+   *
+   * AllianceManager powinien wcześniej pobrać ID
+   * z repository i przekazać allianceId.
+   */
+  static async deleteChannels(guild: Guild, allianceId: string) {
+
+    const cache = this.channels[allianceId];
+    if (!cache) return;
+
+    for (const id of Object.values(cache)) {
+      const channel = guild.channels.cache.get(id);
+      if (channel) {
+        await channel.delete().catch(() => {});
+      }
+    }
+
+    delete this.channels[allianceId];
+  }
+
+  /**
+   * =====================================================
+   * MANUAL DELETE PROTECTION
+   * =====================================================
+   *
+   * Wykrywa ręczne usunięcie kanału i odtwarza
+   * całą infrastrukturę.
+   */
+  static async handleChannelDelete(channel: Channel) {
+
+    const allianceId = this.findAllianceByChannelId(channel.id);
+    if (!allianceId) return;
 
     const alliance = AllianceService.getAllianceOrThrow(allianceId);
-    const category = guild.channels.cache.get(categoryId) as CategoryChannel;
-    if (!category) return;
 
-    const memberCount = this.getAllMembers(allianceId).length;
-    const categoryName = `🏰 ${tag || alliance.tag} | ${name || alliance.name} | ${memberCount}/100`;
+    await this.deleteChannels(channel.guild, allianceId);
 
-    if (category.name !== categoryName) await category.setName(categoryName);
+    await this.createChannels(
+      channel.guild,
+      alliance.id,
+      alliance.tag,
+      alliance.name
+    );
   }
 
-  // ----------------- GETTERS -----------------
-  static getChannel(allianceId: string, type: keyof typeof ChannelModule["channels"][string]): string | undefined {
-    return this.channels[allianceId]?.[type];
+  /**
+   * =====================================================
+   * INTERNAL HELPERS
+   * =====================================================
+   */
+
+  private static async createChildChannels(
+    guild: Guild,
+    category: CategoryChannel
+  ) {
+
+    const base = async (name: string, type: ChannelType) =>
+      guild.channels.create({ name, type, parent: category.id });
+
+    const welcome = await base("👋 welcome", ChannelType.GuildText) as TextChannel;
+    const announce = await base("📢 announce", ChannelType.GuildText) as TextChannel;
+    const chat = await base("💬 chat", ChannelType.GuildText) as TextChannel;
+    const staff = await base("🛡 staff-room", ChannelType.GuildText) as TextChannel;
+    const join = await base("✋ join", ChannelType.GuildText) as TextChannel;
+    const generalVC = await base("🎤 General VC", ChannelType.GuildVoice) as VoiceChannel;
+    const staffVC = await base("🎤 Staff VC", ChannelType.GuildVoice) as VoiceChannel;
+
+    return {
+      welcomeId: welcome.id,
+      announceId: announce.id,
+      chatId: chat.id,
+      staffId: staff.id,
+      joinId: join.id,
+      generalVCId: generalVC.id,
+      staffVCId: staffVC.id
+    };
   }
 
-  static getAnnounceChannel(allianceId: string) { return this.channels[allianceId]?.announceId; }
-  static getWelcomeChannel(allianceId: string) { return this.channels[allianceId]?.welcomeId; }
-  static getChatChannel(allianceId: string) { return this.channels[allianceId]?.chatId; }
-  static getStaffChannel(allianceId: string) { return this.channels[allianceId]?.staffId; }
-  static getJoinChannel(allianceId: string) { return this.channels[allianceId]?.joinId; }
-  static getGeneralVC(allianceId: string) { return this.channels[allianceId]?.generalVCId; }
-  static getStaffVC(allianceId: string) { return this.channels[allianceId]?.staffVCId; }
+  private static findAllianceByChannelId(channelId: string): string | undefined {
+    for (const [allianceId, map] of Object.entries(this.channels)) {
+      if (Object.values(map).includes(channelId)) {
+        return allianceId;
+      }
+    }
+    return undefined;
+  }
+
+  private static getMemberCount(allianceId: string): number {
+    const alliance = AllianceService.getAllianceOrThrow(allianceId);
+
+    let count = 0;
+    if (alliance.members.r3) count += alliance.members.r3.length;
+    if (alliance.members.r4) count += alliance.members.r4.length;
+    if (alliance.members.r5) count += 1;
+
+    return count;
+  }
 }
