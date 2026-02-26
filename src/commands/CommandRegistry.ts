@@ -1,4 +1,3 @@
-// src/commands/CommandRegistry.ts
 export type Command = {
   name: string;
   execute(): void;
