@@ -33,16 +33,6 @@ interface EventPayloadMap {
 /** Typ listenera dla eventu */
 type BroadcastListener<T extends BroadcastEvent> = (payload: EventPayloadMap[T]) => void;
 
-/**
- * MODUŁ: BroadcastModule
- * WARSTWA: SYSTEM (komunikacja sojuszu)
- *
- * Odpowiada za:
- * - Emitowanie zdarzeń do Discord
- * - Formatowanie wiadomości
- * - Obsługę pingów użytkowników i ról
- * - Domyślne kanały do ogłoszeń
- */
 export class BroadcastModule {
   private static listeners: { [K in BroadcastEvent]?: BroadcastListener<K>[] } = {};
 
@@ -97,6 +87,8 @@ export class BroadcastModule {
   ) {
     const channelId = this.defaultChannels[event](payload.allianceId);
     if (!channelId) return;
+
+    // TS-safe emit
     this.emit(event, { ...payload, channelId } as EventPayloadMap[T]);
   }
 
