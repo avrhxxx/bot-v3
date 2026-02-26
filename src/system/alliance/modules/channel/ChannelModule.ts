@@ -7,7 +7,7 @@
  * - Tworzenie kategorii i kanałów sojuszu
  * - Usuwanie kanałów
  * - Ochronę przed ręcznym usunięciem
- * - Dynamiczną aktualizację nazwy kategorii
+ * - Aktualizację nazwy kategorii i liczby członków
  *
  * ❗ NIE przechowuje trwałych danych
  * ❗ NIE jest warstwą persistence
@@ -28,26 +28,31 @@ import { AllianceManager } from "../AllianceManager";
 
 export class ChannelModule {
 
-  // =====================================================
-  // RUNTIME CACHE (tylko w pamięci)
-  // =====================================================
+  /**
+   * =====================================================
+   * RUNTIME CACHE
+   * =====================================================
+   * Cache istnieje wyłącznie podczas działania bota.
+   * Nie jest źródłem prawdy.
+   * Po restarcie powinien być odbudowany z repository.
+   */
   private static channels: Record<string, Record<string, string>> = {};
 
-  // =====================================================
-  // CREATE CHANNELS (ONLY ENTRY POINT)
-  // =====================================================
+  /**
+   * =====================================================
+   * CREATE CHANNELS (ONLY ENTRY POINT)
+   * =====================================================
+   */
   static async createChannels(
     guild: Guild,
     allianceId: string,
     tag: string,
     name: string
   ) {
-
     if (this.channels[allianceId])
       throw new Error("Channels already exist for this alliance.");
 
     const alliance = AllianceManager.getAllianceOrThrow(allianceId);
-
     const memberCount = this.getMemberCount(alliance);
 
     const category = await guild.channels.create({
@@ -57,19 +62,17 @@ export class ChannelModule {
 
     const created = await this.createChildChannels(guild, category);
 
-    const result = {
-      categoryId: category.id,
-      ...created
-    };
-
+    const result = { categoryId: category.id, ...created };
     this.channels[allianceId] = result;
 
     return result;
   }
 
-  // =====================================================
-  // DELETE CHANNELS (ONLY ENTRY POINT)
-  // =====================================================
+  /**
+   * =====================================================
+   * DELETE CHANNELS (ONLY ENTRY POINT)
+   * =====================================================
+   */
   static async deleteChannels(guild: Guild, allianceId: string) {
     const cache = this.channels[allianceId];
     if (!cache) return;
@@ -82,29 +85,11 @@ export class ChannelModule {
     delete this.channels[allianceId];
   }
 
-  // =====================================================
-  // UPDATE CATEGORY NAME (DYNAMIC)
-  // =====================================================
-  static async updateCategoryName(allianceId: string) {
-    const cache = this.channels[allianceId];
-    if (!cache) return;
-
-    const categoryId = cache.categoryId;
-    const alliance = AllianceManager.getAllianceOrThrow(allianceId);
-
-    const guild = await AllianceManager.fetchGuildByAlliance(allianceId); // lub przekaz guild
-    const category = guild.channels.cache.get(categoryId) as CategoryChannel;
-    if (!category) return;
-
-    const memberCount = this.getMemberCount(alliance);
-    const newName = `🏰 ${alliance.tag} | ${alliance.name} | ${memberCount}/100`;
-
-    if (category.name !== newName) await category.setName(newName);
-  }
-
-  // =====================================================
-  // MANUAL DELETE PROTECTION
-  // =====================================================
+  /**
+   * =====================================================
+   * MANUAL DELETE PROTECTION
+   * =====================================================
+   */
   static async handleChannelDelete(channel: Channel) {
     const allianceId = this.findAllianceByChannelId(channel.id);
     if (!allianceId) return;
@@ -112,12 +97,44 @@ export class ChannelModule {
     const alliance = AllianceManager.getAllianceOrThrow(allianceId);
 
     await this.deleteChannels(channel.guild, allianceId);
-    await this.createChannels(channel.guild, alliance.id, alliance.tag, alliance.name);
+    await this.createChannels(
+      channel.guild,
+      alliance.id,
+      alliance.tag,
+      alliance.name
+    );
   }
 
-  // =====================================================
-  // INTERNAL HELPERS
-  // =====================================================
+  /**
+   * =====================================================
+   * UPDATE CATEGORY NAME
+   * =====================================================
+   * Aktualizuje dynamicznie nazwę kategorii:
+   * - tag sojuszu
+   * - nazwa sojuszu
+   * - liczba wszystkich członków
+   */
+  static async updateCategoryName(allianceId: string, guild: Guild) {
+    const alliance = AllianceManager.getAllianceOrThrow(allianceId);
+    const categoryId = this.channels[allianceId]?.categoryId;
+    if (!categoryId) return;
+
+    const category = guild.channels.cache.get(categoryId) as CategoryChannel;
+    if (!category) return;
+
+    const totalMembers = this.getMemberCount(alliance);
+    const newName = `🏰 ${alliance.tag} | ${alliance.name} | ${totalMembers}/100`;
+
+    if (category.name !== newName) {
+      await category.setName(newName);
+    }
+  }
+
+  /**
+   * =====================================================
+   * INTERNAL HELPERS
+   * =====================================================
+   */
   private static async createChildChannels(
     guild: Guild,
     category: CategoryChannel
@@ -151,11 +168,10 @@ export class ChannelModule {
     return undefined;
   }
 
-  private static getMemberCount(alliance: any): number {
-    let count = 0;
-    if (alliance.members.r3) count += alliance.members.r3.length;
-    if (alliance.members.r4) count += alliance.members.r4.length;
-    if (alliance.members.r5) count += 1;
-    return count;
+  private static getMemberCount(alliance: ReturnType<typeof AllianceManager.getAllianceOrThrow>): number {
+    const r3 = alliance.members.r3?.length || 0;
+    const r4 = alliance.members.r4?.length || 0;
+    const r5 = alliance.members.r5 ? 1 : 0;
+    return r3 + r4 + r5;
   }
 }
