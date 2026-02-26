@@ -1,7 +1,7 @@
 /**
  * ============================================
- * MODULE: ChannelModule
  * FILE: src/system/alliance/modules/channel/ChannelModule.ts
+ * MODULE: ChannelModule
  * LAYER: SYSTEM (Alliance Channel Management Module)
  * ============================================
  *
@@ -19,29 +19,43 @@
  * NOTES:
  * - All methods are static for global access
  * - Channels are cached in-memory for faster updates
+ * - Uses unified helper getAllMembers for member count
  *
  * ============================================
  */
 
 import { Guild, TextChannel, CategoryChannel, VoiceChannel, ChannelType, PermissionFlagsBits } from "discord.js";
 import { AllianceService } from "../AllianceService";
-import { RoleModule } from "../role/RoleModule";
 
 export class ChannelModule {
   // ----------------- IN-MEMORY CACHE -----------------
   private static channels: Record<string, Record<string, string>> = {};
+
+  // ----------------- HELPER: GET ALL MEMBERS -----------------
+  /**
+   * Returns flat array of all members in the alliance
+   */
+  static getAllMembers(allianceId: string): { userId: string; roleId: string }[] {
+    const alliance = AllianceService.getAllianceOrThrow(allianceId);
+    const members: { userId: string; roleId: string }[] = [];
+
+    if (alliance.members.r3) alliance.members.r3.forEach(u => members.push({ userId: u, roleId: alliance.roles.r3RoleId }));
+    if (alliance.members.r4) alliance.members.r4.forEach(u => members.push({ userId: u, roleId: alliance.roles.r4RoleId }));
+    if (alliance.members.r5) members.push({ userId: alliance.members.r5, roleId: alliance.roles.r5RoleId });
+
+    return members;
+  }
 
   /**
    * Tworzy kanały i kategorię sojuszu
    */
   static async createChannels(guild: Guild, allianceId: string, tag: string, name: string) {
     const alliance = AllianceService.getAllianceOrThrow(allianceId);
-    const roles = alliance.roles;
 
     const createdChannels: Record<string, TextChannel | VoiceChannel> = {};
 
     // ----------------- Tworzenie kategorii -----------------
-    const memberCount = this.calculateMemberCount(allianceId);
+    const memberCount = this.getAllMembers(allianceId).length;
     const categoryName = `🏰 ${tag} | ${name} | ${memberCount}/100`;
     const category = await guild.channels.create({
       name: categoryName,
@@ -73,51 +87,51 @@ export class ChannelModule {
     // ----------------- Ustawienia permisji -----------------
     await welcome.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel] },
+      { id: alliance.roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] },
+      { id: alliance.roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel] },
+      { id: alliance.roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel] },
     ]);
 
     await announce.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-      { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-      { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+      { id: alliance.roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] },
+      { id: alliance.roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+      { id: alliance.roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
     ]);
 
     await chat.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-      { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-      { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-      { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+      { id: alliance.roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+      { id: alliance.roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+      { id: alliance.roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
     ]);
 
     await staff.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r3RoleId, deny: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-      { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+      { id: alliance.roles.r3RoleId, deny: [PermissionFlagsBits.ViewChannel] },
+      { id: alliance.roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+      { id: alliance.roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
     ]);
 
     await join.permissionOverwrites.set([
       { id: everyoneId, allow: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r3RoleId, deny: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r4RoleId, deny: [PermissionFlagsBits.ViewChannel] },
-      { id: roles.r5RoleId, deny: [PermissionFlagsBits.ViewChannel] },
+      { id: alliance.roles.r3RoleId, deny: [PermissionFlagsBits.ViewChannel] },
+      { id: alliance.roles.r4RoleId, deny: [PermissionFlagsBits.ViewChannel] },
+      { id: alliance.roles.r5RoleId, deny: [PermissionFlagsBits.ViewChannel] },
     ]);
 
     await generalVC.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
-      { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
-      { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
-      { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
+      { id: alliance.roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
+      { id: alliance.roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
+      { id: alliance.roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
     ]);
 
     await staffVC.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
-      { id: roles.r3RoleId, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
-      { id: roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
-      { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
+      { id: alliance.roles.r3RoleId, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
+      { id: alliance.roles.r4RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
+      { id: alliance.roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
     ]);
 
     this.channels[allianceId] = {
@@ -135,18 +149,6 @@ export class ChannelModule {
   }
 
   /**
-   * Oblicza liczbę członków (R3 + R4 + R5)
-   */
-  static calculateMemberCount(allianceId: string): number {
-    const alliance = AllianceService.getAllianceOrThrow(allianceId);
-    const roles = alliance.roles;
-    const r3 = alliance.members.filter(m => m.roleId === roles.r3RoleId).length;
-    const r4 = alliance.members.filter(m => m.roleId === roles.r4RoleId).length;
-    const r5 = alliance.members.filter(m => m.roleId === roles.r5RoleId).length;
-    return r3 + r4 + r5;
-  }
-
-  /**
    * Aktualizuje nazwę kategorii z dynamiczną liczbą członków i zmianą tagu/nazwy
    */
   static async updateCategoryName(guild: Guild, allianceId: string, tag?: string, name?: string) {
@@ -157,7 +159,7 @@ export class ChannelModule {
     const category = guild.channels.cache.get(categoryId) as CategoryChannel;
     if (!category) return;
 
-    const memberCount = this.calculateMemberCount(allianceId);
+    const memberCount = this.getAllMembers(allianceId).length;
     const categoryName = `🏰 ${tag || alliance.tag} | ${name || alliance.name} | ${memberCount}/100`;
 
     if (category.name !== categoryName) {
