@@ -1,102 +1,90 @@
-/**
- * ============================================
- * FILE: src/system/Ownership/Ownership.ts
- * LAYER: SYSTEM
- * ============================================
- *
- * ODPOWIEDZIALNOŚĆ:
- * - Przechowywanie i kontrola właścicieli globalnych (Shadow Authority)
- * - Nadawanie roli Shadow Authority w Discord
- * - Sprawdzenia uprawnień (bot owner lub guild owner)
- *
- * ZALEŻNOŚCI:
- * - discord.js (Client, Guild)
- *
- * ============================================
- */
+// File path: src/commands/sys/allianceDelete.ts
+import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
+import { Command } from "../Command";
+import { Ownership } from "../../system/Ownership/Ownership";
+import { MutationGate } from "../../engine/MutationGate";
+import { AllianceRepo } from "../../data/Repositories";
+import { AllianceSystem } from "../../system/alliance/AllianceSystem";
 
-import { Client, Guild, Role, ColorResolvable } from "discord.js";
+export const AllianceDeleteCommand: Command = {
+  data: new SlashCommandBuilder()
+    .setName("alliance_delete")
+    .setDescription("Delete an existing alliance (Shadow Authority Only)")
+    .addStringOption(option =>
+      option.setName("tag")
+        .setDescription("3-character tag of the alliance to delete")
+        .setRequired(false)
+    )
+    .addStringOption(option =>
+      option.setName("name")
+        .setDescription("Full name of the alliance to delete")
+        .setRequired(false)
+    ),
+  ownerOnly: true,
+  systemLayer: true,
 
-const ROLE_NAME = "Shadow Authority";
-const ROLE_COLOR: ColorResolvable = "#4B0082"; // ciemnofioletowy
+  async execute(interaction: ChatInputCommandInteraction) {
+    const userId: string = interaction.user.id;
 
-/**
- * Obsługa globalnych właścicieli botów (Shadow Authority)
- * Obsługuje maksymalnie dwóch użytkowników, oddzielonych przecinkiem w zmiennej środowiskowej AUTHORITY_IDS
- */
-export class Ownership {
-  private static authorityIds: Set<string> = new Set();
-
-  /**
-   * Inicjalizacja z ENV
-   */
-  static initFromEnv() {
-    const env = process.env.AUTHORITY_IDS || "";
-    const ids = env.split(",").map(s => s.trim()).filter(Boolean).slice(0, 2);
-    this.authorityIds = new Set(ids);
-  }
-
-  /**
-   * Sprawdza, czy userId jest globalnym właścicielem (Shadow Authority)
-   */
-  static isAuthority(userId: string): boolean {
-    return this.authorityIds.has(userId);
-  }
-
-  /**
-   * Sprawdza, czy userId jest właścicielem guild
-   */
-  static isGuildOwner(userId: string, guild: Guild): boolean {
-    return guild.ownerId === userId;
-  }
-
-  /**
-   * Weryfikuje uprawnienia Shadow Authority, rzuca błąd jeśli brak
-   */
-  static requireAuthority(userId: string, guild?: Guild) {
-    if (!this.isAuthority(userId) && !(guild && this.isGuildOwner(userId, guild))) {
-      throw new Error("User is not Shadow Authority or Guild Owner.");
-    }
-  }
-
-  /**
-   * Tworzy rolę Shadow Authority w każdej guildzie i przydziela ją użytkownikom
-   */
-  static async syncRoles(client: Client) {
-    for (const [, guild] of client.guilds.cache) {
-      await this.ensureRole(guild);
-    }
-  }
-
-  private static async ensureRole(guild: Guild) {
-    let role: Role | undefined = guild.roles.cache.find(r => r.name === ROLE_NAME);
-    if (!role) {
-      try {
-        role = await guild.roles.create({
-          name: ROLE_NAME,
-          color: ROLE_COLOR,
-          reason: "Automatyczne tworzenie roli Shadow Authority",
-        });
-        console.log(`✅ Role '${ROLE_NAME}' created in guild ${guild.name}`);
-      } catch (err) {
-        console.error(`❌ Failed to create role '${ROLE_NAME}' in guild ${guild.name}:`, err);
-        return;
-      }
+    if (!interaction.guild) {
+      await interaction.reply({ content: "❌ Cannot delete alliance outside a guild.", ephemeral: true });
+      return;
     }
 
-    for (const userId of this.authorityIds) {
-      const member = await guild.members.fetch(userId).catch(() => null);
-      if (!member) continue;
+    // ✅ Shadow Authority check
+    if (!Ownership.isAuthority(userId)) {
+      await interaction.reply({
+        content: "⛔ Only Shadow Authority can execute this command.",
+        ephemeral: true
+      });
+      return;
+    }
 
-      if (!member.roles.cache.has(role.id)) {
-        await member.roles.add(role).catch(err => {
-          console.error(`❌ Failed to assign role '${ROLE_NAME}' to user ${userId}:`, err);
-        });
-        console.log(`✅ Role '${ROLE_NAME}' assigned to user ${userId} in guild ${guild.name}`);
-      }
+    const tagInput: string | undefined = interaction.options.getString("tag")?.toUpperCase();
+    const nameInput: string | undefined = interaction.options.getString("name");
+
+    if (!tagInput && !nameInput) {
+      await interaction.reply({
+        content: "❌ You must provide either the alliance tag or the alliance name to delete.",
+        ephemeral: true
+      });
+      return;
+    }
+
+    let alliance = tagInput ? AllianceRepo.getByTag(tagInput, interaction.guild.id) : undefined;
+    if (!alliance && nameInput) {
+      alliance = AllianceRepo.getByName(nameInput, interaction.guild.id);
+    }
+
+    if (!alliance) {
+      await interaction.reply({
+        content: `❌ Alliance not found with the provided ${tagInput ? "tag" : "name"}.`,
+        ephemeral: true
+      });
+      return;
+    }
+
+    try {
+      await MutationGate.execute(
+        { operation: "ALLIANCE_DELETE", actor: userId, requireGlobalLock: true },
+        async () => {
+          await AllianceSystem.deleteInfrastructure(alliance!);
+          AllianceRepo.delete(alliance!.id);
+        }
+      );
+
+      await interaction.reply({
+        content: `✅ Alliance \`${alliance.name}\` (${alliance.tag}) has been deleted successfully.`,
+        ephemeral: false
+      });
+    } catch (error: any) {
+      console.error("Alliance deletion error:", error);
+      await interaction.reply({
+        content: `❌ Failed to delete alliance: ${error.message}`,
+        ephemeral: true
+      });
     }
   }
-}
+};
 
-// --- Inicjalizacja z ENV ---
-Ownership.initFromEnv();
+export default AllianceDeleteCommand;
