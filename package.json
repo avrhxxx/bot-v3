@@ -1,17 +1,13 @@
-
 {
   "name": "bot-v3",
   "version": "3.0.0-beta",
   "main": "dist/index.js",
   "scripts": {
     "build": "rm -rf dist && tsc",
-    "start": "npm run build && node dist/index.js"
+    "start": "node dist/index.js"
   },
-  "dependencies": {
-    "discord.js": "^14.14.1"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "typescript": "^5.3.3",
-    "ts-node": "^10.9.1"
+    "typescript": "^5.2.2"
   }
 }
