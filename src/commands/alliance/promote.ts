@@ -7,14 +7,9 @@
  * ============================================
  *
  * RESPONSIBILITY:
- * - Promote a member to a higher rank in the alliance
+ * - Promote a member to a higher rank
  * - Only leader / R5 can promote
- * - Integrates with AllianceOrchestrator
- *
- * NOTES:
- * - Checks if command is used inside a guild
- * - Respects SafeMode
- * - Handles errors gracefully
+ * - Can be used only in #staff-room
  *
  * ============================================
  */
@@ -22,7 +17,6 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
-import { SafeMode } from "../../system/SafeMode";
 
 export const PromoteCommand: Command = {
   data: new SlashCommandBuilder()
@@ -36,33 +30,22 @@ export const PromoteCommand: Command = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
+    if (!interaction.guild) return;
+
+    if (interaction.channel?.name !== "staff-room") {
+      await interaction.reply({ content: "❌ This command can only be used in #staff-room.", ephemeral: true });
+      return;
+    }
+
     const actorId = interaction.user.id;
     const targetUser = interaction.options.getUser("member", true);
 
-    if (!interaction.guild) {
-      await interaction.reply({ content: "❌ Cannot promote outside a guild.", ephemeral: true });
-      return;
-    }
-
-    if (SafeMode.isActive()) {
-      await interaction.reply({ content: "⛔ System in SAFE_MODE – cannot promote members.", ephemeral: true });
-      return;
-    }
-
     try {
-      // 1️⃣ Promote member atomically via AllianceOrchestrator
       const result = await AllianceOrchestrator.promoteMember(actorId, targetUser.id, interaction.guild.id);
 
-      // 2️⃣ Confirmation message
-      await interaction.reply({
-        content: `✅ <@${targetUser.id}> has been promoted to **${result.newRank}** in the alliance.`,
-        ephemeral: false
-      });
+      await interaction.reply({ content: `✅ <@${targetUser.id}> has been promoted to **${result.newRank}**.`, ephemeral: false });
     } catch (error: any) {
-      await interaction.reply({
-        content: `❌ Failed to promote member: ${error.message}`,
-        ephemeral: true
-      });
+      await interaction.reply({ content: `❌ Failed to promote member: ${error.message}`, ephemeral: true });
     }
   }
 };
