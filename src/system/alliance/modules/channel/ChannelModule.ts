@@ -1,120 +1,87 @@
-/**
- * ==========================================================
- * 📁 src/system/alliance/modules/channel/ChannelModule.ts
- * ==========================================================
- *
- * INFRASTRUCTURE LAYER ONLY
- *
- * - Tworzy kanały
- * - Usuwa kanały
- * - Aktualizuje nazwę kategorii
- *
- * ❗ Nie przechowuje danych
- * ❗ Nie ma cache
- * ❗ Nie zna repo
- * ❗ Nie zna AllianceService
- */
-
 import {
-  Guild,
-  TextChannel,
-  CategoryChannel,
-  VoiceChannel,
-  ChannelType
+  Guild, TextChannel, CategoryChannel, VoiceChannel,
+  ChannelType, Channel
 } from "discord.js";
+import { AllianceService } from "../AllianceService";
 
-import { AllianceChannels } from "../../AllianceTypes";
-
+/**
+ * ChannelModule odpowiada WYŁĄCZNIE za infrastrukturę Discord
+ * Kanały tworzone i usuwane tylko przez create/delete w tym module
+ */
 export class ChannelModule {
-
-  // =====================================================
-  // CREATE
-  // =====================================================
+  private static channels: Record<string, Record<string, string>> = {};
 
   static async createChannels(
     guild: Guild,
     allianceId: string,
-    tag: string
-  ): Promise<AllianceChannels> {
+    tag: string,
+    name: string
+  ) {
+    if (this.channels[allianceId])
+      throw new Error("Channels already exist for this alliance.");
 
     const category = await guild.channels.create({
-      name: `🏰 ${tag}`,
+      name: `🏰 ${tag} | ${name} | 0/100`,
       type: ChannelType.GuildCategory
     }) as CategoryChannel;
 
-    const base = async (
-      name: string,
-      type: ChannelType
-    ) =>
-      guild.channels.create({
-        name,
-        type,
-        parent: category.id
-      });
+    const created = await this.createChildChannels(guild, category);
 
-    const leadership =
-      await base("👑 leadership", ChannelType.GuildText) as TextChannel;
+    const result = { categoryId: category.id, ...created };
+    this.channels[allianceId] = result;
+    return result;
+  }
 
-    const officers =
-      await base("🛡 officers", ChannelType.GuildText) as TextChannel;
+  static async deleteChannels(guild: Guild, allianceId: string) {
+    const cache = this.channels[allianceId];
+    if (!cache) return;
 
-    const members =
-      await base("💬 members", ChannelType.GuildText) as TextChannel;
+    for (const id of Object.values(cache)) {
+      const channel = guild.channels.cache.get(id);
+      if (channel) await channel.delete().catch(() => {});
+    }
 
-    const join =
-      await base("✋ join", ChannelType.GuildText) as TextChannel;
+    delete this.channels[allianceId];
+  }
 
-    const announce =
-      await base("📢 announce", ChannelType.GuildText) as TextChannel;
+  static async handleChannelDelete(channel: Channel) {
+    const allianceId = this.findAllianceByChannelId(channel.id);
+    if (!allianceId) return;
 
-    const welcome =
-      await base("👋 welcome", ChannelType.GuildText) as TextChannel;
+    const alliance = AllianceService.getAllianceOrThrow(allianceId);
+
+    await this.deleteChannels(channel.guild, allianceId);
+    await this.createChannels(channel.guild, alliance.id, alliance.tag, alliance.name);
+  }
+
+  private static async createChildChannels(
+    guild: Guild,
+    category: CategoryChannel
+  ) {
+    const base = async (name: string, type: ChannelType) => guild.channels.create({ name, type, parent: category.id });
+    const welcome = await base("👋 welcome", ChannelType.GuildText) as TextChannel;
+    const announce = await base("📢 announce", ChannelType.GuildText) as TextChannel;
+    const chat = await base("💬 chat", ChannelType.GuildText) as TextChannel;
+    const staff = await base("🛡 staff-room", ChannelType.GuildText) as TextChannel;
+    const join = await base("✋ join", ChannelType.GuildText) as TextChannel;
+    const generalVC = await base("🎤 General VC", ChannelType.GuildVoice) as VoiceChannel;
+    const staffVC = await base("🎤 Staff VC", ChannelType.GuildVoice) as VoiceChannel;
 
     return {
-      categoryId: category.id,
-      leadershipChannelId: leadership.id,
-      officersChannelId: officers.id,
-      membersChannelId: members.id,
-      joinChannelId: join.id,
-      announceChannelId: announce.id,
-      welcomeChannelId: welcome.id
+      welcomeId: welcome.id,
+      announceId: announce.id,
+      chatId: chat.id,
+      staffId: staff.id,
+      joinId: join.id,
+      generalVCId: generalVC.id,
+      staffVCId: staffVC.id
     };
   }
 
-  // =====================================================
-  // DELETE
-  // =====================================================
-
-  static async deleteChannels(
-    guild: Guild,
-    channels: AllianceChannels
-  ): Promise<void> {
-
-    const ids = Object.values(channels);
-
-    for (const id of ids) {
-      const channel = guild.channels.cache.get(id);
-      if (channel) {
-        await channel.delete().catch(() => {});
-      }
+  private static findAllianceByChannelId(channelId: string): string | undefined {
+    for (const [allianceId, map] of Object.entries(this.channels)) {
+      if (Object.values(map).includes(channelId)) return allianceId;
     }
-  }
-
-  // =====================================================
-  // UPDATE TAG (rename category)
-  // =====================================================
-
-  static async updateTag(
-    guild: Guild,
-    channels: AllianceChannels,
-    newTag: string
-  ): Promise<void> {
-
-    const category =
-      guild.channels.cache.get(channels.categoryId) as CategoryChannel;
-
-    if (!category) return;
-
-    await category.setName(`🏰 ${newTag}`);
+    return undefined;
   }
 }
