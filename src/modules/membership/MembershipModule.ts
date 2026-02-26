@@ -1,3 +1,4 @@
+// src/modules/membership/MembershipModule.ts
 import { RulesModule } from "../rules/RulesModule";
 import { BroadcastModule } from "../broadcast/BroadcastModule";
 import { RoleModule } from "../role/RoleModule";
@@ -5,7 +6,7 @@ import { AllianceService } from "../../AllianceServices";
 import { MutationGate } from "../../engine/MutationGate";
 
 export class MembershipModule {
-  static async addMember(allianceId: string, memberId: string) {
+  static async addMember(allianceId: string, memberId: string): Promise<void> {
     await MutationGate.execute(
       { actor: memberId, operation: "ADD_MEMBER", allianceId },
       async () => {
