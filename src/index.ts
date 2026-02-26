@@ -1,4 +1,5 @@
 import { startDiscord } from "./discord/client";
+import type { Client } from "discord.js";
 
 type Alliance = { id: string };
 
@@ -9,20 +10,25 @@ class AllianceRepo {
 }
 
 class SnapshotRepo {
-  static get(id: string): unknown {
+  static get(id: string): Record<string, any> | undefined {
     return undefined;
   }
 }
 
 class Ownership {
   static initFromEnv() {}
-  static syncRoles(client: unknown) { 
-    return Promise.resolve(); 
+  static syncRoles(client: Client): Promise<void> {
+    return Promise.resolve();
   }
 }
 
 class CommandLoader {
-  static async loadAllCommands(): Promise<void> {}
+  static async loadAllCommands(): Promise<void> {
+    const commands = await Promise.resolve([] as any[]);
+    commands.forEach((cmd: any) => {
+      // deploy command logic here
+    });
+  }
 }
 
 Ownership.initFromEnv();
@@ -33,13 +39,15 @@ async function bootstrap() {
   const alliances = AllianceRepo.getAll();
   for (const alliance of alliances) {
     const existing = SnapshotRepo.get(alliance.id);
-    if (!existing) {}
+    if (!existing) {
+      // snapshot logic here
+    }
   }
 
   await CommandLoader.loadAllCommands();
   console.log("All commands loaded successfully.");
 
-  const client = await startDiscord();
+  const client: Client = await startDiscord();
   console.log("Discord client started.");
 
   await Ownership.syncRoles(client);
