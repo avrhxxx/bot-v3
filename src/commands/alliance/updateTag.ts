@@ -10,14 +10,14 @@
  * - Allows the alliance leader (R5) to change the alliance tag
  * - Validates tag format (3 characters: letters and numbers only)
  * - Can be used only in #staff-room
+ * - Integrates with AllianceManager
  *
  * ============================================
  */
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
-import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
-import { AllianceService } from "../../system/alliance/AllianceService";
+import { AllianceManager } from "../../system/alliance/AllianceManager";
 
 export const UpdateTagCommand: Command = {
   data: new SlashCommandBuilder()
@@ -44,7 +44,7 @@ export const UpdateTagCommand: Command = {
     const actorId = interaction.user.id;
     const newTag = interaction.options.getString("tag", true).toUpperCase();
 
-    const alliance = await AllianceService.getAllianceByMember(actorId);
+    const alliance = await AllianceManager.getAllianceByMember(actorId);
     if (!alliance || alliance.members.r5 !== actorId) {
       await interaction.reply({
         content: "❌ Only R5 can update the alliance tag.",
@@ -62,7 +62,7 @@ export const UpdateTagCommand: Command = {
     }
 
     try {
-      await AllianceOrchestrator.updateTag(actorId, interaction.guild.id, newTag);
+      await AllianceManager.updateTag(actorId, alliance.id, newTag);
 
       await interaction.reply({
         content: `✅ Alliance tag has been successfully updated to \`${newTag}\`.`,
