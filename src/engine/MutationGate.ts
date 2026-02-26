@@ -1,19 +1,7 @@
-export interface MutationOptions {
-  allianceId?: string;
-  actor: string;
-  operation: string;
-  requireGlobalLock?: boolean;
-  requireAllianceLock?: boolean;
-  systemOverride?: boolean;
-}
-
+// src/engine/MutationGate.ts
 export class MutationGate {
-  static async execute<T>(options: MutationOptions, handler: () => Promise<T> | T): Promise<T> {
-    console.log(`[MutationGate] Executing ${options.operation} by ${options.actor}`);
+  static async execute<T>(options: any, handler: () => Promise<T> | T): Promise<T> {
+    console.log(`[MutationGate] executing ${options.operation}`);
     return handler();
-  }
-
-  static async runAtomically<T>(handler: () => Promise<T> | T): Promise<T> {
-    return MutationGate.execute({ actor: 'SYSTEM', operation: 'ATOMIC_RUN' }, handler);
   }
 }
