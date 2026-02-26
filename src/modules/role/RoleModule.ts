@@ -1,5 +1,4 @@
-// src/modules/role/RoleModule.ts
-import { AllianceService } from "../../AllianceService";
+import { AllianceService } from "../../AllianceServices";
 import { MutationGate } from "../../engine/MutationGate";
 
 export class RoleModule {
