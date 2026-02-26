@@ -17,15 +17,14 @@
 
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
-import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
+import { AllianceManager } from "../../system/alliance/AllianceManager";
 
 export const KickCommand: Command = {
   data: new SlashCommandBuilder()
     .setName("kick")
     .setDescription("Kick a member from your alliance")
     .addUserOption(option =>
-      option
-        .setName("member")
+      option.setName("member")
         .setDescription("Member to kick")
         .setRequired(true)
     ),
@@ -42,7 +41,7 @@ export const KickCommand: Command = {
     const targetUser = interaction.options.getUser("member", true);
 
     try {
-      const result = await AllianceOrchestrator.kickMember(actorId, targetUser.id, interaction.guild.id);
+      const result = await AllianceManager.kickMember(actorId, targetUser.id, interaction.guild.id);
 
       if (result.success) {
         await interaction.reply({ content: `✅ <@${targetUser.id}> has been kicked from the alliance.`, ephemeral: false });
