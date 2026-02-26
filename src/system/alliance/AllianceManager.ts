@@ -8,9 +8,7 @@
  * - Główny manager logiki sojuszu
  * - Operacje CRUD
  * - Zarządzanie członkami
- * - Integracja z RoleModule
- * - Integracja z BroadcastModule
- * - Integracja z ChannelModule
+ * - Integracja z RoleModule, BroadcastModule i ChannelModule
  *
  * ARCHITEKTURA:
  * Database → Repository → AllianceManager → Modules
@@ -18,24 +16,20 @@
  * WAŻNE:
  * - Lider NIE jest ustawiany przy create (komenda systemowa setLeader)
  * - Tag i nazwa muszą być unikalne na serwerze
- * - ChannelModule uruchamia się automatycznie przy create
- * - confirmDelete usuwa role + kanały + broadcast
+ * - Kanały i kategoria Discord są aktualizowane dynamicznie
  *
  * ============================================
  */
 
 import { Guild } from "discord.js";
-import { Alliance, AllianceRoles, AllianceChannels } from "./AllianceTypes";
+import { Alliance } from "./AllianceTypes";
 import { AllianceHelpers as Helpers } from "./AllianceHelpers";
 import { RoleModule } from "./modules/role/RoleModule";
 import { BroadcastModule } from "./modules/broadcast/BroadcastModule";
 import { ChannelModule } from "./modules/channel/ChannelModule";
 import { TransferLeaderSystem } from "./TransferLeaderSystem";
 
-import {
-  AllianceRepo,
-  PendingDeletionRepo
-} from "../../data/Repositories";
+import { AllianceRepo, PendingDeletionRepo } from "../../data/Repositories";
 
 const MAX_MEMBERS = 100;
 const MAX_R4 = 10;
@@ -53,7 +47,7 @@ export class AllianceManager {
     name: string
   ): Promise<void> {
 
-    // ---- uniqueness check (TAG + NAME) ----
+    // ---- uniqueness check ----
     const allAlliances = AllianceRepo.getAll();
     if (allAlliances.some(a => a.tag.toLowerCase() === tag.toLowerCase()))
       throw new Error("Alliance tag already exists");
@@ -66,74 +60,72 @@ export class AllianceManager {
       guildId: guild.id,
       tag,
       name,
-      members: {
-        r5: null,
-        r4: [],
-        r3: []
-      },
-      roles: {} as AllianceRoles,           // zostanie wypełnione przez RoleModule
-      channels: {} as AllianceChannels,     // zostanie wypełnione przez ChannelModule
+      members: { r5: null, r4: [], r3: [] },
+      roles: {} as any,
+      channels: {} as any,
       orphaned: true,
       createdAt: Date.now()
     };
 
-    // ---- persist base first ----
+    // ---- persist base ----
     AllianceRepo.set(allianceId, alliance);
 
     // ---- create roles ----
-    const createdRoles: AllianceRoles = await RoleModule.createRoles(guild, tag);
+    const createdRoles = await RoleModule.createRoles(guild, tag);
     alliance.roles = createdRoles;
 
-    // ---- create channels ----
-    const createdChannels = await ChannelModule.createChannels(
-      guild,
-      allianceId,
-      tag,
-      name
-    );
-    alliance.channels = createdChannels as unknown as AllianceChannels;
+    // ---- create channels/kategoria ----
+    const createdChannels = await ChannelModule.createChannels(guild, allianceId, tag, name);
+    alliance.channels = createdChannels;
 
-    // ---- broadcast setup ----
+    // ---- initialize broadcast ----
     await BroadcastModule.initializeAlliance(allianceId, tag, name);
 
-    // ---- finalize persistence ----
     AllianceRepo.set(allianceId, alliance);
 
-    Helpers.logAudit(allianceId, {
-      action: "createAlliance",
-      actorId,
-      tag,
-      name
-    });
+    Helpers.logAudit(allianceId, { action: "createAlliance", actorId, tag, name });
   }
 
   // =========================================================
   // MEMBERS
   // =========================================================
-  static async addMember(actorId: string, allianceId: string, userId: string): Promise<void> {
+  static async addMember(actorId: string, allianceId: string, userId: string) {
     const alliance = this.getAllianceOrThrow(allianceId);
-    if (Helpers.isMember(alliance, userId)) throw new Error("User already member");
-    if (Helpers.getTotalMembers(alliance) >= MAX_MEMBERS) throw new Error("Alliance is full");
+
+    if (Helpers.isMember(alliance, userId))
+      throw new Error("User already member");
+    if (Helpers.getTotalMembers(alliance) >= MAX_MEMBERS)
+      throw new Error("Alliance full");
 
     alliance.members.r3.push(userId);
     AllianceRepo.set(allianceId, alliance);
 
+    // ❗ Aktualizacja kategorii (liczba członków)
+    await ChannelModule.updateCategoryName(allianceId);
+
     Helpers.logAudit(allianceId, { action: "addMember", actorId, userId });
   }
 
-  static async promoteToR4(actorId: string, allianceId: string, userId: string): Promise<void> {
+  static async promoteToR4(actorId: string, allianceId: string, userId: string) {
     const alliance = this.getAllianceOrThrow(allianceId);
-    if (!alliance.members.r3.includes(userId)) throw new Error("User is not R3");
-    if (alliance.members.r4.length >= MAX_R4) throw new Error("Max R4 reached");
+
+    if (!alliance.members.r3.includes(userId))
+      throw new Error("User is not R3");
+    if (alliance.members.r4.length >= MAX_R4)
+      throw new Error("Max R4 reached");
 
     alliance.members.r3 = alliance.members.r3.filter(u => u !== userId);
     alliance.members.r4.push(userId);
 
     AllianceRepo.set(allianceId, alliance);
+
+    // ❗ Aktualizacja kategorii (opcjonalnie można uwzględnić role w nazwie)
+    await ChannelModule.updateCategoryName(allianceId);
+
     Helpers.logAudit(allianceId, { action: "promoteToR4", actorId, userId });
   }
 
-  static async removeMember(actorId: string, allianceId: string, userId: string): Promise<void> {
+  static async removeMember(actorId: string, allianceId: string, userId: string) {
     const alliance = this.getAllianceOrThrow(allianceId);
 
     if (alliance.members.r5 === userId) alliance.members.r5 = null;
@@ -141,67 +133,83 @@ export class AllianceManager {
     alliance.members.r3 = alliance.members.r3.filter(u => u !== userId);
 
     AllianceRepo.set(allianceId, alliance);
+
+    // ❗ Aktualizacja kategorii (liczba członków)
+    await ChannelModule.updateCategoryName(allianceId);
+
     Helpers.logAudit(allianceId, { action: "removeMember", actorId, userId });
   }
 
   // =========================================================
   // LEADERSHIP
   // =========================================================
-  static async transferLeadership(actorId: string, allianceId: string, newLeaderId: string): Promise<void> {
+  static async transferLeadership(actorId: string, allianceId: string, newLeaderId: string) {
     await TransferLeaderSystem.transferLeadership(actorId, allianceId, newLeaderId);
+
+    // ❗ Aktualizacja kategorii (jeżeli chcemy np. oznaczyć lidera w nazwie)
+    await ChannelModule.updateCategoryName(allianceId);
   }
 
   // =========================================================
   // UPDATE
   // =========================================================
-  static async updateTag(actorId: string, allianceId: string, newTag: string): Promise<void> {
+  static async updateTag(actorId: string, allianceId: string, newTag: string) {
     const alliance = this.getAllianceOrThrow(allianceId);
-    const exists = AllianceRepo.getAll().some(a => a.id !== allianceId && a.tag.toLowerCase() === newTag.toLowerCase());
-    if (exists) throw new Error("Alliance tag already exists");
+
+    if (AllianceRepo.getAll().some(a => a.id !== allianceId && a.tag.toLowerCase() === newTag.toLowerCase()))
+      throw new Error("Alliance tag already exists");
 
     const oldTag = alliance.tag;
     alliance.tag = newTag;
+    AllianceRepo.set(allianceId, alliance);
 
     await RoleModule.updateTag(allianceId, newTag);
     await BroadcastModule.updateTag(allianceId, newTag);
-    await ChannelModule.updateCategoryName(alliance.guildId as any, allianceId, newTag, alliance.name);
+    await ChannelModule.updateCategoryName(allianceId); // ❗
 
-    AllianceRepo.set(allianceId, alliance);
     Helpers.logAudit(allianceId, { action: "updateTag", actorId, oldTag, newTag });
   }
 
-  static async updateName(actorId: string, allianceId: string, newName: string): Promise<void> {
+  static async updateName(actorId: string, allianceId: string, newName: string) {
     const alliance = this.getAllianceOrThrow(allianceId);
-    const exists = AllianceRepo.getAll().some(a => a.id !== allianceId && a.name.toLowerCase() === newName.toLowerCase());
-    if (exists) throw new Error("Alliance name already exists");
+
+    if (AllianceRepo.getAll().some(a => a.id !== allianceId && a.name.toLowerCase() === newName.toLowerCase()))
+      throw new Error("Alliance name already exists");
 
     const oldName = alliance.name;
     alliance.name = newName;
+    AllianceRepo.set(allianceId, alliance);
 
     await BroadcastModule.updateName(allianceId, newName);
-    await ChannelModule.updateCategoryName(alliance.guildId as any, allianceId, alliance.tag, newName);
+    await ChannelModule.updateCategoryName(allianceId); // ❗
 
-    AllianceRepo.set(allianceId, alliance);
     Helpers.logAudit(allianceId, { action: "updateName", actorId, oldName, newName });
   }
 
   // =========================================================
   // DELETE
   // =========================================================
-  static requestDelete(actorId: string, allianceId: string): void {
+  static requestDelete(actorId: string, allianceId: string) {
     const alliance = this.getAllianceOrThrow(allianceId);
     PendingDeletionRepo.set(allianceId, alliance);
+
     Helpers.logAudit(allianceId, { action: "requestDelete", actorId });
   }
 
-  static async confirmDelete(actorId: string, guild: Guild, allianceId: string): Promise<void> {
+  static async confirmDelete(actorId: string, guild: Guild, allianceId: string) {
     const alliance = PendingDeletionRepo.get(allianceId);
     if (!alliance) throw new Error("No pending deletion");
 
+    // ---- remove infrastructure ----
     await ChannelModule.deleteChannels(guild, allianceId);
+
+    // ---- remove roles ----
     await RoleModule.removeRoles(alliance.roles);
+
+    // ---- remove broadcast ----
     await BroadcastModule.removeAlliance(allianceId);
 
+    // ---- remove repo entries ----
     PendingDeletionRepo.delete(allianceId);
     AllianceRepo.delete(allianceId);
 
