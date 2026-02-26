@@ -8,14 +8,9 @@
  *
  * RESPONSIBILITY:
  * - Allows the current leader to transfer leadership to another member
- * - Validates that the actor is the current leader
- * - Checks that the new leader is a member of the alliance
+ * - Only R5 can execute
+ * - Can be used only in #staff-room
  * - Integrates with AllianceOrchestrator
- *
- * NOTES:
- * - Only the current leader can execute this command
- * - Uses MutationGate for safe execution inside the orchestrator
- * - Replies with confirmation or error messages
  *
  * ============================================
  */
@@ -23,6 +18,7 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
+import { AllianceService } from "../../system/alliance/AllianceService";
 
 export const TransferLeaderCommand: Command = {
   data: new SlashCommandBuilder()
@@ -34,24 +30,34 @@ export const TransferLeaderCommand: Command = {
         .setDescription("Member who will become the new leader")
         .setRequired(true)
     ),
-  ownerOnly: false,
-  systemLayer: false,
 
   async execute(interaction: ChatInputCommandInteraction) {
+    if (!interaction.guild) return;
+
+    // ✅ Only #staff-room
+    if (interaction.channel?.name !== "staff-room") {
+      await interaction.reply({
+        content: "❌ This command can only be used in #staff-room.",
+        ephemeral: true
+      });
+      return;
+    }
+
     const actorId = interaction.user.id;
     const newLeader = interaction.options.getUser("new_leader", true);
 
-    if (!interaction.guild) {
-      await interaction.reply({ content: "❌ Cannot transfer leadership outside a guild.", ephemeral: true });
+    const alliance = await AllianceService.getAllianceByMember(actorId);
+    if (!alliance || alliance.members.r5 !== actorId) {
+      await interaction.reply({
+        content: "❌ Only R5 can transfer leadership.",
+        ephemeral: true
+      });
       return;
     }
 
     try {
-      // 1️⃣ Transfer leadership atomically via AllianceOrchestrator
-      // Poprawiona kolejność argumentów: actorId, allianceId, newLeaderId
       await AllianceOrchestrator.transferLeader(actorId, interaction.guild.id, newLeader.id);
 
-      // 2️⃣ Confirmation message
       await interaction.reply({
         content: `✅ Leadership has been successfully transferred to <@${newLeader.id}>.`,
         ephemeral: false
