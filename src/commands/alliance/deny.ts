@@ -16,9 +16,8 @@
  */
 
 import { Command } from "../Command";
-import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
-import { AllianceService } from "../../system/alliance/AllianceService";
+import { ChatInputCommandInteraction, SlashCommandBuilder, GuildChannel, GuildMember } from "discord.js";
+import { AllianceManager } from "../../system/alliance/AllianceManager";
 
 export const DenyCommand: Command = {
   data: new SlashCommandBuilder()
@@ -34,8 +33,8 @@ export const DenyCommand: Command = {
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guild) return;
 
-    // ✅ Check channel
-    if (interaction.channel?.name !== "staff-room") {
+    const channel = interaction.channel;
+    if (!(channel instanceof GuildChannel) || channel.name !== "staff-room") {
       await interaction.reply({
         content: "❌ This command can only be used in #staff-room.",
         ephemeral: true
@@ -43,19 +42,21 @@ export const DenyCommand: Command = {
       return;
     }
 
-    const actorId = interaction.user.id;
+    const actor = interaction.member as GuildMember;
     const targetUser = interaction.options.getUser("member", true);
 
     try {
-      // Deny join request
-      await AllianceOrchestrator.denyJoin(actorId, interaction.guild.id, targetUser.id);
-
-      const alliance = await AllianceService.getAllianceByLeaderOrOfficer(actorId);
-      if (alliance) {
-        await targetUser.send(
-          `❌ Your request to join **[${alliance.tag}] ${alliance.name}** has been denied.`
-        ).catch(() => {});
+      const alliance = await AllianceManager.getAllianceByMember(actor.id);
+      if (!alliance) {
+        await interaction.reply({ content: "❌ You are not part of any alliance.", ephemeral: true });
+        return;
       }
+
+      await AllianceManager.denyJoinRequest(actor.id, alliance.id, targetUser.id);
+
+      await targetUser.send(
+        `❌ Your request to join **[${alliance.tag}] ${alliance.name}** has been denied.`
+      ).catch(() => {});
 
       await interaction.reply({ content: "✅ You have denied the join request.", ephemeral: true });
 
