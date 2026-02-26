@@ -1,7 +1,7 @@
 // File path: src/commands/alliance/help.ts
 /**
  * ============================================
- * COMMAND: Help
+ * COMMAND: Help (Extended)
  * FILE: src/commands/alliance/help.ts
  * LAYER: COMMAND (Alliance)
  * ============================================
@@ -9,7 +9,7 @@
  * RESPONSIBILITY:
  * - Provides detailed help for all alliance commands
  * - Shows paginated embeds with 3 commands per page
- * - Includes emoji, description, usage channel, and role requirements
+ * - Includes emoji, description, example usage, channel, and role requirements
  *
  * NOTES:
  * - Only alliance commands are displayed
@@ -37,15 +37,15 @@ export const HelpCommand: Command = {
       .addFields(
         {
           name: "👋 /join",
-          value: "**Description:** Submit a request to join an alliance\n**Usage:** Only if you do not belong to any alliance\n**Use in:** #join",
+          value: "**Description:** Submit a request to join an alliance\n**Usage Requirements:** Only if you do not belong to any alliance\n**Use in:** #join\n**Example:** `/join`",
         },
         {
           name: "✅ /accept",
-          value: "**Description:** Approve a user's request to join the alliance\n**Usage:** Only R4/R5 or Leader\n**Use in:** #staff-room",
+          value: "**Description:** Approve a user's request to join the alliance\n**Usage Requirements:** Only R4/R5 or Leader\n**Use in:** #staff-room\n**Example:** `/accept user:@username`",
         },
         {
           name: "❌ /deny",
-          value: "**Description:** Reject a user's request to join the alliance\n**Usage:** Only R4/R5 or Leader\n**Use in:** #staff-room",
+          value: "**Description:** Reject a user's request to join the alliance\n**Usage Requirements:** Only R4/R5 or Leader\n**Use in:** #staff-room\n**Example:** `/deny member:@username`",
         }
       )
       .setFooter({ text: "Page 1 of 3" })
@@ -58,15 +58,15 @@ export const HelpCommand: Command = {
       .addFields(
         {
           name: "⬆️ /promote",
-          value: "**Description:** Promote a member to the next rank\n**Usage:** Only R5\n**Use in:** #staff-room",
+          value: "**Description:** Promote a member to the next rank\n**Usage Requirements:** Only R5\n**Use in:** #staff-room\n**Example:** `/promote member:@username`",
         },
         {
           name: "⬇️ /demote",
-          value: "**Description:** Demote a member to a lower rank\n**Usage:** Only R5\n**Use in:** #staff-room",
+          value: "**Description:** Demote a member to a lower rank\n**Usage Requirements:** Only R5\n**Use in:** #staff-room\n**Example:** `/demote member:@username`",
         },
         {
           name: "🪑 /kick",
-          value: "**Description:** Kick a member from the alliance\n**Usage:** Only R5\n**Use in:** #staff-room",
+          value: "**Description:** Kick a member from the alliance\n**Usage Requirements:** Only R5\n**Use in:** #staff-room\n**Example:** `/kick member:@username`",
         }
       )
       .setFooter({ text: "Page 2 of 3" })
@@ -79,19 +79,19 @@ export const HelpCommand: Command = {
       .addFields(
         {
           name: "🎤 /broadcast",
-          value: "**Description:** Send a message to all alliance members\n**Usage:** Only R5/R4\n**Use in:** #staff-room",
+          value: "**Description:** Send a message to all alliance members\n**Usage Requirements:** Only R5/R4\n**Use in:** #staff-room\n**Example:** `/broadcast message:Hello team!`",
         },
         {
           name: "👑 /transfer_leader",
-          value: "**Description:** Transfer leadership to another member\n**Usage:** Only R5\n**Use in:** #staff-room",
+          value: "**Description:** Transfer leadership to another member\n**Usage Requirements:** Only R5\n**Use in:** #staff-room\n**Example:** `/transfer_leader new_leader:@username`",
         },
         {
           name: "📝 /update_name",
-          value: "**Description:** Change the alliance name\n**Usage:** Only R5\n**Use in:** #staff-room",
+          value: "**Description:** Change the alliance name\n**Usage Requirements:** Only R5\n**Use in:** #staff-room\n**Example:** `/update_name name:New Alliance Name`",
         },
         {
           name: "🏷️ /update_tag",
-          value: "**Description:** Change the alliance tag\n**Usage:** Only R5\n**Use in:** #staff-room",
+          value: "**Description:** Change the alliance tag\n**Usage Requirements:** Only R5\n**Use in:** #staff-room\n**Example:** `/update_tag tag:ABC`",
         }
       )
       .setFooter({ text: "Page 3 of 3" })
