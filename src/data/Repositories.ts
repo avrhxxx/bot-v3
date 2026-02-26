@@ -9,18 +9,11 @@ import { OwnershipRecord } from "../system/Ownership";
  * REPOSITORY LAYER – Bot-V3
  * =====================================================
  *
- * This file exposes controlled access to the in-memory
- * domain database.
- *
- * Removed legacy systems:
- * - SnapshotRepo ❌
- * - HealthRepo ❌
- *
- * Architecture is now:
+ * Controlled access to the in-memory domain database.
+ * Pure domain state only. No monitoring or snapshots.
  * Database → Repository → Domain Systems
  *
- * No monitoring, no snapshot mirror, no health layer.
- * Pure domain state only.
+ * Legacy systems removed: SnapshotRepo, HealthRepo
  * =====================================================
  */
 
@@ -42,6 +35,10 @@ export const AllianceRepo = {
 
   getAll(): Alliance[] {
     return Array.from(db.alliances.values());
+  },
+
+  exists(id: string): boolean {
+    return db.alliances.has(id);
   }
 };
 
@@ -55,6 +52,10 @@ export const OwnershipRepo = {
 
   set(key: string, value: OwnershipRecord): void {
     db.ownership.set(key, value);
+  },
+
+  exists(key: string): boolean {
+    return db.ownership.has(key);
   }
 };
 
@@ -72,11 +73,18 @@ export const PendingDeletionRepo = {
 
   delete(id: string): void {
     db.pendingDeletions.delete(id);
+  },
+
+  getAll(): Alliance[] {
+    return Array.from(db.pendingDeletions.values());
+  },
+
+  exists(id: string): boolean {
+    return db.pendingDeletions.has(id);
   }
 };
 
 // ---------------------------
-// Direct DB export (intentional)
-// Used by advanced internal services only
+// Direct DB export (advanced internal usage)
 // ---------------------------
 export { db };
