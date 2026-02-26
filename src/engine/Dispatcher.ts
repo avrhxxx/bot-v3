@@ -1,3 +1,4 @@
+// src/engine/Dispatcher.ts
 import { MutationGate, MutationOptions } from "./MutationGate";
 
 export class Dispatcher {
@@ -6,8 +7,7 @@ export class Dispatcher {
     handler: () => Promise<T> | T
   ): Promise<T> {
     try {
-      const result = await MutationGate.execute(options, handler);
-      return result;
+      return await MutationGate.execute(options, handler);
     } catch (error: any) {
       console.error(`Dispatcher: Mutation "${options.operation}" failed:`, error);
       throw error;
