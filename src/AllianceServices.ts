@@ -1,17 +1,16 @@
-// src/AllianceService.ts
+// src/AllianceServices.ts
 import { db } from './mongo/mongoClient';
 
 export interface Alliance {
-  _id: string;          // ID sojuszu
+  _id: string;
   name: string;
-  members: string[];    // ID członków
-  leader?: string;      // ID lidera
+  members: string[];
+  leader?: string;
 }
 
 const alliances = db.collection<Alliance>('alliances');
 
 export class AllianceService {
-  /** Tworzy nowy sojusz */
   static async createAlliance(id: string, name: string) {
     const exists = await alliances.findOne({ _id: id });
     if (exists) return exists;
@@ -21,16 +20,14 @@ export class AllianceService {
     return { _id: id, name, members: [] } as Alliance;
   }
 
-  /** Dodaje członka do sojuszu */
   static async addMember(allianceId: string, memberId: string) {
     await alliances.updateOne(
       { _id: allianceId },
-      { $addToSet: { members: memberId } } // dodaje tylko jeśli nie ma
+      { $addToSet: { members: memberId } }
     );
     console.log(`[AllianceService] addMember: ${memberId} to ${allianceId}`);
   }
 
-  /** Ustawia lidera sojuszu */
   static async setLeader(allianceId: string, leaderId: string) {
     await alliances.updateOne(
       { _id: allianceId },
@@ -39,12 +36,10 @@ export class AllianceService {
     console.log(`[AllianceService] setLeader: ${leaderId} for ${allianceId}`);
   }
 
-  /** Pobiera sojusz */
   static async getAlliance(allianceId: string) {
     return alliances.findOne({ _id: allianceId });
   }
 
-  /** Pobiera wszystkich członków */
   static async getMembers(allianceId: string) {
     const alliance = await alliances.findOne({ _id: allianceId });
     return alliance?.members || [];
