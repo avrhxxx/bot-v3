@@ -1,4 +1,3 @@
-// src/discord/client.ts
 export type ClientStub = {
   on(event: string, listener: (...args: any[]) => void): void;
   login(): Promise<string>;
