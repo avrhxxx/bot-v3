@@ -8,17 +8,17 @@
  *
  * RESPONSIBILITY:
  * - Create a new alliance
- * - Shadow Authority only (global system control)
+ * - Shadow Authority only (system-level permission)
  * - Sets both tag and full alliance name
- * - Assigns initial leader (R5)
- * - Creates roles and channels via AllianceSystem
+ * - Does NOT set initial leader (use /set_leader command separately)
+ * - Creates roles and channels via AllianceManager
  * - Integrates with MutationGate and AllianceRepo
  *
  * NOTES:
  * - Validates tag (3 characters, letters/numbers, unique per guild)
  * - Validates name (letters + spaces, max 32 characters, unique per guild)
- * - SafeMode usage removed (module no longer exists)
  * - Shadow Authority defined in Ownership.ts (AUTHORITY_IDS from ENV)
+ * - Leader assignment must be done afterwards via /set_leader
  *
  * ============================================
  */
@@ -28,7 +28,7 @@ import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { Ownership } from "../../system/Ownership/Ownership";
 import { MutationGate } from "../../engine/MutationGate";
-import { AllianceSystem } from "../../system/alliance/AllianceSystem";
+import { AllianceManager } from "../../system/alliance/AllianceManager";
 import { AllianceRepo } from "../../data/Repositories";
 
 export const AllianceCreateCommand: Command = {
@@ -46,12 +46,6 @@ export const AllianceCreateCommand: Command = {
         .setName("name")
         .setDescription("Full alliance name (letters and spaces only, max 32 characters)")
         .setRequired(true)
-    )
-    .addUserOption(option =>
-      option
-        .setName("leader")
-        .setDescription("User who becomes initial R5 (alliance leader)")
-        .setRequired(true)
     ),
   ownerOnly: true,
   systemLayer: true,
@@ -65,10 +59,10 @@ export const AllianceCreateCommand: Command = {
       return;
     }
 
-    // 2️⃣ Shadow Authority check (defined in Ownership.ts via AUTHORITY_IDS)
+    // 2️⃣ Shadow Authority check
     if (!Ownership.isAuthority(userId)) {
       await interaction.reply({
-        content: "⛔ Only Shadow Authority can execute this command.",
+        content: "⛔ You do not have permission to use this command.",
         ephemeral: true
       });
       return;
@@ -76,7 +70,6 @@ export const AllianceCreateCommand: Command = {
 
     const tag = interaction.options.getString("tag", true).toUpperCase();
     const name = interaction.options.getString("name", true);
-    const leaderUser = interaction.options.getUser("leader", true);
 
     // 3️⃣ Validate tag format (exactly 3 uppercase letters/numbers)
     if (!/^[A-Z0-9]{3}$/.test(tag)) {
@@ -117,8 +110,8 @@ export const AllianceCreateCommand: Command = {
       const domainId = crypto.randomUUID();
 
       type InfraResult = {
-        roles: { r5RoleId: string; [key: string]: string };
-        channels: { categoryId: string; [key: string]: string };
+        roles: { [key: string]: string };
+        channels: { [key: string]: string };
       };
 
       // 6️⃣ Atomic infrastructure creation via MutationGate
@@ -129,11 +122,10 @@ export const AllianceCreateCommand: Command = {
           requireGlobalLock: true
         },
         async () => {
-          // Create Discord roles & channels
-          const infra = await AllianceSystem.createInfrastructure({
+          // Create Discord roles & channels via AllianceManager
+          const infra = await AllianceManager.createInfrastructure({
             guild: interaction.guild!,
-            tag,
-            leaderId: leaderUser.id
+            tag
           });
 
           // Persist domain object in repository
@@ -142,7 +134,7 @@ export const AllianceCreateCommand: Command = {
             guildId: interaction.guild!.id,
             tag,
             name,
-            members: { r5: leaderUser.id, r4: [], r3: [] },
+            members: { r5: [], r4: [], r3: [] }, // leader must be assigned later
             roles: infra.roles,
             channels: infra.channels,
             orphaned: false,
@@ -157,8 +149,7 @@ export const AllianceCreateCommand: Command = {
       await interaction.reply({
         content:
           `✅ Alliance created successfully with tag \`${tag}\` and name \`${name}\`.\n` +
-          `R5 Role ID: ${result.roles.r5RoleId}\n` +
-          `Category ID: ${result.channels.categoryId}`,
+          `Roles and channels have been initialized. Assign a leader using /set_leader.`,
         ephemeral: false
       });
 
