@@ -174,3 +174,9 @@ export class BroadcastModule {
     }
   }
 }
+
+/**
+ * ============================================
+ * FILEPATH: src/system/alliance/modules/broadcast/BroadcastModule.ts
+ * ============================================
+ */
