@@ -1,4 +1,3 @@
-// File path: src/commands/alliance/join.ts
 /**
  * ============================================
  * COMMAND: Join
@@ -11,10 +10,7 @@
  * - Adds the user to the join queue via AllianceOrchestrator
  * - Notifies R5 / R4 / leader about a new request
  * - Sends DM to the user with alliance tag + name
- *
- * NOTES:
- * - SafeMode blocks new join requests
- * - Member limit validation handled inside Orchestrator
+ * - Restricts command usage to join channels only
  *
  * ============================================
  */
@@ -23,7 +19,7 @@ import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
 import { AllianceService } from "../../system/alliance/AllianceService";
-import { SafeMode } from "../../system/SafeMode";
+import { ChannelModule } from "../../system/alliance/channel/ChannelModule";
 
 export const JoinCommand: Command = {
   data: new SlashCommandBuilder()
@@ -41,22 +37,39 @@ export const JoinCommand: Command = {
       return;
     }
 
-    if (SafeMode.isActive()) {
+    const guildId = interaction.guild.id;
+    const channelId = interaction.channelId;
+
+    // ----------------- Weryfikacja kanału join -----------------
+    const isJoinChannel = Object.values(ChannelModule["channels"][guildId] || {})
+      .some(id => id === channelId);
+
+    if (!isJoinChannel) {
       await interaction.reply({
-        content: "⛔ System in SAFE_MODE – cannot join an alliance.",
+        content: "❌ This channel is not a valid #join channel for any alliance.",
+        ephemeral: true
+      });
+      return;
+    }
+
+    // ----------------- Sprawdzenie, czy użytkownik już jest w sojuszu -----------------
+    const existingAllianceId = AllianceService.getAllianceByMember(userId);
+    if (existingAllianceId) {
+      const existingAlliance = AllianceService.getAllianceOrThrow(existingAllianceId);
+      await interaction.reply({
+        content: `❌ You are already a member of **[${existingAlliance.tag}] ${existingAlliance.name}**.`,
         ephemeral: true
       });
       return;
     }
 
     try {
-      const guildId = interaction.guild.id;
-
       // 1️⃣ Submit join request atomically
-      await AllianceOrchestrator.requestJoin(userId, guildId);
+      await AllianceOrchestrator.requestJoin(userId, guildId, channelId);
 
       // 2️⃣ Fetch alliance data for DM context
-      const alliance = AllianceService.getAllianceOrThrow(guildId);
+      const alliance = AllianceService.getAllianceByJoinChannel(channelId);
+      if (!alliance) throw new Error("Alliance not found for this join channel.");
 
       // 3️⃣ DM the user with alliance tag + name
       await interaction.user.send(
