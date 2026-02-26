@@ -9,12 +9,8 @@
  * RESPONSIBILITY:
  * - Accept a user's join request
  * - Only R5 / R4 / leader can approve
- * - Integrates with AllianceOrchestrator
+ * - Can be used only in #staff-room
  * - Sends DM to the accepted user
- *
- * NOTES:
- * - Ephemeral reply confirms command usage only
- * - Welcome channel broadcast handled separately
  *
  * ============================================
  */
@@ -36,6 +32,17 @@ export const AcceptCommand: Command = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
+    if (!interaction.guild) return;
+
+    // ✅ Ensure command is used in #staff-room
+    if (interaction.channel?.name !== "staff-room") {
+      await interaction.reply({
+        content: "❌ This command can only be used in #staff-room.",
+        ephemeral: true
+      });
+      return;
+    }
+
     const actorId = interaction.user.id;
     const targetUser = interaction.options.getUser("user", true);
 
@@ -50,15 +57,15 @@ export const AcceptCommand: Command = {
     }
 
     try {
-      // 2️⃣ Approve join request atomically
+      // 2️⃣ Approve join request
       await AllianceOrchestrator.approveJoin(actorId, alliance.id, targetUser.id);
 
       // 3️⃣ DM the accepted user
       await targetUser.send(
         `🎉 You have been accepted into **[${alliance.tag}] ${alliance.name}**! Welcome!`
-      ).catch(() => { /* ignore DM errors */ });
+      ).catch(() => {});
 
-      // 4️⃣ Ephemeral confirmation (short, command-level only)
+      // 4️⃣ Ephemeral confirmation
       await interaction.reply({
         content: "✅ You have approved the join request.",
         ephemeral: true
