@@ -3,25 +3,6 @@
  * FILE: src/system/alliance/AllianceManager.ts
  * LAYER: SYSTEM (Core Domain Service)
  * ============================================
- *
- * ZAWARTOŚĆ:
- * - Główny manager logiki sojuszu
- * - Operacje CRUD
- * - Zarządzanie członkami
- * - Integracja z RoleModule
- * - Integracja z BroadcastModule
- * - Integracja z ChannelModule
- *
- * ARCHITEKTURA:
- * Database → Repository → AllianceManager → Modules
- *
- * WAŻNE:
- * - Lider NIE jest ustawiany przy create (komenda systemowa setLeader)
- * - Tag i nazwa muszą być unikalne na serwerze
- * - ChannelModule uruchamia się automatycznie przy create
- * - confirmDelete usuwa role + kanały + broadcast
- *
- * ============================================
  */
 
 import { Guild } from "discord.js";
@@ -54,57 +35,62 @@ export class AllianceManager {
     name: string
   ): Promise<void> {
 
-    // ---- uniqueness check (TAG + NAME) ----
+    // ---- TAG VALIDATION ----
+    const normalizedTag = tag.toUpperCase();
+
+    if (!/^[A-Z0-9]{3}$/.test(normalizedTag)) {
+      throw new Error("Tag must be exactly 3 alphanumeric characters");
+    }
+
+    // ---- uniqueness check ----
     const allAlliances = AllianceRepo.getAll();
 
-    if (allAlliances.some(a => a.tag.toLowerCase() === tag.toLowerCase())) {
+    if (allAlliances.some(a => a.tag === normalizedTag))
       throw new Error("Alliance tag already exists");
-    }
 
-    if (allAlliances.some(a => a.name.toLowerCase() === name.toLowerCase())) {
+    if (allAlliances.some(a => a.name.toLowerCase() === name.toLowerCase()))
       throw new Error("Alliance name already exists");
-    }
 
     // ---- base object ----
     const alliance: Alliance = {
       id: allianceId,
-      tag,
+      guildId: guild.id,
+      tag: normalizedTag,
       name,
       members: {
         r5: null,
         r4: [],
         r3: []
       },
-      roles: {},
-      channels: {},
-      infrastructure: undefined
+      roles: {} as any,
+      channels: {} as any,
+      orphaned: true,
+      createdAt: Date.now()
     };
 
-    // ---- persist base first ----
     AllianceRepo.set(allianceId, alliance);
 
     // ---- create roles ----
-    const createdRoles = await RoleModule.createRoles(guild, allianceId, tag);
-    alliance.roles = createdRoles;
+    alliance.roles =
+      await RoleModule.createRoles(guild, allianceId, normalizedTag);
 
     // ---- create channels ----
-    const createdInfrastructure = await ChannelModule.createChannels(
-      guild,
+    alliance.channels =
+      await ChannelModule.createChannels(guild, allianceId, normalizedTag);
+
+    // ---- broadcast init ----
+    await BroadcastModule.initializeAlliance(
       allianceId,
-      tag
+      normalizedTag,
+      name
     );
-
-    alliance.infrastructure = createdInfrastructure;
-
-    // ---- broadcast setup ----
-    await BroadcastModule.initializeAlliance(allianceId, tag, name);
 
     AllianceRepo.set(allianceId, alliance);
 
     Helpers.logAudit(allianceId, {
       action: "createAlliance",
       actorId,
-      tag,
+      tag: normalizedTag,
       name
     });
   }
@@ -128,6 +114,7 @@ export class AllianceManager {
       throw new Error("Alliance is full");
 
     alliance.members.r3.push(userId);
+    alliance.updatedAt = Date.now();
 
     AllianceRepo.set(allianceId, alliance);
 
@@ -156,6 +143,7 @@ export class AllianceManager {
       alliance.members.r3.filter(u => u !== userId);
 
     alliance.members.r4.push(userId);
+    alliance.updatedAt = Date.now();
 
     AllianceRepo.set(allianceId, alliance);
 
@@ -174,14 +162,18 @@ export class AllianceManager {
 
     const alliance = this.getAllianceOrThrow(allianceId);
 
-    if (alliance.members.r5 === userId)
+    if (alliance.members.r5 === userId) {
       alliance.members.r5 = null;
+      alliance.orphaned = true;
+    }
 
     alliance.members.r4 =
       alliance.members.r4.filter(u => u !== userId);
 
     alliance.members.r3 =
       alliance.members.r3.filter(u => u !== userId);
+
+    alliance.updatedAt = Date.now();
 
     AllianceRepo.set(allianceId, alliance);
 
@@ -207,6 +199,12 @@ export class AllianceManager {
       allianceId,
       newLeaderId
     );
+
+    const alliance = this.getAllianceOrThrow(allianceId);
+    alliance.orphaned = false;
+    alliance.updatedAt = Date.now();
+
+    AllianceRepo.set(allianceId, alliance);
   }
 
   // =========================================================
@@ -219,24 +217,28 @@ export class AllianceManager {
     newTag: string
   ): Promise<void> {
 
+    const normalizedTag = newTag.toUpperCase();
+
+    if (!/^[A-Z0-9]{3}$/.test(normalizedTag))
+      throw new Error("Tag must be exactly 3 alphanumeric characters");
+
     const alliance = this.getAllianceOrThrow(allianceId);
 
-    const exists = AllianceRepo
-      .getAll()
-      .some(a =>
-        a.id !== allianceId &&
-        a.tag.toLowerCase() === newTag.toLowerCase()
-      );
+    const exists = AllianceRepo.getAll().some(a =>
+      a.id !== allianceId &&
+      a.tag === normalizedTag
+    );
 
     if (exists)
       throw new Error("Alliance tag already exists");
 
     const oldTag = alliance.tag;
-    alliance.tag = newTag;
+    alliance.tag = normalizedTag;
+    alliance.updatedAt = Date.now();
 
-    await RoleModule.updateTag(allianceId, newTag);
-    await BroadcastModule.updateTag(allianceId, newTag);
-    await ChannelModule.updateTag(allianceId, newTag);
+    await RoleModule.updateTag(allianceId, normalizedTag);
+    await BroadcastModule.updateTag(allianceId, normalizedTag);
+    await ChannelModule.updateTag(allianceId, normalizedTag);
 
     AllianceRepo.set(allianceId, alliance);
 
@@ -244,7 +246,7 @@ export class AllianceManager {
       action: "updateTag",
       actorId,
       oldTag,
-      newTag
+      newTag: normalizedTag
     });
   }
 
@@ -256,18 +258,17 @@ export class AllianceManager {
 
     const alliance = this.getAllianceOrThrow(allianceId);
 
-    const exists = AllianceRepo
-      .getAll()
-      .some(a =>
-        a.id !== allianceId &&
-        a.name.toLowerCase() === newName.toLowerCase()
-      );
+    const exists = AllianceRepo.getAll().some(a =>
+      a.id !== allianceId &&
+      a.name.toLowerCase() === newName.toLowerCase()
+    );
 
     if (exists)
       throw new Error("Alliance name already exists");
 
     const oldName = alliance.name;
     alliance.name = newName;
+    alliance.updatedAt = Date.now();
 
     await BroadcastModule.updateName(allianceId, newName);
 
@@ -306,22 +307,15 @@ export class AllianceManager {
     allianceId: string
   ): Promise<void> {
 
-    const alliance =
-      PendingDeletionRepo.get(allianceId);
+    const alliance = PendingDeletionRepo.get(allianceId);
 
     if (!alliance)
       throw new Error("No pending deletion");
 
-    // ---- remove infrastructure ----
-    await ChannelModule.deleteChannels(guild, allianceId);
-
-    // ---- remove roles ----
+    await ChannelModule.deleteChannels(guild, alliance.channels);
     await RoleModule.removeRoles(alliance.roles);
-
-    // ---- remove broadcast ----
     await BroadcastModule.removeAlliance(allianceId);
 
-    // ---- remove repo entries ----
     PendingDeletionRepo.delete(allianceId);
     AllianceRepo.delete(allianceId);
 
@@ -335,9 +329,7 @@ export class AllianceManager {
   // HELPERS
   // =========================================================
 
-  public static getAllianceOrThrow(
-    id: string
-  ): Alliance {
+  public static getAllianceOrThrow(id: string): Alliance {
 
     const alliance = AllianceRepo.get(id);
 
@@ -346,5 +338,4 @@ export class AllianceManager {
 
     return alliance;
   }
-
 }
