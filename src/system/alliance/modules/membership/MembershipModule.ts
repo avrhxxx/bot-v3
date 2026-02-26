@@ -1,13 +1,13 @@
 /**
  * ============================================
- * FILE: src/system/alliance/modules/membership/MembershipModule.ts
  * MODULE: MembershipModule
+ * FILE: src/system/alliance/modules/membership/MembershipModule.ts
  * LAYER: SYSTEM (Alliance Membership Management)
  * ============================================
  *
  * RESPONSIBILITY:
  * - Manage join requests, accept/deny members
- * - Promote/Demote members
+ * - Promote/Demote members (R3 ↔ R4)
  * - Leave alliance
  * - Use RulesModule for validations
  * - Synchronize Discord roles with RoleModule
@@ -31,8 +31,9 @@ import { RulesModule } from "../rules/RulesModule";
 import { ChannelModule } from "../channel/ChannelModule";
 
 export class MembershipModule {
+  // ----------------- JOIN REQUEST -----------------
   /**
-   * Dodaje żądanie dołączenia użytkownika do sojuszu
+   * Add join request for user
    */
   static async addJoinRequest(userId: string, allianceId: string) {
     await MutationGate.execute({ actor: userId, operation: "addJoinRequest", allianceId }, async () => {
@@ -45,8 +46,9 @@ export class MembershipModule {
     });
   }
 
+  // ----------------- ACCEPT MEMBER -----------------
   /**
-   * Akceptuje nowego członka R3
+   * Accept new R3 member
    */
   static async acceptMember(actorId: string, allianceId: string, userId: string) {
     await MutationGate.execute({ actor: actorId, operation: "acceptMember", allianceId }, async () => {
@@ -54,7 +56,7 @@ export class MembershipModule {
       alliance.members.r3 = alliance.members.r3 || [];
       alliance.members.r3.push(userId);
 
-      // Walidacja limitów
+      // Validate limits
       RulesModule.validateNewMember(alliance);
 
       // ----------------- SYNC ROLE DISCORD -----------------
@@ -62,14 +64,15 @@ export class MembershipModule {
       if (!guildMember) throw new Error("Cannot fetch guild member for new R3.");
       await RoleModule.assignRole(guildMember, alliance.roles.r3RoleId);
 
-      // Broadcast i audyt
+      // Broadcast & Audit
       await BroadcastModule.announceJoin(allianceId, userId);
       AllianceService.logAudit(allianceId, { action: "acceptMember", actorId, userId });
     });
   }
 
+  // ----------------- PROMOTE MEMBER -----------------
   /**
-   * Promuje członka R3 → R4
+   * Promote R3 → R4
    */
   static async promoteMember(actorId: string, allianceId: string, userId: string) {
     await MutationGate.execute({ actor: actorId, operation: "promoteMember", allianceId }, async () => {
@@ -79,10 +82,10 @@ export class MembershipModule {
 
       if (!alliance.members.r3.includes(userId)) throw new Error("User is not R3");
 
-      // Walidacja
+      // Validate promotion
       RulesModule.validatePromotion(alliance, "R4");
 
-      // Aktualizacja członków
+      // Update members
       alliance.members.r3 = alliance.members.r3.filter(u => u !== userId);
       alliance.members.r4.push(userId);
 
@@ -91,14 +94,15 @@ export class MembershipModule {
       if (!guildMember) throw new Error("Cannot fetch guild member for promotion.");
       await RoleModule.promote(guildMember, alliance.roles.r4RoleId, alliance.roles.r3RoleId);
 
-      // Broadcast i audyt
+      // Broadcast & Audit
       await BroadcastModule.announcePromotion(allianceId, userId, "R4");
       AllianceService.logAudit(allianceId, { action: "promoteMember", actorId, userId, newRole: "R4" });
     });
   }
 
+  // ----------------- DEMOTE MEMBER -----------------
   /**
-   * Demote członka R4 → R3
+   * Demote R4 → R3
    */
   static async demoteMember(actorId: string, allianceId: string, userId: string) {
     await MutationGate.execute({ actor: actorId, operation: "demoteMember", allianceId }, async () => {
@@ -108,10 +112,10 @@ export class MembershipModule {
 
       if (!alliance.members.r4.includes(userId)) throw new Error("User is not R4");
 
-      // Walidacja
+      // Validate demotion
       RulesModule.validateDemotion(alliance, "R3");
 
-      // Aktualizacja członków
+      // Update members
       alliance.members.r4 = alliance.members.r4.filter(u => u !== userId);
       alliance.members.r3.push(userId);
 
@@ -120,9 +124,39 @@ export class MembershipModule {
       if (!guildMember) throw new Error("Cannot fetch guild member for demotion.");
       await RoleModule.demote(guildMember, alliance.roles.r3RoleId, alliance.roles.r4RoleId);
 
-      // Broadcast i audyt
+      // Broadcast & Audit
       await BroadcastModule.announceDemotion(allianceId, userId, "R3");
       AllianceService.logAudit(allianceId, { action: "demoteMember", actorId, userId, newRole: "R3" });
+    });
+  }
+
+  // ----------------- LEAVE ALLIANCE -----------------
+  /**
+   * Remove member from alliance
+   */
+  static async leaveAlliance(actorId: string, allianceId: string, userId: string) {
+    await MutationGate.execute({ actor: actorId, operation: "leaveAlliance", allianceId }, async () => {
+      const alliance = AllianceService.getAllianceOrThrow(allianceId);
+
+      // Remove user from any role array
+      ["r3", "r4"].forEach(role => {
+        alliance.members[role] = (alliance.members[role] || []).filter(u => u !== userId);
+      });
+
+      // TODO: optionally remove R5 if leaving leader (handled via TransferLeaderModule)
+
+      // ----------------- SYNC ROLE DISCORD -----------------
+      const guildMember = await AllianceService.fetchGuildMember(alliance.guildId, userId);
+      if (guildMember) {
+        const allRoleIds = Object.values(alliance.roles);
+        await MutationGate.runAtomically(async () => {
+          await guildMember.roles.remove(allRoleIds);
+        });
+      }
+
+      // Broadcast & Audit
+      await BroadcastModule.announceLeave(allianceId, userId);
+      AllianceService.logAudit(allianceId, { action: "leaveAlliance", actorId, userId });
     });
   }
 }
