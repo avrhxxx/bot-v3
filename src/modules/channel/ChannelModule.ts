@@ -1,5 +1,6 @@
+// src/modules/channel/ChannelModule.ts
 export class ChannelModule {
-  static async createChannels(allianceId: string) {
-    console.log(`[ChannelModule] Creating channels for ${allianceId}`);
+  static createChannelsForAlliance(allianceId: string) {
+    console.log(`[ChannelModule] createChannelsForAlliance: ${allianceId}`);
   }
 }
