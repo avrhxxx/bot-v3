@@ -22,19 +22,18 @@ import { Alliance } from "../../AllianceTypes";
 
 export class RulesModule {
   // ----------------- CONSTANTS -----------------
-  static readonly MAX_MEMBERS = 100;  // R3 + R4 + R5
+  static readonly MAX_MEMBERS = 100;  // total members: R3+R4+R5
   static readonly MAX_R4 = 10;        // max number of R4 members
-  static readonly MAX_R5 = 1;         // must be exactly 1 leader
+  static readonly MAX_R5 = 1;         // exactly 1 leader
 
   // ----------------- VALIDATE TOTAL MEMBERS -----------------
   static validateTotalMembers(alliance: Alliance) {
     const totalMembers =
-      (alliance.members.r3?.length || 0) +
-      (alliance.members.r4?.length || 0) +
+      ((alliance.members.r3?.length || 0) + (alliance.members.r4?.length || 0)) +
       (alliance.members.r5 ? 1 : 0);
 
     if (totalMembers > this.MAX_MEMBERS) {
-      throw new Error(`Alliance cannot exceed ${this.MAX_MEMBERS} members.`);
+      throw new Error(`Alliance cannot exceed ${this.MAX_MEMBERS} members (R3+R4+R5).`);
     }
   }
 
@@ -68,6 +67,7 @@ export class RulesModule {
 
   // ----------------- VALIDATE DEMOTION -----------------
   static validateDemotion(alliance: Alliance, targetRole: "R3" | "R4") {
+    // przy democji nie blokujemy akcji, tylko weryfikujemy limity
     if (targetRole === "R4") this.validateR4Count(alliance);
     this.validateTotalMembers(alliance);
   }
@@ -75,5 +75,6 @@ export class RulesModule {
   // ----------------- VALIDATE NEW MEMBER -----------------
   static validateNewMember(alliance: Alliance) {
     this.validateTotalMembers(alliance);
+    this.validateR4Count(alliance);
   }
 }
