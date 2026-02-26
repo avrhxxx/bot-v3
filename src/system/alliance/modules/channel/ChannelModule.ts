@@ -1,32 +1,40 @@
-// src/system/alliance/modules/ChannelModule.ts
+/**
+ * ==========================================================
+ * 📁 src/system/alliance/modules/ChannelModule.ts
+ * ==========================================================
+ *
+ * ChannelModule odpowiada WYŁĄCZNIE za infrastrukturę Discord:
+ * - Tworzenie kategorii i kanałów sojuszu
+ * - Usuwanie kanałów
+ * - Ochronę przed ręcznym usunięciem
+ * - Dynamiczną aktualizację nazwy kategorii
+ *
+ * ❗ NIE przechowuje trwałych danych
+ * ❗ NIE jest warstwą persistence
+ *
+ * ID kanałów MUSZĄ być zapisane w repository (Repositories.ts)
+ * przez AllianceManager po wywołaniu createChannels().
+ */
 
 import {
-  Guild, TextChannel, CategoryChannel, VoiceChannel,
-  ChannelType, Channel
+  Guild,
+  TextChannel,
+  CategoryChannel,
+  VoiceChannel,
+  ChannelType,
+  Channel
 } from "discord.js";
 import { AllianceManager } from "../AllianceManager";
-import { AllianceRepo } from "../../../data/Repositories";
 
-/**
- * =====================================================
- * ChannelModule – Discord Infrastructure
- * =====================================================
- *
- * - Tworzy i usuwa kategorię + kanały sojuszu
- * - Chroni przed ręcznym usunięciem
- * - Aktualizuje nazwę kategorii
- *
- * ⚠ Nie jest warstwą persistence – ID kanałów
- * muszą być zapisane w repository przez AllianceManager
- * =====================================================
- */
 export class ChannelModule {
 
-  /** Runtime cache kanałów – tylko dla szybkiego dostępu */
+  // =====================================================
+  // RUNTIME CACHE (tylko w pamięci)
+  // =====================================================
   private static channels: Record<string, Record<string, string>> = {};
 
   // =====================================================
-  // CREATE CHANNELS (ENTRY POINT)
+  // CREATE CHANNELS (ONLY ENTRY POINT)
   // =====================================================
   static async createChannels(
     guild: Guild,
@@ -38,35 +46,32 @@ export class ChannelModule {
     if (this.channels[allianceId])
       throw new Error("Channels already exist for this alliance.");
 
+    const alliance = AllianceManager.getAllianceOrThrow(allianceId);
+
+    const memberCount = this.getMemberCount(alliance);
+
     const category = await guild.channels.create({
-      name: `🏰 ${tag} | ${name} | 0/100`,
+      name: `🏰 ${tag} | ${name} | ${memberCount}/100`,
       type: ChannelType.GuildCategory
     }) as CategoryChannel;
 
     const created = await this.createChildChannels(guild, category);
 
-    const result = { categoryId: category.id, ...created };
+    const result = {
+      categoryId: category.id,
+      ...created
+    };
 
-    // -----------------------
-    // Update runtime cache
-    // -----------------------
     this.channels[allianceId] = result;
-
-    // -----------------------
-    // Update repository (source of truth)
-    // -----------------------
-    const alliance = AllianceManager.getAllianceOrThrow(allianceId);
-    alliance.channels = result;
-    AllianceRepo.set(allianceId, alliance);
 
     return result;
   }
 
   // =====================================================
-  // DELETE CHANNELS (ENTRY POINT)
+  // DELETE CHANNELS (ONLY ENTRY POINT)
   // =====================================================
   static async deleteChannels(guild: Guild, allianceId: string) {
-    const cache = this.channels[allianceId] || AllianceManager.getAllianceOrThrow(allianceId).channels;
+    const cache = this.channels[allianceId];
     if (!cache) return;
 
     for (const id of Object.values(cache)) {
@@ -75,11 +80,26 @@ export class ChannelModule {
     }
 
     delete this.channels[allianceId];
+  }
 
-    // Clear from repository
+  // =====================================================
+  // UPDATE CATEGORY NAME (DYNAMIC)
+  // =====================================================
+  static async updateCategoryName(allianceId: string) {
+    const cache = this.channels[allianceId];
+    if (!cache) return;
+
+    const categoryId = cache.categoryId;
     const alliance = AllianceManager.getAllianceOrThrow(allianceId);
-    alliance.channels = {} as any;
-    AllianceRepo.set(allianceId, alliance);
+
+    const guild = await AllianceManager.fetchGuildByAlliance(allianceId); // lub przekaz guild
+    const category = guild.channels.cache.get(categoryId) as CategoryChannel;
+    if (!category) return;
+
+    const memberCount = this.getMemberCount(alliance);
+    const newName = `🏰 ${alliance.tag} | ${alliance.name} | ${memberCount}/100`;
+
+    if (category.name !== newName) await category.setName(newName);
   }
 
   // =====================================================
@@ -129,5 +149,13 @@ export class ChannelModule {
       if (Object.values(map).includes(channelId)) return allianceId;
     }
     return undefined;
+  }
+
+  private static getMemberCount(alliance: any): number {
+    let count = 0;
+    if (alliance.members.r3) count += alliance.members.r3.length;
+    if (alliance.members.r4) count += alliance.members.r4.length;
+    if (alliance.members.r5) count += 1;
+    return count;
   }
 }
