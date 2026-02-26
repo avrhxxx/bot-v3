@@ -1,6 +1,0 @@
-Zapisane w memory update:
-	•	Tworzymy nowy moduł CommandDispatcher, który początkowo obejmuje tylko komendy związane z rangami sojuszniczymi (join, leave, promote, kick, itp.).
-	•	Dispatcher będzie odseparowany od głównego Dispatcher i innych modułów, aby nie kolidował z systemem.
-	•	Mechanizm przydzielania ról i blokowania komend będzie obsługiwany w obrębie tego dispatcher’a.
-	•	W przyszłości można rozważyć rozszerzenie dispatcher’a o rangi systemowe, jeśli zajdzie potrzeba, bez wpływu na istniejące funkcjonalności.
-

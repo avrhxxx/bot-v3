@@ -1,7 +1,0 @@
-Memory Update – moduły sojuszy i odpowiedzialności:
-	•	Każdy sojusz będzie mieć dedykowany kanał powitalny (np. #welcome-<tag>).
-	•	Kanały sojuszy obsługiwane przez moduł ChannelManager (tworzenie, uprawnienia, przyszłe broadcasty).
-	•	Role i rangi sojuszy (R5, R4, R3, członek) obsługiwane przez moduł RoleManager (przydzielanie ról, hierarchia, promote/demote/kick).
-	•	Moduł broadcastowy (BroadcastManager) może w przyszłości wysyłać globalne powiadomienia na serwerze lub w kanałach sojuszu.
-	•	Moduł AllianceSystem zarządza logiką tworzenia/usuwania sojuszy oraz integruje kanały i role.
-	•	Kolejność pracy: najpierw dokończyć komendy, potem przypisać moduły, a na końcu weryfikacja uprawnień i testy.
