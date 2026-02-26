@@ -7,107 +7,42 @@
  *
  * RESPONSIBILITY:
  * - Executes mutations safely
- * - Handles pre/post snapshots, journal logging
+ * - Handles journal logging
  * - Supports global and alliance-specific locks
- * - Integrates with SafeMode, Health, SnapshotService, and Journal
  *
- * NOTES:
- * - Ensures integrity after mutations
- * - Computes pre-state hash for audit
- * - Throws on SafeMode unless systemOverride is true
- *
- * ============================================
+ * CHANGES:
+ * - Removed SafeMode, Health, SnapshotService
+ * - All mutations go through MutationGate
  */
 
-import crypto from "crypto";
-import { SafeMode } from "../system/SafeMode";
+import { MutationGate, MutationOptions } from "./MutationGate";
 import { Journal } from "../journal/Journal";
-import { SnapshotService } from "../system/snapshot/SnapshotService";
-import { Health } from "../system/Health";
-import { AllianceRepo } from "../data/Repositories";
 import { GlobalLock } from "../locks/GlobalLock";
 import { AllianceLock } from "../locks/AllianceLock";
 
-export interface MutationOptions {
-  allianceId?: string;
-  actor: string;
-  operation: string;
-  requireGlobalLock?: boolean;
-  requireAllianceLock?: boolean;
-  systemOverride?: boolean;
-}
-
-export class MutationGate {
-  static async execute<T>(
+export class Dispatcher {
+  /**
+   * Execute a mutation atomically using MutationGate
+   * @param options MutationOptions describing the operation
+   * @param handler Async function performing the mutation
+   */
+  static async executeMutation<T>(
     options: MutationOptions,
     handler: () => Promise<T> | T
   ): Promise<T> {
-    if (SafeMode.isActive() && !options.systemOverride) {
-      throw new Error("System in SafeMode");
+    try {
+      const result = await MutationGate.execute(options, handler);
+      return result;
+    } catch (error: any) {
+      console.error(`Dispatcher: Mutation "${options.operation}" failed:`, error);
+      throw error;
     }
-
-    const preStateHash = options.allianceId
-      ? this.computePreStateHash(options.allianceId)
-      : undefined;
-
-    const journalEntry = Journal.create({
-      operation: options.operation,
-      actor: options.actor,
-      allianceId: options.allianceId,
-      timestamp: Date.now(),
-      preStateHash
-    });
-
-    const run = async () => {
-      try {
-        const result = await handler();
-
-        if (options.allianceId) {
-          const alliance = AllianceRepo.get(options.allianceId);
-          if (alliance) {
-            SnapshotService.createSnapshot(alliance);
-
-            const valid = SnapshotService.verifySnapshot(options.allianceId);
-            if (!valid) {
-              Health.setCritical("Immediate post-mutation integrity failure");
-
-              Journal.updateStatus(
-                journalEntry.id,
-                "ABORTED",
-                "Integrity check failed"
-              );
-
-              throw new Error("Integrity check failed");
-            }
-          }
-        }
-
-        Journal.updateStatus(journalEntry.id, "EXECUTED");
-        Journal.updateStatus(journalEntry.id, "CONFIRMED");
-
-        return result;
-      } catch (error: any) {
-        Journal.updateStatus(journalEntry.id, "ABORTED", error?.message);
-        throw error;
-      }
-    };
-
-    if (options.requireGlobalLock) {
-      return GlobalLock.run(run);
-    }
-
-    if (options.requireAllianceLock && options.allianceId) {
-      return AllianceLock.run(options.allianceId, run);
-    }
-
-    return run();
   }
 
-  private static computePreStateHash(allianceId: string): string {
-    const alliance = AllianceRepo.get(allianceId);
-    if (!alliance) return "";
-
-    const raw = JSON.stringify(alliance);
-    return crypto.createHash("sha256").update(raw).digest("hex");
+  /**
+   * Helper for running any code atomically without specifying a lock
+   */
+  static async runAtomically<T>(handler: () => Promise<T> | T): Promise<T> {
+    return MutationGate.execute({ actor: "SYSTEM", operation: "ATOMIC_RUN" }, handler);
   }
 }
