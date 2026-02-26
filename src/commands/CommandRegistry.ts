@@ -1,6 +1,4 @@
-/**
- * src/commands/loader/CommandRegistry.ts
- */
+// src/commands/CommandRegistry.ts
 export type Command = {
   name: string;
   execute(): void;
