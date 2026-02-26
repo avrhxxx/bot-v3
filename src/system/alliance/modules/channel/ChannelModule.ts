@@ -10,6 +10,7 @@
  * - Setting visibility for R5/R4/R3, public, and non-members
  * - Keeping consistency with alliance category
  * - Dynamic category name with member count
+ * - Adding voice channels with icons and permissions
  *
  * DEPENDENCIES:
  * - AllianceService (fetch alliance and roles)
@@ -65,6 +66,7 @@ export class ChannelModule {
     const everyoneId = guild.roles.everyone.id;
 
     // ----------------- Ustawienia permisji -----------------
+    // WELCOME: R3+, R4, R5 widzą, tylko bot pisze
     await welcome.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] },
       { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] },
@@ -72,6 +74,7 @@ export class ChannelModule {
       { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel] },
     ]);
 
+    // ANNOUNCE: R3+ widzi, R4/R5 mogą wysyłać (bot wysyła powiadomienia)
     await announce.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
       { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel] },
@@ -79,6 +82,7 @@ export class ChannelModule {
       { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
     ]);
 
+    // CHAT: R3+, R4, R5 widzą i mogą pisać
     await chat.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
       { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
@@ -86,6 +90,7 @@ export class ChannelModule {
       { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
     ]);
 
+    // STAFF-ROOM: tylko R4 i R5 widzą i mogą pisać
     await staff.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] },
       { id: roles.r3RoleId, deny: [PermissionFlagsBits.ViewChannel] },
@@ -93,6 +98,7 @@ export class ChannelModule {
       { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
     ]);
 
+    // JOIN: tylko nie-członkowie widzą, nikt nie pisze
     await join.permissionOverwrites.set([
       { id: everyoneId, allow: [PermissionFlagsBits.ViewChannel] },
       { id: roles.r3RoleId, deny: [PermissionFlagsBits.ViewChannel] },
@@ -100,6 +106,7 @@ export class ChannelModule {
       { id: roles.r5RoleId, deny: [PermissionFlagsBits.ViewChannel] },
     ]);
 
+    // GENERAL VC: R3+, R4, R5 widzą i mogą dołączać
     await generalVC.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
       { id: roles.r3RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
@@ -107,6 +114,7 @@ export class ChannelModule {
       { id: roles.r5RoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
     ]);
 
+    // STAFF VC: tylko R4 i R5 widzą i mogą dołączać
     await staffVC.permissionOverwrites.set([
       { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
       { id: roles.r3RoleId, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] },
