@@ -7,13 +7,9 @@
  * ============================================
  *
  * RESPONSIBILITY:
- * - Allows the alliance leader to change the alliance tag
+ * - Allows the alliance leader (R5) to change the alliance tag
  * - Validates tag format (3 characters: letters and numbers only)
- * - Integrates with AllianceOrchestrator
- *
- * NOTES:
- * - Only the leader can execute this command
- * - Sends confirmation or error message
+ * - Can be used only in #staff-room
  *
  * ============================================
  */
@@ -21,7 +17,7 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
-import { SafeMode } from "../../system/SafeMode";
+import { AllianceService } from "../../system/alliance/AllianceService";
 
 export const UpdateTagCommand: Command = {
   data: new SlashCommandBuilder()
@@ -35,16 +31,25 @@ export const UpdateTagCommand: Command = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const actorId = interaction.user.id;
-    const newTag = interaction.options.getString("tag", true).toUpperCase();
+    if (!interaction.guild) return;
 
-    if (!interaction.guild) {
-      await interaction.reply({ content: "❌ Cannot update tag outside a guild.", ephemeral: true });
+    if (interaction.channel?.name !== "staff-room") {
+      await interaction.reply({
+        content: "❌ This command can only be used in #staff-room.",
+        ephemeral: true
+      });
       return;
     }
 
-    if (SafeMode.isActive()) {
-      await interaction.reply({ content: "⛔ System in SAFE_MODE – cannot update alliance tag.", ephemeral: true });
+    const actorId = interaction.user.id;
+    const newTag = interaction.options.getString("tag", true).toUpperCase();
+
+    const alliance = await AllianceService.getAllianceByMember(actorId);
+    if (!alliance || alliance.members.r5 !== actorId) {
+      await interaction.reply({
+        content: "❌ Only R5 can update the alliance tag.",
+        ephemeral: true
+      });
       return;
     }
 
@@ -57,10 +62,8 @@ export const UpdateTagCommand: Command = {
     }
 
     try {
-      // 1️⃣ Update tag via AllianceOrchestrator
       await AllianceOrchestrator.updateTag(actorId, interaction.guild.id, newTag);
 
-      // 2️⃣ Confirmation message
       await interaction.reply({
         content: `✅ Alliance tag has been successfully updated to \`${newTag}\`.`,
         ephemeral: false
