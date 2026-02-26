@@ -1,9 +1,3 @@
-/**
- * ============================================
- * FILE: tsconfig.json
- * PURPOSE: TypeScript configuration for clean builds
- * ============================================
- */
 {
   "compilerOptions": {
     "target": "ES2020",
@@ -12,7 +6,9 @@
     "outDir": "dist",
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
   },
   "include": ["src"],
   "exclude": ["dist", "node_modules"]

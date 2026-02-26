@@ -1,44 +1,43 @@
-import path from "path";
-import { performance } from "perf_hooks";
-
-import { startDiscord } from "./discord/client";
-
-class AllianceRepo {
-  static getAll() { return []; }
-}
-class SnapshotRepo {
-  static get(id: string) { return undefined; }
-}
-class Ownership {
-  static initFromEnv() {}
-  static syncRoles(client: any) { return Promise.resolve(); }
-}
-class CommandLoader {
-  static async loadAllCommands() {}
-}
+// src/index.ts
+import { startDiscord, ClientStub } from './discord/client';
+import { AllianceOrkiestror } from './orkiestror/AllianceOrkiestror';
+import { AliasIntegrity } from './integrity/AliasIntegrity';
+import { connectMongo } from './mongo/mongoClient';
 
 async function bootstrap() {
-  console.log("System booting...");
+  console.log('[Bootstrap] System booting...');
 
-  const alliances = AllianceRepo.getAll();
-  for (const alliance of alliances) {
-    const existing = SnapshotRepo.get(alliance.id);
-    if (!existing) {}
-  }
+  // 1️⃣ Połącz z MongoDB
+  await connectMongo();
 
-  await CommandLoader.loadAllCommands();
-  console.log("All commands loaded successfully.");
+  // 2️⃣ Start Discord
+  const client: ClientStub = await startDiscord();
+  console.log('[Bootstrap] Discord client started.');
 
-  const client = await startDiscord();
-  console.log("Discord client started.");
+  // 3️⃣ Inicjalizacja sojuszy / orchestration
+  console.log('[Bootstrap] Initializing alliances...');
+  await AllianceOrkiestror.addMember('alliance1', 'member1');
+  await AllianceOrkiestror.transferLeader('alliance1', 'member1');
 
-  await Ownership.syncRoles(client);
-  console.log("Shadow Authority roles synchronized.");
+  // 4️⃣ Integrity check
+  console.log('[Bootstrap] Checking integrity...');
+  AliasIntegrity.checkAlliance('alliance1');
 
-  console.log("System boot completed. Discord client running.");
+  console.log('[Bootstrap] System boot completed. Discord client running.');
+
+  // 5️⃣ Keep process alive w Railway
+  await keepAlive();
+}
+
+async function keepAlive(): Promise<void> {
+  console.log('[Bootstrap] Keeping process alive...');
+  setInterval(() => {
+    console.log('[Bootstrap] Heartbeat...');
+  }, 60_000);
+  return new Promise(() => {});
 }
 
 bootstrap().catch(err => {
-  console.error("Fatal boot error:", err);
+  console.error('[Bootstrap] Fatal boot error:', err);
   process.exit(1);
 });

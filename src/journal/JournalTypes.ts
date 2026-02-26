@@ -1,16 +1,9 @@
-export type JournalStatus =
-  | "PENDING"
-  | "EXECUTED"
-  | "CONFIRMED"
-  | "ABORTED";
-
 export interface JournalEntry {
-  id: string;
+  id: number;
   operation: string;
   actor: string;
   allianceId?: string;
   timestamp: number;
-  preStateHash?: string;
-  status: JournalStatus;
+  status: string;
   error?: string;
 }

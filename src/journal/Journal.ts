@@ -1,35 +1,24 @@
-import crypto from "crypto";
-import { JournalEntry, JournalStatus } from "./JournalTypes";
-import { db } from "../data/Database";
+import type { JournalEntry } from './JournalTypes';
 
+let nextId = 1;
 export class Journal {
-  static create(entry: Omit<JournalEntry, "id" | "status">): JournalEntry {
-    const id = crypto.randomUUID();
+  private static entries: JournalEntry[] = [];
 
-    const fullEntry: JournalEntry = {
-      ...entry,
-      id,
-      status: "PENDING"
-    };
-
-    db.journal.set(id, fullEntry);
-    return fullEntry;
+  static create(entry: Omit<JournalEntry, 'id' | 'status'>): JournalEntry {
+    const newEntry: JournalEntry = { id: nextId++, status: 'PENDING', ...entry };
+    this.entries.push(newEntry);
+    return newEntry;
   }
 
-  static updateStatus(id: string, status: JournalStatus, error?: string) {
-    const entry = db.journal.get(id);
-    if (!entry) return;
-
-    entry.status = status;
-
-    if (error) {
-      entry.error = error;
+  static updateStatus(id: number, status: string, errorMessage?: string) {
+    const entry = this.entries.find(e => e.id === id);
+    if (entry) {
+      entry.status = status;
+      if (errorMessage) entry.error = errorMessage;
     }
-
-    db.journal.set(id, entry);
   }
 
   static getAll(): JournalEntry[] {
-    return Array.from(db.journal.values());
+    return this.entries;
   }
 }
