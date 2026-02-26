@@ -2,81 +2,81 @@
 
 import { db } from "./Database";
 import { Alliance } from "../system/alliance/AllianceTypes";
-import { SnapshotRecord, OwnershipRecord, HealthStateType } from "../system/snapshot/SnapshotTypes";
+import { OwnershipRecord } from "../system/Ownership";
+
+/**
+ * =====================================================
+ * REPOSITORY LAYER – Bot-V3
+ * =====================================================
+ *
+ * This file exposes controlled access to the in-memory
+ * domain database.
+ *
+ * Removed legacy systems:
+ * - SnapshotRepo ❌
+ * - HealthRepo ❌
+ *
+ * Architecture is now:
+ * Database → Repository → Domain Systems
+ *
+ * No monitoring, no snapshot mirror, no health layer.
+ * Pure domain state only.
+ * =====================================================
+ */
 
 // ---------------------------
-// ALLIANCE REPO
+// ALLIANCE REPOSITORY
 // ---------------------------
 export const AllianceRepo = {
   get(id: string): Alliance | undefined {
     return db.alliances.get(id);
   },
+
   set(id: string, value: Alliance): void {
     db.alliances.set(id, value);
   },
+
   delete(id: string): void {
     db.alliances.delete(id);
   },
+
   getAll(): Alliance[] {
-    return Array.from(db.alliances.values()) as Alliance[];
+    return Array.from(db.alliances.values());
   }
 };
 
 // ---------------------------
-// SNAPSHOT REPO
-// ---------------------------
-export const SnapshotRepo = {
-  get(id: string): SnapshotRecord | undefined {
-    return db.snapshots.get(id);
-  },
-  set(id: string, value: SnapshotRecord): void {
-    db.snapshots.set(id, value);
-  },
-  getAll(): SnapshotRecord[] {
-    return Array.from(db.snapshots.values()) as SnapshotRecord[];
-  }
-};
-
-// ---------------------------
-// OWNERSHIP REPO
+// OWNERSHIP REPOSITORY
 // ---------------------------
 export const OwnershipRepo = {
   get(key: string): OwnershipRecord | undefined {
     return db.ownership.get(key);
   },
+
   set(key: string, value: OwnershipRecord): void {
     db.ownership.set(key, value);
   }
 };
 
 // ---------------------------
-// HEALTH REPO
-// ---------------------------
-export const HealthRepo = {
-  get(key: string): HealthStateType | undefined {
-    return db.health.get(key);
-  },
-  set(key: string, value: HealthStateType): void {
-    db.health.set(key, value);
-  }
-};
-
-// ---------------------------
-// PENDING DELETION REPO
+// PENDING DELETION REPOSITORY
 // ---------------------------
 export const PendingDeletionRepo = {
   get(id: string): Alliance | undefined {
     return db.pendingDeletions.get(id);
   },
+
   set(id: string, value: Alliance): void {
     db.pendingDeletions.set(id, value);
   },
+
   delete(id: string): void {
     db.pendingDeletions.delete(id);
   }
 };
 
 // ---------------------------
-// Export db for direct access (required by some services)
+// Direct DB export (intentional)
+// Used by advanced internal services only
 // ---------------------------
 export { db };
