@@ -8,7 +8,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["node"]  // <-- dodane, żeby TS rozpoznawał process i Node API
+    "types": ["node"] 
   },
   "include": ["src"],
   "exclude": ["dist", "node_modules"]
