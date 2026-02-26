@@ -1,4 +1,3 @@
-// src/discord/client.ts
 import { Client, GatewayIntentBits } from 'discord.js';
 import { config } from '../config/config';
 
@@ -19,6 +18,7 @@ export async function startDiscord(): Promise<ClientStub> {
     console.log(`[Discord] Logged in as ${client.user?.tag}`);
   });
 
-  await client.login(config.discordToken); // token z Railway env
+  // Login przy użyciu tokena z Railway env
+  await client.login(config.discordToken);
   return client;
 }
