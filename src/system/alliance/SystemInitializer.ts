@@ -4,23 +4,23 @@
  * LAYER: SYSTEM (Alliance Initialization & Background Tasks)
  * ============================================
  *
- * ODPOWIEDZIALNOŚĆ:
- * - Inicjalizacja wszystkich modułów systemu sojuszy
- * - Synchronizacja ról i kanałów Discord
- * - Ładowanie komend systemowych i użytkownika
- * - Walidacja spójności sojuszy
- * - Uruchomienie zadań w tle (rollback liderów, backupy)
+ * RESPONSIBILITY:
+ * - Initialize all alliance system modules
+ * - Sync Discord roles and channels
+ * - Load system & user commands
+ * - Validate alliance consistency
+ * - Start background tasks (leader rollback, backups)
  *
- * ZALEŻNOŚCI:
+ * DEPENDENCIES:
  * - AllianceService (load, validate)
  * - MembershipModule, RoleModule, ChannelModule, BroadcastModule
  * - TransferLeaderSystem (orphan rollback)
- * - MutationGate (locki i atomowe operacje)
- * - CommandLoader (dynamiczne ładowanie komend)
+ * - MutationGate (locks & atomic operations)
+ * - CommandLoader (dynamic command loading)
  *
- * UWAGA:
- * - Wszystkie mutacje danych wymagają MutationGate
- * - startBackgroundTasks uruchamia interwały w tle, które muszą obsługiwać błędy
+ * NOTE:
+ * - All data mutations require MutationGate
+ * - startBackgroundTasks runs intervals that must handle errors safely
  *
  * ============================================
  */
@@ -36,39 +36,38 @@ import { CommandLoader } from "../../commands/loader/CommandLoader";
 
 export class SystemInitializer {
   /**
-   * Inicjalizacja wszystkich modułów i komend systemu
+   * Initialize all modules and system commands
    */
   static async init() {
-    // 1️⃣ Inicjalizacja atomowych locków
+    // 1️⃣ Initialize atomic locks via MutationGate
     await MutationGate.initLocks();
 
-    // 2️⃣ Załadowanie danych z repozytoriów
+    // 2️⃣ Load all alliances from repository
     if (AllianceService.loadAllAlliances) {
       await AllianceService.loadAllAlliances();
     }
 
-    // 3️⃣ Synchronizacja ról i kanałów z Discord
+    // 3️⃣ Sync all roles and channels with Discord
     if (RoleModule.syncAllRoles) await RoleModule.syncAllRoles();
     if (ChannelModule.syncAllChannels) await ChannelModule.syncAllChannels();
 
-    // 4️⃣ Ładowanie wszystkich komend (system + użytkownik)
+    // 4️⃣ Load all commands (system + user)
     if (CommandLoader.loadAllCommands) await CommandLoader.loadAllCommands();
 
-    // 5️⃣ Walidacja spójności wszystkich sojuszy
+    // 5️⃣ Validate all alliances consistency
     if (AllianceService.validateAll) await AllianceService.validateAll();
 
-    // 6️⃣ Start zadań w tle (rollback liderów, backupy)
+    // 6️⃣ Start background tasks (leader rollback, backups)
     SystemInitializer.startBackgroundTasks();
   }
 
   /**
-   * Uruchomienie zadań w tle:
-   * - rollback liderów, gdy lider zostanie utracony
-   * - aktualizacje embedów / backupy sojuszy
-   * - możliwość dodania kolejnych cron-tasków
+   * Start background tasks:
+   * - Rollback orphan leaders
+   * - Alliance updates / backups (placeholders for future tasks)
    */
   private static startBackgroundTasks() {
-    // Co 10 minut sprawdzaj rollback liderów
+    // Every 10 minutes, check orphan leaders
     setInterval(async () => {
       try {
         await TransferLeaderSystem.checkOrphanLeaders();
@@ -77,7 +76,7 @@ export class SystemInitializer {
       }
     }, 10 * 60 * 1000);
 
-    // Przykład: backup sojuszy, SnapshotService.backupAlliances() w osobnym interwale
+    // Placeholder for alliance backups
     // setInterval(() => SnapshotService.backupAlliances(), 60 * 60 * 1000);
   }
 }
