@@ -1,29 +1,3 @@
-/**
- * ============================================
- * FILE: src/system/alliance/modules/broadcast/BroadcastModule.ts
- * MODULE: BroadcastModule
- * LAYER: SYSTEM (Alliance Broadcast Module)
- * ============================================
- *
- * RESPONSIBILITY:
- * - Handle alliance events (join, leave, promotion, demotion, custom messages)
- * - Emit events for external modules (commands, services)
- * - Integrate with ChannelModule for announce, welcome, and staff-room channels
- *
- * DEPENDENCIES:
- * - AllianceService (fetch alliance data)
- * - ChannelModule (channels: announce, welcome, staff-room)
- * - RoleModule (optional for promotions/demotions)
- *
- * ============================================
- * ADDITIONAL NOTES:
- * - To add a new broadcast event: 
- *    1) Extend BroadcastEvent
- *    2) Add payload type in EventPayloadMap
- *    3) Add default channel mapping in defaultChannels
- *    4) Add formatting in formatMessage
- */
-
 import { ChannelModule } from "../channel/ChannelModule";
 
 /** Allowed alliance roles */
@@ -59,7 +33,6 @@ interface EventPayloadMap {
 /** Listener type for each event */
 type BroadcastListener<T extends BroadcastEvent> = (payload: EventPayloadMap[T]) => void;
 
-/** BroadcastModule - emits events for alliance changes */
 export class BroadcastModule {
   private static listeners: { [K in BroadcastEvent]?: BroadcastListener<K>[] } = {};
 
