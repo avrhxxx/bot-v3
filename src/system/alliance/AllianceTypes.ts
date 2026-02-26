@@ -15,6 +15,7 @@
  * UWAGA:
  * - Typy używane w całym systemie sojuszy i modułach powiązanych
  * - Zachowują spójność z RoleModule, BroadcastModule i TransferLeaderSystem
+ * - Usunięto HealthState i powiązane aliasy
  *
  * ============================================
  */
@@ -22,7 +23,7 @@
 export type AllianceRole = "R3" | "R4" | "R5";
 
 /**
- * Typ członka sojuszu – teraz tylko userId i rola w kontekście list r3/r4/r5
+ * Typ członka sojuszu – userId i rola w kontekście list r3/r4/r5
  */
 export interface AllianceMember {
   userId: string;
@@ -96,14 +97,11 @@ export interface AllianceSnapshot {
 }
 
 /**
- * Alias typów używanych w repozytoriach i Health
+ * Alias typów używanych w repozytoriach
  */
 export type SnapshotRecord = AllianceSnapshot;
 export type OwnershipRecord = string;
-export type HealthStateType = HealthState;
 
-/**
- * ============================================
- * FILEPATH: src/system/alliance/AllianceTypes.ts
- * ============================================
- */
+// ============================================
+// FILEPATH: src/system/alliance/AllianceTypes.ts
+// ============================================
