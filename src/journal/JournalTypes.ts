@@ -4,6 +4,6 @@ export interface JournalEntry {
   actor: string;
   allianceId?: string;
   timestamp: number;
-  status: string; // PENDING | EXECUTED | CONFIRMED | ABORTED
+  status: string;
   error?: string;
 }
