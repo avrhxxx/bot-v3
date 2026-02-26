@@ -27,7 +27,8 @@ export const GlobalBroadcastCommand: Command = {
     .setName("global_broadcast")
     .setDescription("Send a message to the global chat (Owner Only)")
     .addStringOption(option =>
-      option.setName("message")
+      option
+        .setName("message")
         .setDescription("Message to broadcast globally")
         .setRequired(true)
     ),
@@ -69,10 +70,10 @@ export const GlobalBroadcastCommand: Command = {
     }
 
     // 5️⃣ Pobranie kanału z cache klienta
-    const channel = interaction.guild.channels.cache.get(channelId) as TextChannel | undefined;
-    if (!channel) {
+    const channel = interaction.guild.channels.cache.get(channelId);
+    if (!channel || !(channel instanceof TextChannel)) {
       await interaction.reply({
-        content: "❌ Could not find the global broadcast channel in this server.",
+        content: "❌ Could not find the global broadcast channel in this server or channel type is invalid.",
         ephemeral: true
       });
       return;
