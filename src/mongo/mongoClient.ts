@@ -1,12 +1,20 @@
-// src/mongo/mongoClient.ts
-import { MongoClient } from 'mongodb';
+import { MongoClient, Db } from 'mongodb';
 import { config } from '../config/config';
 
-export const client = new MongoClient(config.mongoUri);
+let client: MongoClient;
+let db: Db;
 
 export async function connectMongo() {
+  if (!config.mongoUri) throw new Error('MONGO_URI is not defined!');
+  client = new MongoClient(config.mongoUri);
   await client.connect();
-  console.log('✅ Connected to MongoDB Atlas!');
+  db = client.db(); // jeśli w URI nie ma nazwy DB, Mongo użyje domyślnej
+  console.log('[Mongo] Connected to MongoDB');
+  return db;
 }
 
-export const db = client.db(); // domyślna baza z connection string
+// pomocnicza funkcja do pobrania kolekcji
+export function getCollection<T>(name: string) {
+  if (!db) throw new Error('MongoDB not initialized');
+  return db.collection<T>(name);
+}
