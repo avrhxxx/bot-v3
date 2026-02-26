@@ -2,52 +2,71 @@
 
 import { Alliance } from "../system/alliance/AllianceTypes";
 import { OwnershipRecord } from "../system/Ownership";
-import { HealthState } from "../system/Health";
-import { SnapshotRecord } from "../system/snapshot/SnapshotTypes";
 import { JournalEntry } from "../journal/JournalTypes";
 
 /**
  * Central in-memory database for Bot-V3
- * All structures typed and aligned with production spec v3.0
+ *
+ * ⚠️ This database is purely domain-focused.
+ * It does NOT handle:
+ * - health monitoring
+ * - snapshots
+ * - safe mode
+ * - integrity systems
+ *
+ * Those legacy systems were intentionally removed
+ * to keep the architecture clean and deterministic.
  */
 export class Database {
   /**
-   * Alliances mapped by guildId or allianceId
+   * Alliances storage
+   * Key: allianceId (or guildId depending on usage context)
    */
   public alliances: Map<string, Alliance> = new Map();
 
   /**
    * Ownership mapping
-   * Keys can be 'botOwner' and 'discordOwner'
+   * Stores authority configuration for the bot.
+   *
+   * Typical keys:
+   * - "authority"
+   * - "botOwner"
+   *
+   * (Visual Discord role name like "Shadow Authority"
+   * is resolved elsewhere in Ownership layer.)
    */
   public ownership: Map<string, OwnershipRecord> = new Map();
 
   /**
-   * Health state per system component
-   * Example keys: 'core', 'alliance', 'snapshot'
-   */
-  public health: Map<string, HealthState> = new Map();
-
-  /**
    * Alliances pending deletion
-   * Stores allianceId and metadata for rollback / confirmation
+   *
+   * Used for:
+   * - soft delete confirmation
+   * - rollback safety
+   *
+   * This is domain-safe and NOT related to legacy snapshot system.
    */
   public pendingDeletions: Map<string, Alliance> = new Map();
 
   /**
-   * Snapshots mirror
-   * Keyed by allianceId, stores previous states for restore / backup
-   */
-  public snapshots: Map<string, SnapshotRecord> = new Map();
-
-  /**
    * Journal storage
-   * Keyed by unique id (e.g., timestamp + operation), stores executed commands
+   *
+   * Stores executed domain operations.
+   * Key example:
+   * timestamp-operationId
+   *
+   * Journal is part of the new deterministic domain audit layer.
    */
   public journal: Map<string, JournalEntry> = new Map();
 }
 
 /**
  * Singleton instance of Database
+ *
+ * NOTE:
+ * This is intentionally kept simple.
+ * No health state.
+ * No snapshot mirror.
+ * No integrity monitor.
  */
 export const db = new Database();
