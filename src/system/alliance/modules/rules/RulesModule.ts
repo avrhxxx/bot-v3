@@ -10,14 +10,8 @@
  * - Validate promotions/demotions
  * - Validate member counts
  * - Ensure only one leader exists (R5)
- *
- * DEPENDENCIES:
- * - AllianceService (fetch alliance data)
- *
- * ============================================
  */
 
-import { AllianceService } from "../../AllianceService";
 import { Alliance } from "../../AllianceTypes";
 
 export class RulesModule {
@@ -29,7 +23,7 @@ export class RulesModule {
   // ----------------- VALIDATE TOTAL MEMBERS -----------------
   static validateTotalMembers(alliance: Alliance) {
     const totalMembers =
-      ((alliance.members.r3?.length || 0) + (alliance.members.r4?.length || 0)) +
+      ((alliance.members.r3?.length ?? 0) + (alliance.members.r4?.length ?? 0)) +
       (alliance.members.r5 ? 1 : 0);
 
     if (totalMembers > this.MAX_MEMBERS) {
@@ -39,7 +33,7 @@ export class RulesModule {
 
   // ----------------- VALIDATE R4 COUNT -----------------
   static validateR4Count(alliance: Alliance) {
-    const r4Count = alliance.members.r4?.length || 0;
+    const r4Count = alliance.members.r4?.length ?? 0;
     if (r4Count > this.MAX_R4) {
       throw new Error(`Alliance cannot have more than ${this.MAX_R4} R4 members.`);
     }
