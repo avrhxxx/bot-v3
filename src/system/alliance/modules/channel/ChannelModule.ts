@@ -1,19 +1,19 @@
 /**
  * ==========================================================
  * 📁 src/system/alliance/modules/ChannelModule.ts
+ * MODULE: ChannelModule
+ * LAYER: SYSTEM (Discord Infrastructure)
  * ==========================================================
  *
- * ChannelModule odpowiada WYŁĄCZNIE za infrastrukturę Discord:
- * - Tworzenie kategorii i kanałów sojuszu
- * - Usuwanie kanałów
- * - Ochronę przed ręcznym usunięciem
- * - Aktualizację nazwy kategorii i liczby członków
+ * RESPONSIBILITY:
+ * - Zarządzanie kanałami i kategoriami sojuszu w Discord
+ * - Tworzenie, usuwanie, aktualizacja nazw kanałów
+ * - Ochrona przed ręcznym usunięciem kanałów
  *
- * ❗ NIE przechowuje trwałych danych
- * ❗ NIE jest warstwą persistence
- *
- * ID kanałów MUSZĄ być zapisane w repository (Repositories.ts)
- * przez AllianceManager po wywołaniu createChannels().
+ * ⚠️ NOTA:
+ * - NIE przechowuje trwałych danych
+ * - NIE zarządza logiką sojuszu
+ * - Dane ID kanałów muszą być zapisane w repository (AllianceRepo)
  */
 
 import {
@@ -32,16 +32,25 @@ export class ChannelModule {
    * =====================================================
    * RUNTIME CACHE
    * =====================================================
+   *
    * Cache istnieje wyłącznie podczas działania bota.
-   * Nie jest źródłem prawdy.
-   * Po restarcie powinien być odbudowany z repository.
+   * Nie jest źródłem prawdy – po restarcie musi zostać odbudowany
+   * z danych zapisanych w repozytorium.
    */
   private static channels: Record<string, Record<string, string>> = {};
 
+  // =====================================================
+  // CREATE CHANNELS
+  // =====================================================
+
   /**
-   * =====================================================
-   * CREATE CHANNELS (ONLY ENTRY POINT)
-   * =====================================================
+   * Tworzy pełną strukturę kanałów dla sojuszu
+   * @param guild - obiekt Discord Guild
+   * @param allianceId - ID sojuszu
+   * @param tag - tag sojuszu
+   * @param name - nazwa sojuszu
+   * @returns obiekt z ID wszystkich utworzonych kanałów
+   * @throws jeśli kanały dla sojuszu już istnieją
    */
   static async createChannels(
     guild: Guild,
@@ -68,10 +77,14 @@ export class ChannelModule {
     return result;
   }
 
+  // =====================================================
+  // DELETE CHANNELS
+  // =====================================================
+
   /**
-   * =====================================================
-   * DELETE CHANNELS (ONLY ENTRY POINT)
-   * =====================================================
+   * Usuwa wszystkie kanały sojuszu z Discord
+   * @param guild - obiekt Discord Guild
+   * @param allianceId - ID sojuszu
    */
   static async deleteChannels(guild: Guild, allianceId: string) {
     const cache = this.channels[allianceId];
@@ -85,10 +98,16 @@ export class ChannelModule {
     delete this.channels[allianceId];
   }
 
+  // =====================================================
+  // MANUAL DELETE PROTECTION
+  // =====================================================
+
   /**
-   * =====================================================
-   * MANUAL DELETE PROTECTION
-   * =====================================================
+   * Obsługuje sytuację ręcznego usunięcia kanału przez Discord
+   * - odnajduje powiązany sojusz
+   * - usuwa pozostałe kanały
+   * - tworzy kanały ponownie
+   * @param channel - usunięty kanał Discord
    */
   static async handleChannelDelete(channel: Channel) {
     const allianceId = this.findAllianceByChannelId(channel.id);
@@ -105,14 +124,17 @@ export class ChannelModule {
     );
   }
 
+  // =====================================================
+  // UPDATE CATEGORY NAME
+  // =====================================================
+
   /**
-   * =====================================================
-   * UPDATE CATEGORY NAME
-   * =====================================================
-   * Aktualizuje dynamicznie nazwę kategorii:
-   * - tag sojuszu
-   * - nazwa sojuszu
-   * - liczba wszystkich członków
+   * Aktualizuje dynamicznie nazwę kategorii sojuszu
+   * - dodaje tag sojuszu
+   * - dodaje nazwę sojuszu
+   * - aktualizuje liczbę członków
+   * @param allianceId - ID sojuszu
+   * @param guild - obiekt Discord Guild
    */
   static async updateCategoryName(allianceId: string, guild: Guild) {
     const alliance = AllianceManager.getAllianceOrThrow(allianceId);
@@ -130,10 +152,15 @@ export class ChannelModule {
     }
   }
 
+  // =====================================================
+  // INTERNAL HELPERS
+  // =====================================================
+
   /**
-   * =====================================================
-   * INTERNAL HELPERS
-   * =====================================================
+   * Tworzy wszystkie podkanały wewnątrz kategorii sojuszu
+   * @param guild - obiekt Discord Guild
+   * @param category - obiekt kategorii Discord
+   * @returns obiekt z ID wszystkich utworzonych kanałów
    */
   private static async createChildChannels(
     guild: Guild,
@@ -161,6 +188,11 @@ export class ChannelModule {
     };
   }
 
+  /**
+   * Znajduje sojusz po ID kanału
+   * @param channelId - ID kanału Discord
+   * @returns ID sojuszu lub undefined
+   */
   private static findAllianceByChannelId(channelId: string): string | undefined {
     for (const [allianceId, map] of Object.entries(this.channels)) {
       if (Object.values(map).includes(channelId)) return allianceId;
@@ -168,6 +200,11 @@ export class ChannelModule {
     return undefined;
   }
 
+  /**
+   * Oblicza liczbę wszystkich członków sojuszu
+   * @param alliance - obiekt sojuszu
+   * @returns liczba członków
+   */
   private static getMemberCount(alliance: ReturnType<typeof AllianceManager.getAllianceOrThrow>): number {
     const r3 = alliance.members.r3?.length || 0;
     const r4 = alliance.members.r4?.length || 0;
