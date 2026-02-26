@@ -13,7 +13,7 @@
  *
  * NOTES:
  * - Checks if the command is used inside a guild
- * - Respects SafeMode
+ * - SafeMode references removed (module no longer exists)
  *
  * ============================================
  */
@@ -21,7 +21,9 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { AllianceOrchestrator } from "../../system/alliance/orchestrator/AllianceOrchestrator";
-import { SafeMode } from "../../system/SafeMode";
+
+// SafeMode import removed because the module no longer exists
+// import { SafeMode } from "../../system/SafeMode";
 
 export const LeaveCommand: Command = {
   data: new SlashCommandBuilder()
@@ -36,10 +38,11 @@ export const LeaveCommand: Command = {
       return;
     }
 
-    if (SafeMode.isActive()) {
-      await interaction.reply({ content: "⛔ System in SAFE_MODE – cannot leave alliance.", ephemeral: true });
-      return;
-    }
+    // SafeMode check removed because the module no longer exists
+    // if (SafeMode.isActive()) {
+    //   await interaction.reply({ content: "⛔ System in SAFE_MODE – cannot leave alliance.", ephemeral: true });
+    //   return;
+    // }
 
     try {
       // 1️⃣ Attempt to leave the alliance atomically via orchestrator
