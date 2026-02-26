@@ -14,9 +14,9 @@
  *
  * NOTES:
  * - Updates alliance membership and roles
- * - Uses AllianceSystem.setLeaderSystem under the hood
- * - SafeMode removed (module no longer exists)
+ * - Uses AllianceManager.setLeaderSystem under the hood
  * - Authorization handled via Ownership.isAuthority()
+ * - SafeMode removed (module no longer exists)
  *
  * ============================================
  */
@@ -24,7 +24,7 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { Ownership } from "../../system/Ownership/Ownership";
-import { AllianceSystem } from "../../system/alliance/AllianceSystem";
+import { AllianceManager } from "../../system/alliance/AllianceManager"; // <- aktualny import
 
 export const SetLeaderCommand: Command = {
   data: new SlashCommandBuilder()
@@ -61,7 +61,7 @@ export const SetLeaderCommand: Command = {
     // 2️⃣ Shadow Authority authorization
     if (!Ownership.isAuthority(executorId)) {
       await interaction.reply({
-        content: "⛔ Only Shadow Authority can execute this command.",
+        content: "⛔ You do not have permission to use this command.",
         ephemeral: true
       });
       return;
@@ -71,7 +71,7 @@ export const SetLeaderCommand: Command = {
     const newLeader = interaction.options.getUser("leader", true);
 
     // 3️⃣ Fetch alliance by tag or name
-    const alliance = AllianceSystem.getAllianceByTagOrName(identifier);
+    const alliance = AllianceManager.getAllianceByTagOrName(identifier, interaction.guild.id);
 
     if (!alliance) {
       await interaction.reply({
@@ -83,7 +83,7 @@ export const SetLeaderCommand: Command = {
 
     try {
       // 4️⃣ Force leader assignment via system method
-      await AllianceSystem.setLeaderSystem(alliance, newLeader.id);
+      await AllianceManager.setLeaderSystem(alliance.id, newLeader.id);
 
       await interaction.reply({
         content: `✅ <@${newLeader.id}> has been assigned as the leader of alliance \`${alliance.tag}\`.`,
