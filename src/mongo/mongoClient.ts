@@ -9,16 +9,17 @@ let db: Db;
  */
 export async function connectMongo(): Promise<Db> {
   if (!config.mongoUri) throw new Error('MONGO_URI is not defined!');
+  
   client = new MongoClient(config.mongoUri);
   await client.connect();
-  db = client.db(); // jeśli URI nie ma DB, Mongo użyje domyślnej
+
+  db = client.db(); // jeśli URI nie zawiera nazwy DB, Mongo użyje domyślnej
   console.log('[Mongo] Connected to MongoDB');
   return db;
 }
 
 /**
  * Pobiera kolekcję o typie T
- * T musi dziedziczyć po Document (MongoDB wymóg w TS 6.x)
  */
 export function getCollection<T extends Document>(name: string): Collection<T> {
   if (!db) throw new Error('MongoDB not initialized. Call connectMongo() first.');
@@ -26,7 +27,7 @@ export function getCollection<T extends Document>(name: string): Collection<T> {
 }
 
 /**
- * Zamyka połączenie Mongo
+ * Zamyka połączenie
  */
 export async function closeMongo(): Promise<void> {
   if (client) {
