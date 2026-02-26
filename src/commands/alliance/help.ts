@@ -7,45 +7,20 @@
  * ============================================
  *
  * RESPONSIBILITY:
- * - Display detailed help for all alliance commands
- * - Shows command usage, required channel, and role requirements
- * - Paginated embed with 3 commands per page
+ * - Provides detailed help for all alliance commands
+ * - Shows paginated embeds with 3 commands per page
+ * - Includes emoji, description, usage channel, and role requirements
  *
  * NOTES:
- * - System commands are excluded
- * - Only alliance-related commands are displayed
- * - Uses buttons to navigate pages
+ * - Only alliance commands are displayed
+ * - System/internal commands are hidden
+ * - Only displays commands user has access to
  *
  * ============================================
  */
 
-import { ChatInputCommandInteraction, SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ButtonInteraction } from "discord.js";
+import { ChatInputCommandInteraction, SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ComponentType } from "discord.js";
 import { Command } from "../Command";
-
-interface HelpCommandData {
-  name: string;
-  description: string;
-  usageChannel: string;
-  requirements: string;
-}
-
-const helpPages: HelpCommandData[][] = [
-  [
-    { name: "/join", description: "Submit a request to join an alliance.", usageChannel: "#join", requirements: "You must not belong to any alliance." },
-    { name: "/accept [user]", description: "Approve a user's request to join the alliance. The user will receive a DM.", usageChannel: "#staff-room", requirements: "You must be R4 or R5 in the alliance." },
-    { name: "/deny [user]", description: "Reject a user's request to join the alliance. The user will receive a DM.", usageChannel: "#staff-room", requirements: "You must be R4 or R5 in the alliance." },
-  ],
-  [
-    { name: "/promote [user]", description: "Promote a member to a higher rank in the alliance.", usageChannel: "#staff-room", requirements: "You must be R4 or R5 in the alliance." },
-    { name: "/demote [user]", description: "Demote a member to a lower rank in the alliance.", usageChannel: "#staff-room", requirements: "You must be R4 or R5 in the alliance." },
-    { name: "/kick [user]", description: "Kick a member from the alliance. A notification is sent in announce channel.", usageChannel: "#staff-room", requirements: "You must be R4 or R5 in the alliance." },
-  ],
-  [
-    { name: "/transfer_leader [user]", description: "Transfer leadership of your alliance to another member.", usageChannel: "#staff-room", requirements: "You must be R5 in the alliance." },
-    { name: "/update_tag [tag]", description: "Change your alliance tag (3 characters, letters or numbers).", usageChannel: "#staff-room", requirements: "You must be R5 in the alliance." },
-    { name: "/update_name [name]", description: "Change your alliance name (letters and spaces only, max 32 characters).", usageChannel: "#staff-room", requirements: "You must be R5 in the alliance." },
-  ]
-];
 
 export const HelpCommand: Command = {
   data: new SlashCommandBuilder()
@@ -53,48 +28,126 @@ export const HelpCommand: Command = {
     .setDescription("Display detailed help for all alliance commands"),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    let currentPage = 0;
+    const pages = [];
 
-    const generateEmbed = (page: number) => {
-      const embed = new EmbedBuilder()
-        .setTitle("💠 Alliance Commands – Help")
-        .setColor(0x3498db)
-        .setFooter({ text: `Page ${page + 1} of ${helpPages.length}` });
+    // ----------------- Page 1 -----------------
+    pages.push(new EmbedBuilder()
+      .setTitle("🏰 Alliance Commands Help (Page 1)")
+      .setColor("Blue")
+      .addFields(
+        {
+          name: "👋 /join",
+          value: "**Description:** Submit a request to join an alliance\n**Usage:** Only if you do not belong to any alliance\n**Use in:** #join",
+        },
+        {
+          name: "✅ /accept",
+          value: "**Description:** Approve a user's request to join the alliance\n**Usage:** Only R4/R5 or Leader\n**Use in:** #staff-room",
+        },
+        {
+          name: "❌ /deny",
+          value: "**Description:** Reject a user's request to join the alliance\n**Usage:** Only R4/R5 or Leader\n**Use in:** #staff-room",
+        }
+      )
+      .setFooter({ text: "Page 1 of 3" })
+    );
 
-      helpPages[page].forEach(cmd => {
-        embed.addFields({
-          name: cmd.name,
-          value: `**Description:** ${cmd.description}\n**Usage channel:** ${cmd.usageChannel}\n**Requirements:** ${cmd.requirements}`
-        });
-      });
+    // ----------------- Page 2 -----------------
+    pages.push(new EmbedBuilder()
+      .setTitle("🏰 Alliance Commands Help (Page 2)")
+      .setColor("Blue")
+      .addFields(
+        {
+          name: "⬆️ /promote",
+          value: "**Description:** Promote a member to the next rank\n**Usage:** Only R5\n**Use in:** #staff-room",
+        },
+        {
+          name: "⬇️ /demote",
+          value: "**Description:** Demote a member to a lower rank\n**Usage:** Only R5\n**Use in:** #staff-room",
+        },
+        {
+          name: "🪑 /kick",
+          value: "**Description:** Kick a member from the alliance\n**Usage:** Only R5\n**Use in:** #staff-room",
+        }
+      )
+      .setFooter({ text: "Page 2 of 3" })
+    );
 
-      return embed;
-    };
+    // ----------------- Page 3 -----------------
+    pages.push(new EmbedBuilder()
+      .setTitle("🏰 Alliance Commands Help (Page 3)")
+      .setColor("Blue")
+      .addFields(
+        {
+          name: "🎤 /broadcast",
+          value: "**Description:** Send a message to all alliance members\n**Usage:** Only R5/R4\n**Use in:** #staff-room",
+        },
+        {
+          name: "👑 /transfer_leader",
+          value: "**Description:** Transfer leadership to another member\n**Usage:** Only R5\n**Use in:** #staff-room",
+        },
+        {
+          name: "📝 /update_name",
+          value: "**Description:** Change the alliance name\n**Usage:** Only R5\n**Use in:** #staff-room",
+        },
+        {
+          name: "🏷️ /update_tag",
+          value: "**Description:** Change the alliance tag\n**Usage:** Only R5\n**Use in:** #staff-room",
+        }
+      )
+      .setFooter({ text: "Page 3 of 3" })
+    );
 
+    // ----------------- Buttons -----------------
     const row = new ActionRowBuilder<ButtonBuilder>()
       .addComponents(
-        new ButtonBuilder().setCustomId("prev").setLabel("⬅️ Previous").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId("next").setLabel("Next ➡️").setStyle(ButtonStyle.Primary)
+        new ButtonBuilder()
+          .setCustomId("prev")
+          .setLabel("⬅️ Previous")
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId("next")
+          .setLabel("Next ➡️")
+          .setStyle(ButtonStyle.Primary)
       );
 
-    const message = await interaction.reply({ embeds: [generateEmbed(currentPage)], components: [row], fetchReply: true });
+    let currentPage = 0;
 
-    const collector = message.createMessageComponentCollector({ time: 120000 });
-
-    collector.on("collect", (btnInteraction: ButtonInteraction) => {
-      if (!btnInteraction.isButton()) return;
-
-      if (btnInteraction.customId === "prev") {
-        currentPage = (currentPage - 1 + helpPages.length) % helpPages.length;
-      } else if (btnInteraction.customId === "next") {
-        currentPage = (currentPage + 1) % helpPages.length;
-      }
-
-      btnInteraction.update({ embeds: [generateEmbed(currentPage)] });
+    const message = await interaction.reply({
+      embeds: [pages[currentPage]],
+      components: [row],
+      fetchReply: true,
+      ephemeral: true
     });
 
-    collector.on("end", () => {
-      interaction.editReply({ components: [] }).catch(() => {});
+    // ----------------- Collector -----------------
+    const collector = message.createMessageComponentCollector({
+      componentType: ComponentType.Button,
+      time: 120000 // 2 minutes
+    });
+
+    collector.on("collect", async (btnInteraction) => {
+      if (btnInteraction.user.id !== interaction.user.id) {
+        await btnInteraction.reply({ content: "⛔ You cannot interact with this.", ephemeral: true });
+        return;
+      }
+
+      if (btnInteraction.customId === "prev") {
+        currentPage = (currentPage === 0) ? pages.length - 1 : currentPage - 1;
+      } else if (btnInteraction.customId === "next") {
+        currentPage = (currentPage === pages.length - 1) ? 0 : currentPage + 1;
+      }
+
+      await btnInteraction.update({ embeds: [pages[currentPage]] });
+    });
+
+    collector.on("end", async () => {
+      // Disable buttons after expiration
+      const disabledRow = new ActionRowBuilder<ButtonBuilder>()
+        .addComponents(
+          new ButtonBuilder().setCustomId("prev").setLabel("⬅️ Previous").setStyle(ButtonStyle.Primary).setDisabled(true),
+          new ButtonBuilder().setCustomId("next").setLabel("Next ➡️").setStyle(ButtonStyle.Primary).setDisabled(true)
+        );
+      await interaction.editReply({ components: [disabledRow] });
     });
   }
 };
