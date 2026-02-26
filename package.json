@@ -6,8 +6,12 @@
     "build": "rm -rf dist && tsc",
     "start": "node dist/index.js"
   },
-  "dependencies": {},
+  "dependencies": {
+    "discord.js": "^14.14.0"
+  },
   "devDependencies": {
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "@types/node": "^20.5.0",
+    "@types/discord.js": "^14.0.0"
   }
 }
