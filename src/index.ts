@@ -8,25 +8,19 @@
 // ODPOWIEDZIALNOŚĆ:
 // - Inicjalizacja wszystkich modułów systemu
 // - Weryfikacja integralności danych sojuszy
-// - Uruchomienie SnapshotService, TimeModule, SafeMode
 // - Załadowanie wszystkich komend
 // - Uruchomienie klienta Discord.js
+// - Synchronizacja ról Shadow Authority
 //
 // ZALEŻNOŚCI:
-// - system/snapshot/* (IntegrityMonitor, SnapshotService)
-// - system/* (Health, SafeMode, Ownership, TimeModule, OwnerModule)
+// - system/* (Ownership)
 // - data/* (Database, Repositories)
 // - engine/* (Dispatcher, MutationGate)
 // - commands/* (CommandLoader, CommandRegistry)
 // - system/alliance/* (AllianceService, AllianceSystem, TransferLeaderSystem)
 //
-// FILPATCH:
-// - Obsługa zależności modułów w kolejności ładowania
-// - Placeholdery dla modułów, które mogą być async inicjalizowane w późniejszym kroku
-// - Zachowanie pełnej logiki bootstrappingu i integracji
-//
 // UWAGA ARCHITEKTONICZNA:
-// - NODE_ENV=build → w Railway deploy/build
+// - NODE_ENV=build → Railway deploy/build
 // - NODE_ENV=production → runtime
 // - Operacje mutacyjne wykonuje Orchestrator i MutationGate
 //
@@ -35,47 +29,34 @@
 import path from "path";
 import { performance } from "perf_hooks";
 
-import { IntegrityMonitor } from "./system/snapshot/IntegrityMonitor";
-import { Health } from "./system/Health";
 import { startDiscord } from "./discord/client";
-import { SnapshotService } from "./system/snapshot/SnapshotService";
-import { SafeMode } from "./system/SafeMode";
-import { AllianceRepo, SnapshotRepo, OwnershipRepo } from "./data/Repositories";
+import { AllianceRepo, SnapshotRepo } from "./data/Repositories";
 import { CommandLoader } from "./commands/loader/CommandLoader";
-import { TimeModule } from "./system/TimeModule/TimeModule";
 
 // -------- NOWY FOLDER OWNERSHIP --------
 import { Ownership } from "./system/Ownership/Ownership";
-import { OwnerRoleManager } from "./system/Ownership/OwnerRoleManager";
-import { OwnerModule } from "./system/Ownership/OwnerModule";
 
 // -------------------------
-// SET BOT & DISCORD OWNERS FROM ENV
+// INIT SHADOW AUTHORITY FROM ENV
 // -------------------------
-const BOT_OWNER_ID = process.env.BOT_OWNER_ID;
-const DISCORD_OWNER_ID = process.env.DISCORD_OWNER_ID;
+const authorityEnv = process.env.AUTHORITY_IDS || ""; // max 2 IDs, comma-separated
+const authorityIds = authorityEnv.split(",").map(s => s.trim()).filter(Boolean).slice(0, 2);
 
-if (!BOT_OWNER_ID || !DISCORD_OWNER_ID) {
-  console.error("❌ BOT_OWNER_ID or DISCORD_OWNER_ID environment variable is missing.");
-  SafeMode.activate("OWNERSHIP_NOT_SET");
-} else {
-  OwnershipRepo.set("BOT_OWNER", BOT_OWNER_ID);
-  OwnershipRepo.set("DISCORD_OWNER", DISCORD_OWNER_ID);
-  Ownership.enforceInvariant();
-  OwnerModule.init([BOT_OWNER_ID]);
-  console.log(`✅ Ownership initialized from environment: BOT_OWNER=${BOT_OWNER_ID}, DISCORD_OWNER=${DISCORD_OWNER_ID}`);
+if (authorityIds.length === 0) {
+  console.error("❌ AUTHORITY_IDS environment variable is missing or empty.");
+  // SafeMode no longer exists → można rzucić błąd lub zatrzymać bootstrap
+  process.exit(1);
 }
+
+Ownership.initFromEnv(); // Inicjalizuje z AUTHORITY_IDS
+console.log(`✅ Shadow Authority initialized from environment: ${authorityIds.join(", ")}`);
 
 // -------------------------
 // MODULE DEFINITION
 // -------------------------
 type ModuleDef = { name: string; importPath: string; dependencies?: string[] };
 const modules: ModuleDef[] = [
-  { name: 'Health', importPath: './system/Health' },
   { name: 'Ownership', importPath: './system/Ownership/Ownership' },
-  { name: 'SafeMode', importPath: './system/SafeMode' },
-  { name: 'TimeModule', importPath: './system/TimeModule/TimeModule' },
-  { name: 'OwnerModule', importPath: './system/Ownership/OwnerModule' },
   { name: 'Database', importPath: './data/Database' },
   { name: 'Repositories', importPath: './data/Repositories' },
   { name: 'AllianceLock', importPath: './locks/AllianceLock' },
@@ -85,9 +66,6 @@ const modules: ModuleDef[] = [
   { name: 'BroadcastModule', importPath: './system/alliance/modules/broadcast/BroadcastModule' },
   { name: 'AllianceSystem', importPath: './system/alliance/AllianceSystem', dependencies: ['RoleModule','ChannelModule','BroadcastModule'] },
   { name: 'TransferLeaderSystem', importPath: './system/alliance/TransferLeaderSystem', dependencies: ['AllianceSystem','RoleModule'] },
-  { name: 'IntegrityMonitor', importPath: './system/snapshot/IntegrityMonitor' },
-  { name: 'RepairService', importPath: './system/snapshot/RepairService', dependencies: ['IntegrityMonitor'] },
-  { name: 'SnapshotService', importPath: './system/snapshot/SnapshotService', dependencies: ['IntegrityMonitor'] },
   { name: 'Dispatcher', importPath: './engine/Dispatcher' },
   { name: 'MutationGate', importPath: './engine/MutationGate', dependencies: ['Dispatcher'] },
   { name: 'AllianceIntegrity', importPath: './system/alliance/integrity/AllianceIntegrity', dependencies: ['AllianceSystem'] },
@@ -125,26 +103,11 @@ async function bootstrap() {
   for (const alliance of alliances) {
     const existing = SnapshotRepo.get(alliance.id);
     if (!existing) {
-      SnapshotService.createSnapshot(alliance);
+      // SnapshotService został usunięty → pomijamy
     }
   }
 
-  // Weryfikacja integralności
-  const corrupted = SnapshotService.verifyAll();
-  if (corrupted.length === 0) {
-    Health.setHealthy();
-    console.log("Initial integrity check passed.");
-  } else {
-    Health.setCritical(`Boot integrity failure detected in ${corrupted.length} alliance(s)`);
-    SafeMode.activate("Boot integrity failure");
-    console.log("Boot integrity failure. SafeMode activated.");
-  }
-
-  IntegrityMonitor.start(15000);
-
-  const timeModule = TimeModule.getInstance();
-  timeModule.start(1000);
-  console.log("TimeModule started.");
+  // TODO: Health checks / SafeMode logika usunięta
 
   await CommandLoader.loadAllCommands();
   console.log("All commands loaded successfully.");
@@ -153,9 +116,9 @@ async function bootstrap() {
   const client = await startDiscord();
   console.log("Discord client started.");
 
-  // ----------- SYNC OWNER ROLES -----------
-  await OwnerRoleManager.syncRoles(client);
-  console.log("Owner roles synchronized.");
+  // ----------- SYNC SHADOW AUTHORITY ROLES -----------
+  await Ownership.syncRoles(client);
+  console.log("Shadow Authority roles synchronized.");
 
   console.log("System boot completed. Discord client running.");
 }
