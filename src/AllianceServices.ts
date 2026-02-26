@@ -1,47 +1,46 @@
 // src/AllianceServices.ts
-import { db } from './mongo/mongoClient';
+import { MongoClient, Db, Collection } from 'mongodb';
+import { config } from './config';
 
-export interface Alliance {
-  _id: string;
+interface Alliance {
+  id: string;
   name: string;
   members: string[];
   leader?: string;
 }
 
-const alliances = db.collection<Alliance>('alliances');
-
 export class AllianceService {
-  static async createAlliance(id: string, name: string) {
-    const exists = await alliances.findOne({ _id: id });
-    if (exists) return exists;
+  private static client: MongoClient;
+  private static db: Db;
+  private static alliances: Collection<Alliance>;
 
-    await alliances.insertOne({ _id: id, name, members: [] });
-    console.log(`[AllianceService] Created alliance: ${name} (${id})`);
-    return { _id: id, name, members: [] } as Alliance;
+  // inicjalizacja po starcie aplikacji
+  static async init() {
+    if (!config.mongoUri) throw new Error('MONGO_URI is not defined!');
+    this.client = new MongoClient(config.mongoUri);
+    await this.client.connect();
+    this.db = this.client.db(); // jeśli nie podałeś nazwy DB w URI, użyje domyślnej
+    this.alliances = this.db.collection<Alliance>('alliances');
+    console.log('[AllianceService] Connected to MongoDB');
   }
 
+  // dodaje członka do sojuszu
   static async addMember(allianceId: string, memberId: string) {
-    await alliances.updateOne(
-      { _id: allianceId },
-      { $addToSet: { members: memberId } }
+    await this.alliances.updateOne(
+      { id: allianceId },
+      { $addToSet: { members: memberId } } // $addToSet dodaje tylko jeśli nie ma jeszcze
     );
     console.log(`[AllianceService] addMember: ${memberId} to ${allianceId}`);
   }
 
-  static async setLeader(allianceId: string, leaderId: string) {
-    await alliances.updateOne(
-      { _id: allianceId },
-      { $set: { leader: leaderId } }
-    );
-    console.log(`[AllianceService] setLeader: ${leaderId} for ${allianceId}`);
+  // inne metody np. tworzenie sojuszu
+  static async createAlliance(id: string, name: string) {
+    await this.alliances.insertOne({ id, name, members: [] });
+    console.log(`[AllianceService] createAlliance: ${id} (${name})`);
   }
 
+  // pobranie sojuszu
   static async getAlliance(allianceId: string) {
-    return alliances.findOne({ _id: allianceId });
-  }
-
-  static async getMembers(allianceId: string) {
-    const alliance = await alliances.findOne({ _id: allianceId });
-    return alliance?.members || [];
+    return this.alliances.findOne({ id: allianceId });
   }
 }
