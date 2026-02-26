@@ -1,8 +1,7 @@
-// src/modules/transferleader/TransferLeaderModule.ts
 import { RulesModule } from "../rules/RulesModule";
 import { RoleModule } from "../role/RoleModule";
 import { BroadcastModule } from "../broadcast/BroadcastModule";
-import { AllianceService } from "../../AllianceService";
+import { AllianceService } from "../../AllianceServices";
 import { MutationGate } from "../../engine/MutationGate";
 
 export class TransferLeaderModule {
