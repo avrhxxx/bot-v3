@@ -7,14 +7,16 @@
  * ============================================
  *
  * RESPONSIBILITY:
- * - Deletes an existing alliance
- * - Only Bot Owner or Discord Owner can execute
- * - Integrates with AllianceSystem and MutationGate
+ * - Deletes an existing alliance from the server
+ * - Shadow Authority only (defined in Ownership.ts)
+ * - Removes all associated roles and channels via ChannelModule
+ * - Integrates with AllianceManager and MutationGate
  *
  * NOTES:
- * - Can delete by either unique tag or unique alliance name
- * - No backup/archiving implemented yet
- * - System layer and owner-only command
+ * - Can delete by unique tag, unique name, or both
+ * - Validates guild context
+ * - Atomic operation via MutationGate (global lock)
+ * - No archive/backup logic implemented
  *
  * ============================================
  */
@@ -23,21 +25,21 @@ import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { Command } from "../Command";
 import { Ownership } from "../../system/Ownership/Ownership";
 import { MutationGate } from "../../engine/MutationGate";
-import { AllianceRepo } from "../../data/Repositories";
-import { SafeMode } from "../../system/SafeMode";
-import { AllianceSystem } from "../../system/alliance/AllianceSystem";
+import { AllianceManager } from "../../system/alliance/AllianceManager";
 
 export const AllianceDeleteCommand: Command = {
   data: new SlashCommandBuilder()
     .setName("alliance_delete")
-    .setDescription("Delete an existing alliance (Owner Only, System Layer)")
+    .setDescription("Delete an existing alliance (Shadow Authority Only)")
     .addStringOption(option =>
-      option.setName("tag")
+      option
+        .setName("tag")
         .setDescription("3-character tag of the alliance to delete")
         .setRequired(false)
     )
     .addStringOption(option =>
-      option.setName("name")
+      option
+        .setName("name")
         .setDescription("Full name of the alliance to delete")
         .setRequired(false)
     ),
@@ -45,26 +47,30 @@ export const AllianceDeleteCommand: Command = {
   systemLayer: true,
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const userId: string = interaction.user.id;
+    const userId = interaction.user.id;
 
+    // 1️⃣ Must be executed inside a guild
     if (!interaction.guild) {
-      await interaction.reply({ content: "❌ Cannot delete alliance outside a guild.", ephemeral: true });
+      await interaction.reply({
+        content: "❌ Cannot delete alliance outside a guild.",
+        ephemeral: true
+      });
       return;
     }
 
-    if (SafeMode.isActive()) {
-      await interaction.reply({ content: "⛔ System in SAFE_MODE – structural commands blocked.", ephemeral: true });
+    // 2️⃣ Shadow Authority check (single source of truth)
+    if (!Ownership.isAuthority(userId)) {
+      await interaction.reply({
+        content: "⛔ You cannot use this command, you do not have permission.",
+        ephemeral: true
+      });
       return;
     }
 
-    if (!Ownership.isBotOwner(userId) && !Ownership.isDiscordOwner(userId)) {
-      await interaction.reply({ content: "⛔ Only Bot Owner or Discord Owner can execute this command.", ephemeral: true });
-      return;
-    }
+    const tagInput = interaction.options.getString("tag")?.toUpperCase();
+    const nameInput = interaction.options.getString("name");
 
-    const tagInput: string | undefined = interaction.options.getString("tag")?.toUpperCase();
-    const nameInput: string | undefined = interaction.options.getString("name");
-
+    // 3️⃣ Must provide at least one identifier
     if (!tagInput && !nameInput) {
       await interaction.reply({
         content: "❌ You must provide either the alliance tag or the alliance name to delete.",
@@ -73,9 +79,13 @@ export const AllianceDeleteCommand: Command = {
       return;
     }
 
-    let alliance = tagInput ? AllianceRepo.getByTag(tagInput, interaction.guild.id) : undefined;
+    // 4️⃣ Resolve alliance (tag has priority if both provided)
+    let alliance = tagInput
+      ? AllianceManager.getAllianceByTag(tagInput, interaction.guild.id)
+      : undefined;
+
     if (!alliance && nameInput) {
-      alliance = AllianceRepo.getByName(nameInput, interaction.guild.id);
+      alliance = AllianceManager.getAllianceByName(nameInput, interaction.guild.id);
     }
 
     if (!alliance) {
@@ -87,20 +97,34 @@ export const AllianceDeleteCommand: Command = {
     }
 
     try {
+      // 5️⃣ Atomic deletion (global lock)
       await MutationGate.execute(
-        { operation: "ALLIANCE_DELETE", actor: userId, requireGlobalLock: true },
+        {
+          operation: "ALLIANCE_DELETE",
+          actor: userId,
+          requireGlobalLock: true
+        },
         async () => {
-          await AllianceSystem.deleteInfrastructure(alliance!);
-          AllianceRepo.delete(alliance!.id);
+          // Delete roles and channels via ChannelModule
+          await AllianceManager.deleteAllianceInfrastructure(
+            alliance!.id,
+            interaction.guild!
+          );
+
+          // Remove domain object
+          AllianceManager.deleteAlliance(alliance!.id);
         }
       );
 
+      // 6️⃣ Success response
       await interaction.reply({
         content: `✅ Alliance \`${alliance.name}\` (${alliance.tag}) has been deleted successfully.`,
         ephemeral: false
       });
+
     } catch (error: any) {
       console.error("Alliance deletion error:", error);
+
       await interaction.reply({
         content: `❌ Failed to delete alliance: ${error.message}`,
         ephemeral: true
