@@ -5,79 +5,58 @@
  * ============================================
  *
  * ODPOWIEDZIALNOŚĆ:
- * - Definicja typów domenowych sojuszu
- * - Spójna reprezentacja członków, ról i kanałów
- * - Wspólna podstawa dla wszystkich modułów
- *
- * ARCHITEKTURA:
- * Database → Repository → AllianceManager → Modules
- *
- * WAŻNE:
- * - Brak legacy HealthState
- * - Brak SnapshotRepo
- * - Snapshot może istnieć jako osobny system (nie core)
+ * - Definicja typów sojuszu
+ * - Reprezentacja ról, członków i kanałów Discord
+ * - Podstawa do walidacji i logiki modułów sojuszy
  *
  * ============================================
  */
 
 export type AllianceRole = "R3" | "R4" | "R5";
 
-/**
- * Struktura ról Discord powiązanych z sojuszem
- */
-export interface AllianceRoles {
-  r5RoleId: string;        // Lider
-  r4RoleId: string;        // Oficerowie
-  r3RoleId: string;        // Członkowie
-  identityRoleId: string;  // Rola identyfikacyjna (ping/tag)
+/** Członek sojuszu */
+export interface AllianceMember {
+  userId: string;
+  role: AllianceRole;
 }
 
-/**
- * Struktura kanałów Discord powiązanych z sojuszem
- */
+/** Discord role IDs powiązane z sojuszem */
+export interface AllianceRoles {
+  r5RoleId: string;          // Lider
+  r4RoleId: string;          // Moderator
+  r3RoleId: string;          // Członek
+  identityRoleId: string;    // role do pingów
+}
+
+/** Discord channels powiązane z sojuszem */
 export interface AllianceChannels {
   categoryId: string;
-
-  leadershipChannelId: string; // tylko R5
-  officersChannelId: string;   // R5 + R4
-  membersChannelId: string;    // R5 + R4 + R3
-  joinChannelId: string;       // publiczne zgłoszenia
-
-  announceChannelId: string;   // broadcast
-  welcomeChannelId: string;    // powitania
+  leadershipChannelId: string;
+  officersChannelId: string;
+  membersChannelId: string;
+  joinChannelId: string;
+  announceChannelId: string;
+  welcomeChannelId: string;
 }
 
-/**
- * Główna struktura domenowa sojuszu
- */
+/** Pełna struktura sojuszu */
 export interface Alliance {
+  id: string;
+  guildId: string;
+  tag: string;
+  name: string;
 
-  // --- CORE ---
-  id: string;          // Wewnętrzne ID systemowe
-  guildId: string;     // ID serwera Discord
-
-  tag: string;         // 3 znaki alfanumeryczne (walidowane w komendzie)
-  name: string;        // Pełna nazwa sojuszu
-
-  // --- MEMBERS ---
   members: {
-    r5: string | null;  // Lider (max 1)
-    r4: string[];       // Oficerowie
-    r3: string[];       // Członkowie
+    r5?: string | null;
+    r4: string[];
+    r3: string[];
   };
 
-  // --- INFRASTRUCTURE ---
   roles: AllianceRoles;
   channels: AllianceChannels;
 
-  // --- STATE ---
-  orphaned: boolean;    // true jeśli brak lidera
-  createdAt: number;    // timestamp utworzenia
-  updatedAt?: number;   // opcjonalnie przy zmianach
+  orphaned: boolean;
+  createdAt: number;
 
-  // --- JOIN SYSTEM ---
-  pendingJoins?: {
-    userId: string;
-    requestedAt: number;
-  }[];
+  pendingJoins?: { userId: string; requestedAt: number }[];
 }
