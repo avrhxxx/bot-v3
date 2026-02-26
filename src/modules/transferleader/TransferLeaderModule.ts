@@ -1,3 +1,4 @@
+// src/modules/transferleader/TransferLeaderModule.ts
 import { RulesModule } from "../rules/RulesModule";
 import { RoleModule } from "../role/RoleModule";
 import { BroadcastModule } from "../broadcast/BroadcastModule";
@@ -5,7 +6,7 @@ import { AllianceService } from "../../AllianceServices";
 import { MutationGate } from "../../engine/MutationGate";
 
 export class TransferLeaderModule {
-  static async transferLeadership(allianceId: string, newLeaderId: string) {
+  static async transferLeader(allianceId: string, newLeaderId: string): Promise<void> {
     await MutationGate.execute(
       { actor: newLeaderId, operation: "TRANSFER_LEADER", allianceId },
       async () => {
