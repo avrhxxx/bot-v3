@@ -1,9 +1,9 @@
 import { ChannelModule } from "../channel/ChannelModule";
 
-/** Allowed alliance roles */
+/** Role sojuszu */
 export type AllianceRole = "R3" | "R4" | "R5";
 
-/** Supported broadcast events */
+/** Obsługiwane typy zdarzeń broadcast */
 export type BroadcastEvent =
   | "joinRequest"
   | "join"
@@ -16,7 +16,7 @@ export type BroadcastEvent =
   | "tagChange"
   | "allianceRemoval";
 
-/** Payload map for each broadcast event */
+/** Mapowanie payload dla każdego eventu */
 interface EventPayloadMap {
   joinRequest: { allianceId: string; userId: string; channelId: string; pingRoleIds?: string[]; pingUserIds?: string[] };
   join: { allianceId: string; userId: string; channelId: string; pingRoleIds?: string[]; pingUserIds?: string[] };
@@ -30,9 +30,19 @@ interface EventPayloadMap {
   allianceRemoval: { allianceId: string; message: string; channelId: string; pingRoleIds?: string[] };
 }
 
-/** Listener type for each event */
+/** Typ listenera dla eventu */
 type BroadcastListener<T extends BroadcastEvent> = (payload: EventPayloadMap[T]) => void;
 
+/**
+ * MODUŁ: BroadcastModule
+ * WARSTWA: SYSTEM (komunikacja sojuszu)
+ *
+ * Odpowiada za:
+ * - Emitowanie zdarzeń do Discord
+ * - Formatowanie wiadomości
+ * - Obsługę pingów użytkowników i ról
+ * - Domyślne kanały do ogłoszeń
+ */
 export class BroadcastModule {
   private static listeners: { [K in BroadcastEvent]?: BroadcastListener<K>[] } = {};
 
@@ -45,11 +55,8 @@ export class BroadcastModule {
   static emit<T extends BroadcastEvent>(event: T, payload: EventPayloadMap[T]) {
     const eventListeners = this.listeners[event] ?? [];
     for (const listener of eventListeners) {
-      try {
-        listener(payload);
-      } catch (error) {
-        console.error(`BroadcastModule: error in listener '${event}' with payload`, payload, error);
-      }
+      try { listener(payload); } 
+      catch (error) { console.error(`BroadcastModule error '${event}'`, payload, error); }
     }
   }
 
@@ -59,15 +66,10 @@ export class BroadcastModule {
     else this.listeners[event] = this.listeners[event]!.filter(l => l !== listener);
   }
 
-  static clearAll() {
-    this.listeners = {};
-  }
+  static clearAll() { this.listeners = {}; }
+  static clearEventListeners(event: BroadcastEvent) { delete this.listeners[event]; }
 
-  static clearEventListeners(event: BroadcastEvent) {
-    delete this.listeners[event];
-  }
-
-  // ----------------- DEFAULT CHANNEL MAPPING -----------------
+  // ----------------- DEFAULT CHANNELS -----------------
   private static defaultChannels: Record<BroadcastEvent, (allianceId: string) => string | undefined> = {
     joinRequest: ChannelModule.getStaffChannel,
     join: ChannelModule.getWelcomeChannel,
@@ -88,7 +90,7 @@ export class BroadcastModule {
     return [roles, users].filter(Boolean).join(' ');
   }
 
-  // ----------------- ALLIANCE-SPECIFIC -----------------
+  // ----------------- ALLIANCE-SPECIFIC ANNOUNCE -----------------
   private static async announce<T extends BroadcastEvent>(
     event: T,
     payload: Omit<EventPayloadMap[T], "channelId">
@@ -98,6 +100,7 @@ export class BroadcastModule {
     this.emit(event, { ...payload, channelId } as EventPayloadMap[T]);
   }
 
+  // ----------------- PREDEFINED ANNOUNCEMENTS -----------------
   static async announceJoinRequest(allianceId: string, userId: string, pingRoleIds?: string[], pingUserIds?: string[]) {
     return this.announce("joinRequest", { allianceId, userId, pingRoleIds, pingUserIds });
   }
