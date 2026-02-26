@@ -9,11 +9,8 @@
  * RESPONSIBILITY:
  * - Reject a user's join request
  * - Only R5 / R4 / leader can deny
- * - Integrates with AllianceOrchestrator
+ * - Can be used only in #staff-room
  * - Sends DM to the denied user
- *
- * NOTES:
- * - Ephemeral reply confirms command usage only
  *
  * ============================================
  */
@@ -35,41 +32,35 @@ export const DenyCommand: Command = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const actorId = interaction.user.id;
-    const targetUser = interaction.options.getUser("member", true);
+    if (!interaction.guild) return;
 
-    if (!interaction.guild) {
+    // ✅ Check channel
+    if (interaction.channel?.name !== "staff-room") {
       await interaction.reply({
-        content: "❌ Cannot deny outside a guild.",
+        content: "❌ This command can only be used in #staff-room.",
         ephemeral: true
       });
       return;
     }
 
+    const actorId = interaction.user.id;
+    const targetUser = interaction.options.getUser("member", true);
+
     try {
-      // 1️⃣ Deny join request atomically
+      // Deny join request
       await AllianceOrchestrator.denyJoin(actorId, interaction.guild.id, targetUser.id);
 
-      // 2️⃣ Fetch alliance for DM context
       const alliance = await AllianceService.getAllianceByLeaderOrOfficer(actorId);
-
       if (alliance) {
         await targetUser.send(
           `❌ Your request to join **[${alliance.tag}] ${alliance.name}** has been denied.`
-        ).catch(() => { /* ignore DM errors */ });
+        ).catch(() => {});
       }
 
-      // 3️⃣ Ephemeral confirmation (short)
-      await interaction.reply({
-        content: "✅ You have denied the join request.",
-        ephemeral: true
-      });
+      await interaction.reply({ content: "✅ You have denied the join request.", ephemeral: true });
 
     } catch (error: any) {
-      await interaction.reply({
-        content: `❌ Failed to deny join request: ${error.message}`,
-        ephemeral: true
-      });
+      await interaction.reply({ content: `❌ Failed to deny join request: ${error.message}`, ephemeral: true });
     }
   }
 };
