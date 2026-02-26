@@ -7,14 +7,9 @@
  * ============================================
  *
  * RESPONSIBILITY:
- * - Demote an alliance member to a lower rank (R5 → R4 → R3)
+ * - Demote a member to a lower rank (R5 → R4 → R3)
  * - Only leader / R5 can demote
- * - Integrates with AllianceOrchestrator
- *
- * NOTES:
- * - Validates permissions
- * - Checks role limits
- * - Handles errors
+ * - Can be used only in #staff-room
  *
  * ============================================
  */
@@ -35,32 +30,28 @@ export const DemoteCommand: Command = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const actorId = interaction.user.id;
-    const targetUser = interaction.options.getUser("member", true);
+    if (!interaction.guild) return;
 
-    if (!interaction.guild) {
-      await interaction.reply({ content: "❌ Cannot demote outside a guild.", ephemeral: true });
+    if (interaction.channel?.name !== "staff-room") {
+      await interaction.reply({
+        content: "❌ This command can only be used in #staff-room.",
+        ephemeral: true
+      });
       return;
     }
 
-    // Placeholder for previous SafeMode check:
-    // if (SafeMode.isActive()) { ... }
+    const actorId = interaction.user.id;
+    const targetUser = interaction.options.getUser("member", true);
 
     try {
-      // 1️⃣ Execute demotion atomically via AllianceOrchestrator
       await AllianceOrchestrator.demote(actorId, interaction.guild.id, targetUser.id);
 
-      // 2️⃣ Notify success
       await interaction.reply({
         content: `✅ <@${targetUser.id}> has been demoted in the alliance.`,
         ephemeral: false
       });
     } catch (error: any) {
-      // 3️⃣ Handle errors
-      await interaction.reply({
-        content: `❌ Failed to demote member: ${error.message}`,
-        ephemeral: true
-      });
+      await interaction.reply({ content: `❌ Failed to demote member: ${error.message}`, ephemeral: true });
     }
   }
 };
