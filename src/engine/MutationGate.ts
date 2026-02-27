@@ -1,12 +1,11 @@
-export interface MutationOptions {
-    actorId?: string;
-    reason?: string;
-    timestamp?: number;
-}
-
+// Minimalna klasa MutationGate
 export class MutationGate {
-    static execute(action: string, allianceId: string, targetId: string, options: MutationOptions) {
-        console.log(`[MutationGate] Executing ${action} on ${targetId} in alliance ${allianceId}`, options);
-        // tu logika mutacji
+    constructor() {
+        // Konstruktor może inicjalizować stan
+    }
+
+    // Przykładowa metoda – do późniejszej implementacji
+    execute(operation: string, payload?: any): void {
+        console.log(`[MutationGate] Operacja: ${operation}`, payload);
     }
 }
