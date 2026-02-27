@@ -1,33 +1,23 @@
-import { Guild, Role, GuildMember, PermissionFlagsBits } from "discord.js";
+import { Guild, Role } from "discord.js";
 
 export class RoleModule {
-  constructor(private guild: Guild) {}
+  static roleNames = ["R3", "R4", "R5", "Identity"];
 
-  async createRoles() {
-    const roleNames = ["R5 - Leader", "R4 - Officer", "R3 - Member", "Identity"];
-    for (const name of roleNames) {
-      if (!this.guild.roles.cache.find(r => r.name === name)) {
-        await this.guild.roles.create({
+  static async setupRoles(guild: Guild): Promise<Record<string, Role>> {
+    const roles: Record<string, Role> = {};
+
+    for (const name of RoleModule.roleNames) {
+      let role = guild.roles.cache.find(r => r.name === name);
+      if (!role) {
+        role = await guild.roles.create({
           name,
-          permissions: [],
+          mentionable: true,
         });
+        console.log(`Utworzono rolę: ${name}`);
       }
+      roles[name] = role;
     }
-  }
 
-  async assignRole(member: GuildMember, roleName: string) {
-    const role = this.guild.roles.cache.find(r => r.name === roleName);
-    if (role) {
-      await member.roles.add(role);
-    } else {
-      throw new Error(`Role ${roleName} does not exist`);
-    }
-  }
-
-  async removeRole(member: GuildMember, roleName: string) {
-    const role = this.guild.roles.cache.find(r => r.name === roleName);
-    if (role) {
-      await member.roles.remove(role);
-    }
+    return roles;
   }
 }
