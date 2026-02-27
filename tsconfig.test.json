@@ -3,6 +3,6 @@
   "compilerOptions": {
     "outDir": "dist-test"
   },
-  "include": ["src/testIndex.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/testIndex.ts"],  // tylko Twój testowy indeks
+  "exclude": ["node_modules", "dist", "dist-test"]
 }
