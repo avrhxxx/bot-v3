@@ -79,7 +79,7 @@ const setupShadowAuthority = async (guild: Guild) => {
     await delay(500);
   }
 
-  let statusMessage: Message | null = null;
+  let statusMessage: Message | undefined = undefined;
   const createStatusMessage = async () => {
     if (!notifyChannel) return;
     const embed = new EmbedBuilder()
@@ -127,7 +127,7 @@ const synchronizeShadowAuthority = async (
           .setTitle("Shadow Authority")
           .setDescription(`🔄 Przywrócono rolę Shadow Authority dla ${member.user.tag}\n🕒 ${new Date().toLocaleTimeString()}`)
           .setColor(0x800080);
-        await statusMessage.edit({ embeds: [embed] });
+        await statusMessage?.edit({ embeds: [embed] });
       }
       await delay(500);
     }
@@ -142,7 +142,7 @@ const synchronizeShadowAuthority = async (
           .setTitle("Shadow Authority")
           .setDescription(`⚠️ Odebrano rolę Shadow Authority osobie nieuprawnionej: ${member.user.tag}\n🕒 ${new Date().toLocaleTimeString()}`)
           .setColor(0xff0000);
-        await statusMessage.edit({ embeds: [embed] });
+        await statusMessage?.edit({ embeds: [embed] });
       }
       await delay(500);
     }
@@ -153,7 +153,7 @@ const synchronizeShadowAuthority = async (
       .setTitle("Shadow Authority")
       .setDescription(`✅ Synchronizacja zakończona\n🕒 ${new Date().toLocaleTimeString()}`)
       .setColor(0x00ff00);
-    await statusMessage.edit({ embeds: [embed] });
+    await statusMessage?.edit({ embeds: [embed] });
   }
 };
 
