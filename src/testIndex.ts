@@ -1,5 +1,5 @@
 // src/testIndex.ts
-import { Client, GatewayIntentBits, Guild } from "discord.js";
+import { Client, GatewayIntentBits, Guild, ColorResolvable } from "discord.js";
 import { BOT_TOKEN, GUILD_ID } from "./config/config";
 
 // Funkcja delay w ms
@@ -24,6 +24,7 @@ client.once("ready", async () => {
 
   try {
     console.log("🚀 Rozpoczynamy tworzenie testowego sojuszu...");
+    await delay(5000); // start komendy 5s
 
     // --------------------------
     // 1️⃣ Tworzenie ról
@@ -32,23 +33,28 @@ client.once("ready", async () => {
       { name: `R5[${TEST_ALLIANCE_TAG}]`, color: "#FF0000" }, // czerwony
       { name: `R4[${TEST_ALLIANCE_TAG}]`, color: "#0000FF" }, // niebieski
       { name: `R3[${TEST_ALLIANCE_TAG}]`, color: "#00FF00" }, // zielony
-      { name: TEST_ALLIANCE_NAME, color: "#FFFF00" } // rola tożsamościowa, żółta
+      { name: TEST_ALLIANCE_NAME, color: "#FFFF00" } // rola tożsamościowa
     ];
+
+    const createdRoles: string[] = [];
 
     for (const { name, color } of roles) {
       let role = guild.roles.cache.find(r => r.name === name);
       if (!role) {
-        role = await guild.roles.create({ name, color, reason: `Tworzenie roli dla ${TEST_ALLIANCE_NAME}` });
+        role = await guild.roles.create({ name, color: color as ColorResolvable, reason: `Tworzenie roli dla ${TEST_ALLIANCE_NAME}` });
         console.log(`✅ Stworzono rolę: ${name}`);
       } else {
-        console.log(`Rola ${name} już istnieje`);
+        console.log(`❌ Rola ${name} już istnieje! Przerywam tworzenie sojuszu.`);
+        return; // gate: jeśli rola istnieje, kończymy
       }
-      await delay(3000); // 3 sekundy między rolami
+      createdRoles.push(name);
+      await delay(3000); // 3s między rolami
     }
 
     // --------------------------
     // 2️⃣ Tworzenie kategorii
     // --------------------------
+    await delay(5000); // 5 sekund przed kategorią
     let category = guild.channels.cache.find(c => c.name === TEST_ALLIANCE_NAME && c.type === 4); // 4 = CategoryChannel
     if (!category) {
       category = await guild.channels.create({ name: TEST_ALLIANCE_NAME, type: 4 });
@@ -61,18 +67,18 @@ client.once("ready", async () => {
       for (const chName of textChannels) {
         const ch = await guild.channels.create({ name: chName, type: 0, parent: category.id }); // 0 = GuildText
         console.log(`✅ Stworzono kanał tekstowy: ${chName}`);
-        await delay(2000); // 2 sekundy między kanałami
+        await delay(3000); // 3s między kanałami
       }
 
       const voiceChannels = ["🎤 General VC", "🎤 Staff VC"];
       for (const chName of voiceChannels) {
         const ch = await guild.channels.create({ name: chName, type: 2, parent: category.id }); // 2 = GuildVoice
         console.log(`✅ Stworzono kanał głosowy: ${chName}`);
-        await delay(2000); // 2 sekundy między kanałami
+        await delay(3000); // 3s między kanałami
       }
 
     } else {
-      console.log(`Kategoria ${TEST_ALLIANCE_NAME} już istnieje. Kanały nie zostały tworzone.`);
+      console.log(`❌ Kategoria ${TEST_ALLIANCE_NAME} już istnieje. Kanały nie zostały tworzone.`);
     }
 
     console.log("🎉 Testowy sojusz został w pełni utworzony w trybie krokowym!");
