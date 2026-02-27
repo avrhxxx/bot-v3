@@ -1,5 +1,5 @@
 // src/testIndex.ts
-import { Client, GatewayIntentBits, Guild } from "discord.js";
+import { Client, GatewayIntentBits, Guild, ColorResolvable } from "discord.js";
 import { BOT_TOKEN, GUILD_ID } from "./config/config";
 
 // Funkcja delay w ms
@@ -28,11 +28,11 @@ client.once("ready", async () => {
     // --------------------------
     // 1️⃣ Tworzenie ról
     // --------------------------
-    const roles = [
-      { name: `R5[${TEST_ALLIANCE_TAG}]`, color: "Red" },
-      { name: `R4[${TEST_ALLIANCE_TAG}]`, color: "Blue" },
-      { name: `R3[${TEST_ALLIANCE_TAG}]`, color: "Green" },
-      { name: TEST_ALLIANCE_NAME, color: "Yellow" } // rola tożsamościowa
+    const roles: { name: string; color: ColorResolvable }[] = [
+      { name: `R5[${TEST_ALLIANCE_TAG}]`, color: "#FF0000" },      // czerwony
+      { name: `R4[${TEST_ALLIANCE_TAG}]`, color: "#0000FF" },      // niebieski
+      { name: `R3[${TEST_ALLIANCE_TAG}]`, color: "#00FF00" },      // zielony
+      { name: TEST_ALLIANCE_NAME, color: "#FFFF00" }               // żółty, rola tożsamościowa
     ];
 
     for (const { name, color } of roles) {
