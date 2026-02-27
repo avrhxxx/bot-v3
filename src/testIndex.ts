@@ -1,5 +1,5 @@
 // src/testIndex.ts
-import { Client, GatewayIntentBits, Guild, ColorResolvable } from "discord.js";
+import { Client, GatewayIntentBits, Guild } from "discord.js";
 import { BOT_TOKEN, GUILD_ID } from "./config/config";
 
 // Funkcja delay w ms
@@ -26,19 +26,19 @@ client.once("ready", async () => {
     console.log("🚀 Rozpoczynamy tworzenie testowego sojuszu...");
 
     // --------------------------
-    // 1️⃣ Tworzenie ról
+    // 1️⃣ Tworzenie ról (krok po kroku)
     // --------------------------
-    const roles: { name: string; color: ColorResolvable }[] = [
-      { name: `R5[${TEST_ALLIANCE_TAG}]`, color: "#FF0000" },      // czerwony
-      { name: `R4[${TEST_ALLIANCE_TAG}]`, color: "#0000FF" },      // niebieski
-      { name: `R3[${TEST_ALLIANCE_TAG}]`, color: "#00FF00" },      // zielony
-      { name: TEST_ALLIANCE_NAME, color: "#FFFF00" }               // żółty, rola tożsamościowa
+    const roles = [
+      { name: `R5[${TEST_ALLIANCE_TAG}]`, color: "#FF0000" }, // czerwony
+      { name: `R4[${TEST_ALLIANCE_TAG}]`, color: "#0000FF" }, // niebieski
+      { name: `R3[${TEST_ALLIANCE_TAG}]`, color: "#00FF00" }, // zielony
+      { name: TEST_ALLIANCE_NAME, color: "#FFFF00" }          // żółta rola tożsamościowa
     ];
 
     for (const { name, color } of roles) {
       let role = guild.roles.cache.find(r => r.name === name);
       if (!role) {
-        role = await guild.roles.create({ name, color, reason: `Tworzenie roli dla ${TEST_ALLIANCE_NAME}` });
+        role = await guild.roles.create({ name, color: color as any, reason: `Tworzenie roli dla ${TEST_ALLIANCE_NAME}` });
         console.log(`✅ Stworzono rolę: ${name}`);
       } else {
         console.log(`Rola ${name} już istnieje`);
@@ -56,10 +56,10 @@ client.once("ready", async () => {
     } else {
       console.log(`Kategoria ${TEST_ALLIANCE_NAME} już istnieje`);
     }
-    await delay(5000); // 5 sekund pauzy
+    await delay(5000); // 5 sekund pauzy po kategorii
 
     // --------------------------
-    // 3️⃣ Tworzenie kanałów tekstowych
+    // 3️⃣ Tworzenie kanałów tekstowych krok po kroku
     // --------------------------
     const textChannels = ["👋 welcome", "📢 announce", "💬 chat", "🛡 staff-room", "✋ join"];
     for (const chName of textChannels) {
@@ -74,7 +74,7 @@ client.once("ready", async () => {
     }
 
     // --------------------------
-    // 4️⃣ Tworzenie kanałów głosowych
+    // 4️⃣ Tworzenie kanałów głosowych krok po kroku
     // --------------------------
     const voiceChannels = ["🎤 General VC", "🎤 Staff VC"];
     for (const chName of voiceChannels) {
