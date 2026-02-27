@@ -1,20 +1,12 @@
 // src/data/Repositories.ts
 
 import { db } from "./Database";
-
-// Minimal temporary domain types (clean build stubs)
-
-type Alliance = {
-  id: string;
-};
-
-type OwnershipRecord = {
-  userId: string;
-};
+import type { Alliance } from "../AllianceServices";
+import type { OwnershipRecord } from "./Database";
 
 /**
  * =====================================================
- * REPOSITORY LAYER – Bot-V3
+ * REPOSITORY LAYER – Bot-V3 (Memory Mode)
  * =====================================================
  */
 
