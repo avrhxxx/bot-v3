@@ -1,1 +1,4 @@
-1
+
+export function notify(message: string) {
+  console.log(`[ShadowAuthorityNotify] ${message}`);
+}
