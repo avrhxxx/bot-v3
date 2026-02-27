@@ -1,10 +1,13 @@
 {
-  "name": "bot-v3-test",
-  "version": "3.0.0-test",
-  "main": "dist-test/testIndex.js",
+  "name": "bot-v3",
+  "version": "3.0.0-beta",
+  "main": "dist/index.js",
   "scripts": {
-    "build:test": "tsc -p tsconfig.test.json",
-    "start:test": "node dist-test/testIndex.js"
+    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "build:test": "rm -rf dist_test && tsc -p tsconfig.test.json",
+    "start:test": "node dist_test/testIndex.js",
+    "dev": "tsc --watch"
   },
   "dependencies": {
     "discord.js": "^14.13.0"
