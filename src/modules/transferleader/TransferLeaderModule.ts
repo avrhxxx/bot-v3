@@ -1,24 +1,18 @@
 // src/modules/transferleader/TransferLeaderModule.ts
 
 import { AllianceOrkiestror } from '../../orkiestror/AllianceOrkiestror';
-import { MutationGate, MutationOptions } from '../../engine/MutationGate';
+import { MutationGate } from '../../engine/MutationGate';
 
 export class TransferLeaderModule {
     static async transferLeader(allianceId: string, newLeaderId: string) {
-        // Pobranie sojuszu
-        const alliance = AllianceOrkiestror.getAlliance(allianceId);
+        // Pobranie sojuszu wg nowej metody
+        const alliance = AllianceOrkiestror.findAlliance(allianceId);
         if (!alliance) {
             throw new Error(`[TransferLeaderModule] Alliance ${allianceId} does not exist`);
         }
 
-        // Opcje mutacji
-        const options: MutationOptions = {
-            reason: 'Leader transfer',
-            silent: false
-        };
-
-        // Wykonanie mutacji
-        await MutationGate.execute('TRANSFER_LEADER', allianceId, newLeaderId, options);
+        // Wykonanie mutacji wg nowego API (2 argumenty)
+        await MutationGate.execute('TRANSFER_LEADER', { allianceId, newLeaderId });
 
         console.log(`[TransferLeaderModule] Leader of alliance ${allianceId} is now ${newLeaderId}`);
     }
