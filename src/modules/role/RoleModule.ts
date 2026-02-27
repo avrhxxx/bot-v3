@@ -1,4 +1,5 @@
-import { Guild, Role, Colors } from "discord.js";
+// src/modules/role/RoleModule.ts
+import { Guild, ColorResolvable } from "discord.js";
 
 export class RoleModule {
   // Mapowanie stworzonych ról dla sojuszy
@@ -17,11 +18,11 @@ export class RoleModule {
       return this.allianceRoles[allianceTag];
     }
 
-    const rolesToCreate: { name: string; color: number }[] = [
-      { name: `R5[${allianceTag}]`, color: Colors.Red },
-      { name: `R4[${allianceTag}]`, color: Colors.Blue },
-      { name: `R3[${allianceTag}]`, color: Colors.Green },
-      { name: `${allianceName}`, color: Colors.Yellow } // rola tożsamościowa
+    const rolesToCreate: { name: string; color: ColorResolvable }[] = [
+      { name: `R5[${allianceTag}]`, color: "red" },
+      { name: `R4[${allianceTag}]`, color: "blue" },
+      { name: `R3[${allianceTag}]`, color: "green" },
+      { name: `${allianceName}`, color: "yellow" } // rola tożsamościowa
     ];
 
     const createdRoles: Record<string, string> = {};
