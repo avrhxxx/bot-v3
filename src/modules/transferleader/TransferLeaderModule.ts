@@ -5,7 +5,11 @@ export class TransferLeaderModule {
   static async transferLeader(allianceId: string, newLeaderId: string) {
     console.log(`[TransferLeaderModule] transferring leader of ${allianceId} to ${newLeaderId}`);
 
-    await MutationGate.execute('TRANSFER_LEADER', { allianceId, newLeaderId });
+    // Poprawiony wywołanie: MutationOptions
+    await MutationGate.execute({
+      type: 'TRANSFER_LEADER',
+      payload: { allianceId, newLeaderId }
+    });
 
     await AllianceOrkiestror.transferLeader(allianceId, newLeaderId);
 
