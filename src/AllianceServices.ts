@@ -20,8 +20,10 @@ export interface AllianceAudit {
 }
 
 export class AllianceService {
+
   static async createAlliance(id: string, name: string) {
     const now = new Date();
+
     db.alliances.set(id, {
       id,
       name,
@@ -39,20 +41,33 @@ export class AllianceService {
   }
 
   static async addMember(allianceId: string, memberId: string) {
-    const alliance = db.alliances.get(allianceId);
-    if (!alliance) throw new Error(`Alliance ${allianceId} not found`);
+    let alliance = db.alliances.get(allianceId);
+
+    // 🔥 AUTO-CREATE w memory mode
+    if (!alliance) {
+      console.log(`[AllianceService] Auto-creating alliance ${allianceId}`);
+      await this.createAlliance(allianceId, "AutoCreated Alliance");
+      alliance = db.alliances.get(allianceId)!;
+    }
 
     if (!alliance.members.includes(memberId)) {
       alliance.members.push(memberId);
     }
 
     alliance.updatedAt = new Date();
+
     console.log(`[AllianceService] (Memory) addMember: ${memberId} to ${allianceId}`);
   }
 
   static async transferLeader(allianceId: string, newLeaderId: string) {
-    const alliance = db.alliances.get(allianceId);
-    if (!alliance) throw new Error(`Alliance ${allianceId} not found`);
+    let alliance = db.alliances.get(allianceId);
+
+    // 🔥 AUTO-CREATE w memory mode
+    if (!alliance) {
+      console.log(`[AllianceService] Auto-creating alliance ${allianceId}`);
+      await this.createAlliance(allianceId, "AutoCreated Alliance");
+      alliance = db.alliances.get(allianceId)!;
+    }
 
     alliance.leader = newLeaderId;
     alliance.updatedAt = new Date();
