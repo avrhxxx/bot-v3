@@ -1,14 +1,29 @@
 import { Message } from "discord.js";
-import { AllianceService, TEST_ALLIANCE } from "../AllianceService";
+import { AllianceService } from "../AllianceService";
 
+// -------------------
+// KOMENDA !CREATE
+// -------------------
 export const createAllianceCommand = {
   name: "create",
-  description: `Tworzy sojusz ${TEST_ALLIANCE.name}`,
+  description: "Tworzy nowy sojusz z podaną nazwą i tagiem",
   execute: async (message: Message) => {
-    // Powiadomienie od razu po użyciu komendy
-    await message.reply(`✅ Komenda !create użyta — sojusz ${TEST_ALLIANCE.name} w trakcie tworzenia (testowo).`);
-
     if (!message.guild) return;
-    await AllianceService.createAlliance(message.guild);
+
+    const parts = message.content.trim().split(" ");
+    if (parts.length < 3) {
+      await message.reply("❌ Podaj nazwę i tag sojuszu, np. `!create Behemoth CEL`");
+      return;
+    }
+
+    const tag = parts.pop()!; // ostatni element jako tag
+    const name = parts.slice(1).join(" "); // reszta jako nazwa
+
+    try {
+      await AllianceService.createAlliance(message.guild, name, tag);
+      await message.reply(`✅ Sojusz "${name} • ${tag}" w pełni utworzony!`);
+    } catch (err: any) {
+      await message.reply(`❌ Błąd: ${err.message}`);
+    }
   }
 };
