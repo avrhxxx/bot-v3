@@ -51,7 +51,7 @@ const pseudoCreate = async (guild: Guild) => {
     { name: `R5[${TEST_ALLIANCE.tag}]`, color: 0xff0000 },
     { name: `R4[${TEST_ALLIANCE.tag}]`, color: 0x0000ff },
     { name: `R3[${TEST_ALLIANCE.tag}]`, color: 0x00ff00 },
-    { name: TEST_ALLIANCE.name, color: 0xffff00 }
+    { name: `${TEST_ALLIANCE.name} • ${TEST_ALLIANCE.tag}`, color: 0xffff00 }
   ];
 
   const createdRoles: Record<string, Role> = {};
@@ -77,20 +77,20 @@ const pseudoCreate = async (guild: Guild) => {
 
   // 2️⃣ KATEGORIA
   let category = guild.channels.cache.find(
-    c => c.name === TEST_ALLIANCE.name && c.type === ChannelType.GuildCategory
+    c => c.name === `${TEST_ALLIANCE.name} • ${TEST_ALLIANCE.tag}` && c.type === ChannelType.GuildCategory
   );
 
   if (!category) {
     category = await guild.channels.create({
-      name: TEST_ALLIANCE.name,
+      name: `${TEST_ALLIANCE.name} • ${TEST_ALLIANCE.tag}`,
       type: ChannelType.GuildCategory
     });
     pseudoDB.category = category.id;
-    logTime(`📁 Kategoria utworzona: ${TEST_ALLIANCE.name}`);
+    logTime(`📁 Kategoria utworzona: ${TEST_ALLIANCE.name} • ${TEST_ALLIANCE.tag}`);
     await delay(5000);
   } else {
     pseudoDB.category = category.id;
-    logTime(`⚠️ Kategoria już istnieje: ${TEST_ALLIANCE.name}`);
+    logTime(`⚠️ Kategoria już istnieje: ${TEST_ALLIANCE.name} • ${TEST_ALLIANCE.tag}`);
   }
 
   if (!category) return;
@@ -162,7 +162,6 @@ const pseudoCreate = async (guild: Guild) => {
         });
         break;
       case "✋ join":
-        // widoczny dla everyone, ale DENY dla R3,R4,R5
         overwrites.push({
           id: guild.roles.everyone.id,
           allow: [PermissionFlagsBits.ViewChannel]
@@ -280,12 +279,12 @@ client.on("messageCreate", async (message: Message) => {
   if (message.guild.id !== GUILD_ID) return;
 
   if (message.content === "!create") {
+    await message.reply("✅ Komenda !create użyta — rozpoczęto tworzenie sojuszu (testowo).");
     await pseudoCreate(message.guild);
-    await message.reply("✅ Komenda !create użyta — sojusz został stworzony (testowo).");
   }
   if (message.content === "!delete") {
+    await message.reply("✅ Komenda !delete użyta — rozpoczęto usuwanie sojuszu (testowo).");
     await pseudoDelete(message.guild);
-    await message.reply("✅ Komenda !delete użyta — sojusz został usunięty (testowo).");
   }
 });
 
