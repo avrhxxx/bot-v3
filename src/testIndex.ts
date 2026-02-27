@@ -4,7 +4,7 @@ import { BOT_TOKEN, GUILD_ID } from "./config/config";
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Tablica testowych sojuszy z offsetem startowym w sekundach
+// Tablica testowych sojuszy z offsetem startowym w ms
 const alliances = [
   { tag: "CEL", name: "Behemoth Cells", id: "alliance-cel", startOffset: 0 },
   { tag: "TTR", name: "TurboTurtle", id: "alliance-ttr", startOffset: 1000 },
@@ -51,9 +51,10 @@ client.once("ready", async () => {
             role = await guild.roles.create({ name, color, reason: `Tworzenie roli dla ${alliance.name}` });
             logTime(`✅ Stworzono rolę: ${name}`);
           } else {
-            logTime(`Rola ${name} już istnieje`);
+            // ✨ Gate nie przerywa cyklu
+            logTime(`Rola ${name} już istnieje, kontynuujemy cykl`);
           }
-          createdRoles[name] = role;
+          createdRoles[name] = role!;
           await delay(3000);
         }
 
