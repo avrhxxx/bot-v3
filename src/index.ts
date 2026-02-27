@@ -9,7 +9,7 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 client.once("ready", async () => {
   console.log(`Bot zalogowany jako ${client.user?.tag}`);
 
-  // Pobieramy guild po ID
+  // Pobieramy guild z cache po ID
   const guild: Guild | undefined = client.guilds.cache.get(GUILD_ID);
   if (!guild) {
     console.log(`Nie znaleziono guilda o ID ${GUILD_ID}.`);
@@ -18,20 +18,21 @@ client.once("ready", async () => {
 
   try {
     // --------------------------
-    // 1️⃣ Tworzymy role dla sojuszu
+    // 1️⃣ Tworzymy role dla testowego sojuszu
     // --------------------------
-    // createRoles przyjmuje: guild, tag sojuszu, nazwa sojuszu
-    await RoleModule.createRoles(guild, "STB", "SojuszStub");
+    await RoleModule.createRoles(guild, "TsT", "TestAlliance");
 
     // --------------------------
-    // 2️⃣ Tworzymy szkielet kanałów sojuszu
+    // 2️⃣ Tworzymy szkielet kanałów testowego sojuszu
     // --------------------------
-    // createChannels przyjmuje: guild, unikalny allianceId, tag, nazwa sojuszu
-    await ChannelModule.createChannels(guild, "alliance-stub", "STB", "SojuszStub");
+    await ChannelModule.createChannels(guild, "test-alliance", "TsT", "TestAlliance");
 
-    console.log("Role i kanały (szkielet) zostały utworzone.");
+    console.log("Role i kanały (szkielet) dla TestAlliance zostały utworzone.");
   } catch (err) {
     console.error("Błąd podczas tworzenia ról/kanałów:", err);
+  } finally {
+    // Po testach można wylogować bota, żeby nie trzymać połączenia
+    setTimeout(() => client.destroy(), 5000);
   }
 });
 
