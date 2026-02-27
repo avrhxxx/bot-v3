@@ -1,13 +1,13 @@
 import { RulesModule } from "../rules/RulesModule";
 import { RoleModule } from "../role/RoleModule";
 import { BroadcastModule } from "../broadcast/BroadcastModule";
-import { AllianceService } from "../../../AllianceServices";
+import { AllianceOrkiestror } from "../../../orkiestror/AllianceOrkiestror";
 import { MutationGate, MutationOptions } from "../../../engine/MutationGate";
 
+/**
+ * Transferuje przywództwo sojuszu w sposób atomowy.
+ */
 export class TransferLeaderModule {
-  /**
-   * Transferuje przywództwo sojuszu w sposób atomowy.
-   */
   static async transferLeader(allianceId: string, newLeaderId: string): Promise<void> {
     const options: MutationOptions = {
       actor: newLeaderId,
@@ -18,17 +18,17 @@ export class TransferLeaderModule {
     };
 
     await MutationGate.execute(options, async () => {
-      // 1️⃣ Walidacja zmian lidera (asynchroniczna)
-      await RulesModule.validateLeaderChange(allianceId, newLeaderId);
+      // 1️⃣ Walidacja zmian lidera
+      RulesModule.validateLeaderChange(allianceId, newLeaderId);
 
-      // 2️⃣ Aktualizacja lidera w AllianceService
-      await AllianceService.transferLeader(allianceId, newLeaderId);
+      // 2️⃣ Aktualizacja lidera w AllianceOrkiestror (Memory + audyt)
+      await AllianceOrkiestror.transferLeader(allianceId, newLeaderId);
 
       // 3️⃣ Aktualizacja ról w Discord
-      await RoleModule.assignLeaderRole(allianceId, newLeaderId);
+      RoleModule.assignLeaderRole(allianceId, newLeaderId);
 
       // 4️⃣ Broadcast powiadomień
-      await BroadcastModule.notifyLeaderChange(allianceId, newLeaderId);
+      BroadcastModule.notifyLeaderChange(allianceId, newLeaderId);
     });
   }
 }
