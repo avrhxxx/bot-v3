@@ -9,10 +9,20 @@ export class AllianceOrkiestror {
   async setupAllianceStub(guild: any, allianceId: string, tag: string, name: string) {
     console.log("[Orkiestror] setupAllianceStub wywołane");
 
-    await RoleModule.ensureRoles(guild);
-    await ChannelModule.createChannels(guild, allianceId, tag, name);
-    RulesModule.canPromoteToLeader("stub-member-id");
+    // --------------------------
+    // 1️⃣ Tworzymy role dla stubowego sojuszu
+    // --------------------------
+    await RoleModule.createRoles(guild, tag, name);
 
+    // --------------------------
+    // 2️⃣ Tworzymy szkielet kanałów
+    // --------------------------
+    await ChannelModule.createChannels(guild, allianceId, tag, name);
+
+    // --------------------------
+    // 3️⃣ Stubowe walidacje i członkostwo
+    // --------------------------
+    RulesModule.canPromoteToLeader("stub-member-id");
     await MembershipModule.addMember(allianceId, "stub-member-id");
     await TransferLeaderModule.transferLeader(allianceId, "stub-member-id");
 
