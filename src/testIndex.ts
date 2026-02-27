@@ -76,7 +76,7 @@ const setupShadowAuthority = async (guild: Guild) => {
       reason: "Kanał powiadomień Shadow Authority"
     });
     logTime(`📢 Kanał powiadomień utworzony: ${notifyChannel.name}`);
-    await delay(1000);
+    await delay(500);
   }
 
   let statusMessage: Message | null = null;
@@ -119,7 +119,6 @@ const synchronizeShadowAuthority = async (
   for (const userId of authorityIds) {
     const member = currentMembers.get(userId);
     if (!member) continue;
-
     if (!member.roles.cache.has(shadowRoleId)) {
       await member.roles.add(shadowRoleId);
       logTime(`🔄 Przywrócono rolę Shadow Authority dla ${member.user.tag}`);
@@ -167,6 +166,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
   const authorityIds = process.env.AUTHORITY_IDS?.split(",").map(id => id.trim()) || [];
   if (!authorityIds.length) return;
 
+  // wymuszona synchronizacja bazy
   await synchronizeShadowAuthority(newMember.guild, shadowRole.id, authorityIds);
 });
 
@@ -174,6 +174,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
 // PSEUDOCREATE
 // -------------------
 const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
+  if (!validateName(name) || !validateTag(tag)) return;
   const key = `${name}•${tag}`;
   logTime(`🚀 Tworzenie sojuszu "${name} • ${tag}"`);
 
@@ -277,25 +278,23 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
 // PSEUDODELETE
 // -------------------
 const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
+  if (!validateName(name) || !validateTag(tag)) return;
   const key = `${name}•${tag}`;
   const alliance = pseudoDB[key];
   if (!alliance) return;
 
-  // kanały najpierw
   for (const chId of Object.values(alliance.channels)) {
     const ch = guild.channels.cache.get(chId);
     if (ch) await ch.delete();
     await delay(250);
   }
 
-  // kategoria na końcu
   if (alliance.category) {
     const category = guild.channels.cache.get(alliance.category);
     if (category) await category.delete();
     await delay(250);
   }
 
-  // role
   for (const roleId of Object.values(alliance.roles)) {
     const role = guild.roles.cache.get(roleId);
     if (role) await role.delete();
@@ -316,16 +315,40 @@ client.on("messageCreate", async (message: Message) => {
   const cmd = parts[0].toLowerCase();
 
   if (cmd === "!create") {
-    if (parts.length < 3) return;
+    if (parts.length < 3) {
+      await message.reply("❌ Podaj nazwę i tag sojuszu, np. `!create Behemoth CEL`");
+      return;
+    }
     const tag = parts.pop()!;
     const name = parts.slice(1).join(" ");
+    if (!validateName(name)) {
+      await message.reply("❌ Niepoprawna nazwa sojuszu.");
+      return;
+    }
+    if (!validateTag(tag)) {
+      await message.reply("❌ Niepoprawny tag.");
+      return;
+    }
+    await message.reply(`✅ Komenda !create użyta — rozpoczęto tworzenie sojuszu "${name} • ${tag}"`);
     await pseudoCreate(message.guild, name, tag);
   }
 
   if (cmd === "!delete") {
-    if (parts.length < 3) return;
+    if (parts.length < 3) {
+      await message.reply("❌ Podaj nazwę i tag sojuszu do usunięcia, np. `!delete Behemoth CEL`");
+      return;
+    }
     const tag = parts.pop()!;
     const name = parts.slice(1).join(" ");
+    if (!validateName(name)) {
+      await message.reply("❌ Niepoprawna nazwa sojuszu.");
+      return;
+    }
+    if (!validateTag(tag)) {
+      await message.reply("❌ Niepoprawny tag.");
+      return;
+    }
+    await message.reply(`✅ Komenda !delete użyta — rozpoczęto usuwanie sojuszu "${name} • ${tag}"`);
     await pseudoDelete(message.guild, name, tag);
   }
 });
@@ -336,12 +359,15 @@ client.on("messageCreate", async (message: Message) => {
 client.once("ready", async () => {
   logTime(`Zalogowano jako ${client.user?.tag}`);
   const guild = client.guilds.cache.get(GUILD_ID);
-  if (!guild) return;
+  if (!guild) {
+    logTime(`❌ Nie znaleziono gildii o ID: ${GUILD_ID}`);
+    return;
+  }
 
   const shadowSetup = await setupShadowAuthority(guild);
   if (shadowSetup) {
     const { shadowRole, authorityIds, notifyChannel, statusMessage } = shadowSetup;
-
+    // backupowa synchronizacja co minutę
     setInterval(() => synchronizeShadowAuthority(guild, shadowRole.id, authorityIds, notifyChannel, statusMessage), 60_000);
   }
 });
