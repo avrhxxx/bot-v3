@@ -18,11 +18,15 @@ client.once("ready", async () => {
 
   // Minimalne stuby - role i kanały
   try {
-    await RoleModule.ensureRoles(guild);          // tworzymy R5, R4, R3
-    await ChannelModule.createChannels(guild, "alliance-stub", "STB", "SojuszStub");
+    // Tworzymy podstawowe role: R5, R4, R3
+    await RoleModule.ensureRoles(guild);
+
+    // Tworzymy kategorię tylko z nazwą sojuszu i wszystkie standardowe kanały w środku
+    await ChannelModule.createChannels(guild, "alliance-stub");
+
     console.log("Role i kanały (szkielet) zostały utworzone.");
-  } catch (err) {
-    console.error("Błąd podczas tworzenia ról/kanałów:", err);
+  } catch (err: any) {
+    console.error("Błąd podczas tworzenia ról/kanałów:", err.message || err);
   }
 });
 
