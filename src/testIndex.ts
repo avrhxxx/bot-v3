@@ -40,12 +40,17 @@ const logTime = (msg: string) => {
 };
 
 // -------------------
+// WALIDACJA
+// -------------------
+const validateName = (name: string) => /^[A-Za-z ]{4,32}$/.test(name);
+const validateTag = (tag: string) => /^[A-Za-z0-9]{3}$/.test(tag);
+
+// -------------------
 // PSEUDOKOMENDA CREATE
 // -------------------
 const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
   logTime(`🚀 Pseudokomenda: Tworzenie sojuszu "${name}"`);
 
-  // 1️⃣ ROLE
   const rolesDef = [
     { name: `R5[${tag}]`, color: 0xff0000 },
     { name: `R4[${tag}]`, color: 0x0000ff },
@@ -69,7 +74,6 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     await delay(3000);
   }
 
-  // 2️⃣ KATEGORIA
   let category = guild.channels.cache.find(
     c => c.name === `${name} • ${tag}` && c.type === ChannelType.GuildCategory
   );
@@ -85,10 +89,8 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     pseudoDB.category = category.id;
     logTime(`⚠️ Kategoria już istnieje: ${name} • ${tag}`);
   }
-
   if (!category) return;
 
-  // 3️⃣ KANAŁY TEKSTOWE
   const textChannels = ["👋 welcome", "📢 announce", "💬 chat", "🛡 staff-room", "✋ join"];
   for (const nameCh of textChannels) {
     let ch = guild.channels.cache.find(c => c.name === nameCh && c.parentId === category!.id);
@@ -98,7 +100,6 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     } else {
       logTime(`⚠️ Text channel już istnieje: ${nameCh}`);
     }
-
     pseudoDB.channels[nameCh] = ch.id;
 
     const overwrites: OverwriteResolvable[] = [];
@@ -138,7 +139,6 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     await delay(2000);
   }
 
-  // 4️⃣ KANAŁY GŁOSOWE
   const voiceChannels = ["🎤 General VC","🎤 Staff VC"];
   for (const nameCh of voiceChannels) {
     let ch = guild.channels.cache.find(c => c.name === nameCh && c.parentId === category!.id);
@@ -148,7 +148,6 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     } else {
       logTime(`⚠️ Voice channel już istnieje: ${nameCh}`);
     }
-
     pseudoDB.channels[nameCh] = ch.id;
 
     const overwrites: OverwriteResolvable[] = [];
@@ -220,6 +219,17 @@ client.on("messageCreate", async (message: Message) => {
     }
     const tag = parts.pop()!;
     const name = parts.slice(1).join(" ");
+
+    // Walidacja
+    if (!validateName(name)) {
+      await message.reply("❌ Niepoprawna nazwa sojuszu. Dozwolone: A-Z, a-z, spacje, długość 4–32 znaki.");
+      return;
+    }
+    if (!validateTag(tag)) {
+      await message.reply("❌ Niepoprawny tag. Dozwolone: A-Z, a-z, 0-9, dokładnie 3 znaki.");
+      return;
+    }
+
     await message.reply(`✅ Komenda !create użyta — rozpoczęto tworzenie sojuszu "${name} • ${tag}" (testowo).`);
     await pseudoCreate(message.guild, name, tag);
   }
@@ -231,6 +241,17 @@ client.on("messageCreate", async (message: Message) => {
     }
     const tag = parts.pop()!;
     const name = parts.slice(1).join(" ");
+
+    // Walidacja
+    if (!validateName(name)) {
+      await message.reply("❌ Niepoprawna nazwa sojuszu. Dozwolone: A-Z, a-z, spacje, długość 4–32 znaki.");
+      return;
+    }
+    if (!validateTag(tag)) {
+      await message.reply("❌ Niepoprawny tag. Dozwolone: A-Z, a-z, 0-9, dokładnie 3 znaki.");
+      return;
+    }
+
     await message.reply(`✅ Komenda !delete użyta — rozpoczęto usuwanie sojuszu "${name} • ${tag}" (testowo).`);
     await pseudoDelete(message.guild, name, tag);
   }
