@@ -6,7 +6,9 @@ import {
   ChannelType,
   OverwriteResolvable,
   PermissionFlagsBits,
-  Role,
+  GuildTextChannel,
+  GuildVoiceChannel,
+  GuildCategoryChannel,
   Message
 } from "discord.js";
 import { BOT_TOKEN, GUILD_ID } from "./config/config";
@@ -74,9 +76,11 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     await delay(3000);
   }
 
+  // KATEGORIA
   let category = guild.channels.cache.find(
     c => c.name === `${name} • ${tag}` && c.type === ChannelType.GuildCategory
-  );
+  ) as GuildCategoryChannel | undefined;
+
   if (!category) {
     category = await guild.channels.create({
       name: `${name} • ${tag}`,
@@ -91,6 +95,7 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
   }
   if (!category) return;
 
+  // KANAŁY TEKSTOWE
   const textChannels = ["👋 welcome", "📢 announce", "💬 chat", "🛡 staff-room", "✋ join"];
   for (const nameCh of textChannels) {
     let ch = guild.channels.cache.find(c => c.name === nameCh && c.parentId === category!.id);
@@ -135,10 +140,13 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
         break;
     }
 
-    if (ch) await ch.permissionOverwrites.set(overwrites);
+    if (ch && ch.type === ChannelType.GuildText) {
+      await (ch as GuildTextChannel).permissionOverwrites.set(overwrites);
+    }
     await delay(2000);
   }
 
+  // KANAŁY GŁOSOWE
   const voiceChannels = ["🎤 General VC","🎤 Staff VC"];
   for (const nameCh of voiceChannels) {
     let ch = guild.channels.cache.find(c => c.name === nameCh && c.parentId === category!.id);
@@ -153,16 +161,15 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     const overwrites: OverwriteResolvable[] = [];
     overwrites.push({ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] });
 
-    if (nameCh === "🎤 Staff VC") ["R4","R5"].forEach(r => {
-      const roleId = pseudoDB.roles[`${r}[${tag}]`];
-      if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] });
-    });
-    if (nameCh === "🎤 General VC") ["R3","R4","R5"].forEach(r => {
+    const allowedRoles = nameCh === "🎤 Staff VC" ? ["R4","R5"] : ["R3","R4","R5"];
+    allowedRoles.forEach(r => {
       const roleId = pseudoDB.roles[`${r}[${tag}]`];
       if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] });
     });
 
-    if (ch) await ch.permissionOverwrites.set(overwrites);
+    if (ch && ch.type === ChannelType.GuildVoice) {
+      await (ch as GuildVoiceChannel).permissionOverwrites.set(overwrites);
+    }
     await delay(2000);
   }
 
@@ -220,7 +227,6 @@ client.on("messageCreate", async (message: Message) => {
     const tag = parts.pop()!;
     const name = parts.slice(1).join(" ");
 
-    // Walidacja
     if (!validateName(name)) {
       await message.reply("❌ Niepoprawna nazwa sojuszu. Dozwolone: A-Z, a-z, spacje, długość 4–32 znaki.");
       return;
@@ -242,7 +248,6 @@ client.on("messageCreate", async (message: Message) => {
     const tag = parts.pop()!;
     const name = parts.slice(1).join(" ");
 
-    // Walidacja
     if (!validateName(name)) {
       await message.reply("❌ Niepoprawna nazwa sojuszu. Dozwolone: A-Z, a-z, spacje, długość 4–32 znaki.");
       return;
