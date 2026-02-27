@@ -1,44 +1,28 @@
-import path from "path";
-import { performance } from "perf_hooks";
+import "dotenv/config";
+import { Client, GatewayIntentBits } from "discord.js";
+import { RoleModule } from "./orkiestror/RoleModule";
+import { ChannelModule } from "./modules/channel/ChannelModule";
 
-import { startDiscord } from "./discord/client";
+const token = process.env.BOT_TOKEN; // lepiej BOT_TOKEN
+const guildId = process.env.GUILD_ID;
+if (!token) throw new Error("Brak BOT_TOKEN w env");
+if (!guildId) throw new Error("Brak GUILD_ID w env");
 
-class AllianceRepo {
-  static getAll() { return []; }
-}
-class SnapshotRepo {
-  static get(id: string) { return undefined; }
-}
-class Ownership {
-  static initFromEnv() {}
-  static syncRoles(client: any) { return Promise.resolve(); }
-}
-class CommandLoader {
-  static async loadAllCommands() {}
-}
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 
-async function bootstrap() {
-  console.log("System booting...");
+client.once("ready", async () => {
+  console.log(`Bot zalogowany jako ${client.user?.tag}`);
 
-  const alliances = AllianceRepo.getAll();
-  for (const alliance of alliances) {
-    const existing = SnapshotRepo.get(alliance.id);
-    if (!existing) {}
-  }
+  const guild = client.guilds.cache.get(guildId);
+  if (!guild) return console.error("Nie znaleziono guilda o podanym ID");
 
-  await CommandLoader.loadAllCommands();
-  console.log("All commands loaded successfully.");
+  // Tworzymy role
+  await RoleModule.ensureRoles(guild);
 
-  const client = await startDiscord();
-  console.log("Discord client started.");
+  // Tworzymy kategorię i kanały sojuszu
+  await ChannelModule.setupAllianceChannels(guild, "sojusz1");
 
-  await Ownership.syncRoles(client);
-  console.log("Shadow Authority roles synchronized.");
-
-  console.log("System boot completed. Discord client running.");
-}
-
-bootstrap().catch(err => {
-  console.error("Fatal boot error:", err);
-  process.exit(1);
+  console.log("Setup ról i kanałów zakończony.");
 });
+
+client.login(token);
