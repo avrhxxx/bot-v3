@@ -139,7 +139,7 @@ export class AllianceService {
 
     // kanały
     for (const [channelName, channelId] of Object.entries(allianceDB.channels)) {
-      if (!channelName.includes(tag) && !channelName.includes(name)) continue;
+      if (!channelName.includes(tag) || !channelName.includes(name)) continue; // ✅ OR zamiast AND
       const ch = guild.channels.cache.get(channelId);
       if (ch) await ch.delete();
       delete allianceDB.channels[channelName];
@@ -150,7 +150,7 @@ export class AllianceService {
     // kategoria
     if (allianceDB.category) {
       const category = guild.channels.cache.get(allianceDB.category);
-      if (category?.name.includes(name) && category.name.includes(tag)) {
+      if (category && category.name.includes(name) && category.name.includes(tag)) {
         await category.delete();
         allianceDB.category = undefined;
         await delay(500);
@@ -160,7 +160,7 @@ export class AllianceService {
 
     // role
     for (const [roleName, roleId] of Object.entries(allianceDB.roles)) {
-      if (!roleName.includes(tag) && !roleName.includes(name)) continue;
+      if (!roleName.includes(tag) || !roleName.includes(name)) continue; // ✅ OR zamiast AND
       const role = guild.roles.cache.get(roleId);
       if (role) await role.delete();
       delete allianceDB.roles[roleName];
