@@ -16,9 +16,10 @@ import { BOT_TOKEN, GUILD_ID } from "./config/config";
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // -------------------
-// PSEUDOBAZA (multi-alliance)
+// PSEUDOBAZA (multi-alliance + shadow authority)
 // -------------------
 const pseudoDB: Record<string, { roles: Record<string, string>; category?: string; channels: Record<string, string> }> = {};
+const shadowDB: Record<string, string[]> = {}; // userId[] dla Shadow Authority
 
 // -------------------
 // CLIENT
@@ -89,17 +90,19 @@ const setupShadowAuthority = async (guild: Guild) => {
     } else {
       logTime(`⚠️ Użytkownik ${member.user.tag} już ma rolę Shadow Authority`);
     }
+
+    if (!shadowDB[shadowRole.id]) shadowDB[shadowRole.id] = [];
+    if (!shadowDB[shadowRole.id].includes(userId)) shadowDB[shadowRole.id].push(userId);
   }
 
   return { shadowRole, authorityIds, notifyChannel };
 };
 
 // -------------------
-// CYKL SYNCHRONIZACJI SHADOW AUTHORITY
+// CYKL SYNCHRONIZACJI SHADOW AUTHORITY (rekurencyjny z delay 2s)
 // -------------------
 const startShadowAuthoritySync = async (guild: Guild, shadowRoleId: string, authorityIds: string[], notifyChannel?: GuildBasedChannel) => {
-  const syncInterval = 15000; // 15 sekund
-  setInterval(async () => {
+  const syncCycle = async () => {
     logTime("🔄 Rozpoczynam cykl synchronizacji Shadow Authority...");
 
     if (notifyChannel) {
@@ -127,7 +130,7 @@ const startShadowAuthoritySync = async (guild: Guild, shadowRoleId: string, auth
             .setColor(0x800080);
           // @ts-ignore
           await notifyChannel.send({ embeds: [embedUpdate] });
-          await delay(1000); // krótki interwał
+          await delay(1000);
         }
       }
     }
@@ -141,7 +144,12 @@ const startShadowAuthoritySync = async (guild: Guild, shadowRoleId: string, auth
       // @ts-ignore
       await notifyChannel.send({ embeds: [embedEnd] });
     }
-  }, syncInterval);
+
+    await delay(2000); // 2 sekundy delay przed kolejnym cyklem
+    syncCycle(); // wywołanie rekursywne
+  };
+
+  syncCycle();
 };
 
 // -------------------
