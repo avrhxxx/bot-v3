@@ -9,6 +9,7 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 client.once("ready", async () => {
   console.log(`Bot zalogowany jako ${client.user?.tag}`);
 
+  // Pobieramy guild z cache po ID
   const guild: Guild | undefined = client.guilds.cache.get(GUILD_ID);
   if (!guild) {
     console.log(`Nie znaleziono guilda o ID ${GUILD_ID}.`);
@@ -16,10 +17,14 @@ client.once("ready", async () => {
   }
 
   try {
-    // Tworzymy role R5/R4/R3
-    await RoleModule.ensureRoles(guild);
+    // --------------------------
+    // 1️⃣ Tworzymy role dla sojuszu
+    // --------------------------
+    await RoleModule.createRoles(guild, "STB", "SojuszStub");
 
-    // Tworzymy kategorię + kanały sojuszu (szkielet)
+    // --------------------------
+    // 2️⃣ Tworzymy szkielet kanałów sojuszu
+    // --------------------------
     await ChannelModule.createChannels(guild, "alliance-stub", "STB", "SojuszStub");
 
     console.log("Role i kanały (szkielet) zostały utworzone.");
