@@ -3,10 +3,10 @@
   "version": "3.0.0-beta",
   "main": "dist/index.js",
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc",
     "start": "node dist/index.js",
-    "build:test": "rm -rf dist_test && tsc -p tsconfig.test.json",
-    "start:test": "node dist_test/testIndex.js",
+    "build:test": "tsc -p tsconfig.test.json",
+    "start:test": "ts-node src/testIndex.ts",
     "dev": "tsc --watch"
   },
   "dependencies": {
