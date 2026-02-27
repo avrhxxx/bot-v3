@@ -1,31 +1,24 @@
 // src/data/Database.ts
-
-// Minimal domain types (temporary clean-build stubs)
-
-type Alliance = {
+export interface Alliance {
   id: string;
-};
+  name: string;
+  members: string[];
+  leader?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
 
-type OwnershipRecord = {
-  userId: string;
-};
+export interface AllianceAudit {
+  allianceId: string;
+  action: string;
+  actor: string;
+  timestamp: Date;
+  details?: Record<string, any>;
+}
 
-type JournalEntry = {
-  id: string;
-  timestamp: number;
-};
-
-/**
- * Central in-memory database for Bot-V3
- */
 export class Database {
   public alliances: Map<string, Alliance> = new Map();
-
-  public ownership: Map<string, OwnershipRecord> = new Map();
-
-  public pendingDeletions: Map<string, Alliance> = new Map();
-
-  public journal: Map<string, JournalEntry> = new Map();
+  public audits: AllianceAudit[] = [];
 }
 
 export const db = new Database();
