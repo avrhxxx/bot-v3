@@ -2,15 +2,12 @@
 import { Client, GatewayIntentBits, Guild } from "discord.js";
 import { BOT_TOKEN, GUILD_ID } from "./config/config";
 
-// Funkcja delay w ms
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Testowy sojusz
 const TEST_ALLIANCE_TAG = "TsT";
 const TEST_ALLIANCE_NAME = "TestAlliance";
 const TEST_ALLIANCE_ID = "alliance-test";
 
-// Tworzymy klienta Discord
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.once("ready", async () => {
@@ -22,22 +19,18 @@ client.once("ready", async () => {
     return;
   }
 
-  try {
-    console.log("🚀 Rozpoczynamy tworzenie testowego sojuszu...");
-
-    // --------------------------
-    // 1️⃣ Tworzenie ról
-    // --------------------------
-    const roles = [
+  // Funkcja tworząca testowy sojusz
+  const createAlliance = async () => {
+    console.log("🚀 Tworzenie testowego sojuszu...");
+    const rolesConfig = [
       { name: `R5[${TEST_ALLIANCE_TAG}]`, color: "#FF0000" },
       { name: `R4[${TEST_ALLIANCE_TAG}]`, color: "#0000FF" },
       { name: `R3[${TEST_ALLIANCE_TAG}]`, color: "#00FF00" },
-      { name: TEST_ALLIANCE_NAME, color: "#FFFF00" } // rola tożsamościowa
+      { name: TEST_ALLIANCE_NAME, color: "#FFFF00" }
     ];
 
     const createdRoles: Record<string, any> = {};
-
-    for (const { name, color } of roles) {
+    for (const { name, color } of rolesConfig) {
       let role = guild.roles.cache.find(r => r.name === name);
       if (!role) {
         role = await guild.roles.create({ name, color, reason: `Tworzenie roli dla ${TEST_ALLIANCE_NAME}` });
@@ -46,13 +39,10 @@ client.once("ready", async () => {
         console.log(`Rola ${name} już istnieje`);
       }
       createdRoles[name] = role;
-      await delay(3000); // 3 sekundy między rolami
+      await delay(3000);
     }
 
-    // --------------------------
-    // 2️⃣ Tworzenie kategorii
-    // --------------------------
-    let category = guild.channels.cache.find(c => c.name === TEST_ALLIANCE_NAME && c.type === 4); // 4 = CategoryChannel
+    let category = guild.channels.cache.find(c => c.name === TEST_ALLIANCE_NAME && c.type === 4);
     if (!category) {
       category = await guild.channels.create({ name: TEST_ALLIANCE_NAME, type: 4 });
       console.log(`✅ Stworzono kategorię: ${TEST_ALLIANCE_NAME}`);
@@ -60,11 +50,8 @@ client.once("ready", async () => {
       console.log(`Kategoria ${TEST_ALLIANCE_NAME} już istnieje`);
     }
 
-    await delay(5000); // 5 sekund pauzy przed kanałami
+    await delay(5000);
 
-    // --------------------------
-    // 3️⃣ Tworzenie i ustawianie kanałów z permisjami
-    // --------------------------
     const everyoneRole = guild.roles.everyone;
 
     const textChannels = [
@@ -72,19 +59,17 @@ client.once("ready", async () => {
       { name: "📢 announce", roles: ["R3", "R4", "R5"], writeRoles: [] },
       { name: "💬 chat", roles: ["R3", "R4", "R5"], writeRoles: ["R3", "R4", "R5"] },
       { name: "🛡 staff-room", roles: ["R4", "R5"], writeRoles: ["R4", "R5"] },
-      { name: "✋ join", roles: [], writeRoles: [] } // widoczny dla wszystkich, nie dla sojuszników
+      { name: "✋ join", roles: [], writeRoles: [] }
     ];
 
     for (const ch of textChannels) {
       let channel = guild.channels.cache.find(c => c.name === ch.name && c.parentId === category.id);
       if (!channel) {
-        channel = await guild.channels.create({ name: ch.name, type: 0, parent: category.id }); // 0 = GuildText
+        channel = await guild.channels.create({ name: ch.name, type: 0, parent: category.id });
         console.log(`✅ Stworzono kanał tekstowy: ${ch.name}`);
       }
 
-      // ---- Ustawienie permisji ----
       const overwrites = [];
-
       if (ch.roles.length > 0) {
         overwrites.push({ id: everyoneRole.id, deny: ["ViewChannel"] });
         for (const r of ch.roles) {
@@ -98,10 +83,10 @@ client.once("ready", async () => {
 
       if (overwrites.length > 0) {
         await channel.permissionOverwrites.set(overwrites);
-        await delay(2000); // 2 sekundy między ustawianiem permisji
+        await delay(2000);
       }
 
-      await delay(4000); // 4 sekundy między kanałami
+      await delay(4000);
     }
 
     const voiceChannels = [
@@ -112,26 +97,33 @@ client.once("ready", async () => {
     for (const ch of voiceChannels) {
       let channel = guild.channels.cache.find(c => c.name === ch.name && c.parentId === category.id);
       if (!channel) {
-        channel = await guild.channels.create({ name: ch.name, type: 2, parent: category.id }); // 2 = GuildVoice
+        channel = await guild.channels.create({ name: ch.name, type: 2, parent: category.id });
         console.log(`✅ Stworzono kanał głosowy: ${ch.name}`);
       }
 
-      // ---- Ustawienie permisji ----
       const overwrites = [{ id: everyoneRole.id, deny: ["ViewChannel"] }];
       for (const r of ch.roles) {
         overwrites.push({ id: createdRoles[`R${r}[${TEST_ALLIANCE_TAG}]`].id, allow: ["ViewChannel", "Connect"] });
       }
 
       await channel.permissionOverwrites.set(overwrites);
-      await delay(2000); // 2 sekundy między ustawianiem permisji
-
-      await delay(4000); // 4 sekundy między kanałami
+      await delay(2000);
+      await delay(4000);
     }
 
-    console.log("🎉 Testowy sojusz został w pełni utworzony w trybie krokowym z permisjami!");
-  } catch (err) {
-    console.error("❌ Błąd podczas tworzenia testowego sojuszu:", err);
-  }
+    console.log("🎉 Testowy sojusz gotowy w tym cyklu!");
+  };
+
+  // --------------------------
+  // Uruchamiamy cykl co 10 sekund
+  // --------------------------
+  setInterval(async () => {
+    try {
+      await createAlliance();
+    } catch (err) {
+      console.error("❌ Błąd w cyklu tworzenia sojuszu:", err);
+    }
+  }, 10000); // co 10 sekund nowy cykl
 });
 
 // Logowanie bota
