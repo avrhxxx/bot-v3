@@ -1,23 +1,72 @@
-import { AllianceOrkiestror } from './orkiestror/AllianceOrkiestror';
-import { RulesModule } from './modules/rules/RulesModule';
-import { TransferLeaderModule } from './modules/transferleader/TransferLeaderModule';
-import { RoleModule } from './modules/role/RoleModule';
-import { MembershipModule } from './modules/membership/MembershipModule';
+// src/index.ts
+import { Client, GatewayIntentBits } from "discord.js";
+import { AllianceOrkiestror } from "./orkiestror/AllianceOrkiestror";
+import { AliasIntegrity } from "./integrity/AliasIntegrity";
+import { MutationGate } from "./engine/MutationGate";
+import { RoleModule } from "./modules/role/RoleModule";
+import { ChannelModule } from "./modules/channel/ChannelModule";
+import { BroadcastModule } from "./modules/broadcast/BroadcastModule";
+import { RulesModule } from "./modules/rules/RulesModule";
 
-// Tworzenie sojuszu
-const alliance = AllianceOrkiestror.createAlliance('alliance1');
+const BOT_TOKEN = process.env.BOT_TOKEN || "";
 
-// Dodawanie członka
-MembershipModule.addMember('member1', 'alliance1', 'admin1');
+async function bootstrap() {
+  console.log("[Bootstrap] System booting...");
 
-// Przypisywanie ról
-RoleModule.assignMemberRoles('member1', 'alliance1', 'admin1');
+  // Discord client
+  const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 
-// Przeniesienie lidera
-TransferLeaderModule.transferLeader('alliance1', 'member1', 'admin1', 'auto-promotion');
+  client.once("clientReady", async () => {
+    console.log("[Bootstrap] Discord client started.");
 
-// Walidacja
-RulesModule.validateJoin('member1', 'alliance1');
-RulesModule.validateLeaderChange('member1', 'alliance1');
+    // --- Initialize alliances ---
+    console.log("[Bootstrap] Initializing alliances...");
 
-console.log('System boot completed successfully.');
+    const defaultAlliance = "alliance1";
+    const defaultMember = "member1";
+
+    // Auto-create alliance if it doesn't exist
+    if (!AllianceOrkiestror.findAlliance(defaultAlliance)) {
+      console.log(`[AllianceService] Auto-creating alliance ${defaultAlliance}`);
+      AllianceOrkiestror.createAlliance(defaultAlliance, "AutoCreated Alliance");
+    }
+
+    // Add member
+    AllianceOrkiestror.getAlliance(defaultAlliance).addMember(defaultMember);
+
+    // Assign roles
+    MutationGate.execute("ASSIGN_MEMBER_ROLES", { allianceId: defaultAlliance, memberId: defaultMember });
+    RoleModule.assignMemberRoles(defaultMember, defaultAlliance);
+
+    // Create or get channel
+    ChannelModule.getAllianceChannel(defaultAlliance);
+
+    // Broadcast join
+    BroadcastModule.notifyJoin(defaultMember, defaultAlliance);
+
+    // Transfer leadership
+    MutationGate.execute("TRANSFER_LEADER", { allianceId: defaultAlliance, memberId: defaultMember });
+    AllianceOrkiestror.getAlliance(defaultAlliance).transferLeader(defaultMember);
+
+    // Validate leader
+    RulesModule.validateLeaderChange(defaultMember, defaultAlliance);
+
+    // Assign leader roles
+    MutationGate.execute("ASSIGN_LEADER_ROLE", { allianceId: defaultAlliance, memberId: defaultMember });
+    RoleModule.assignLeaderRole(defaultMember, defaultAlliance);
+
+    BroadcastModule.notifyLeaderChange(defaultMember, defaultAlliance);
+
+    // Integrity check
+    console.log("[Bootstrap] Checking integrity...");
+    AliasIntegrity.checkAlliance(defaultAlliance);
+
+    console.log("[Bootstrap] System boot completed. Discord client running.");
+  });
+
+  client.login(BOT_TOKEN).catch(console.error);
+
+  console.log("[Bootstrap] Keeping process alive...");
+}
+
+bootstrap();
