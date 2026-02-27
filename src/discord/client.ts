@@ -1,19 +1,12 @@
-import { client } from "../../discord/client";
-import { Guild, GuildMember, Role } from "discord.js";
+// src/discord/client.ts
+import { Client, GatewayIntentBits } from "discord.js";
 
-export class RoleModule {
-  static async ensureRoles(guild: Guild) {
-    const roles = ["R5", "R4", "R3"];
-    for (const roleName of roles) {
-      let role = guild.roles.cache.find(r => r.name === roleName);
-      if (!role) {
-        role = await guild.roles.create({
-          name: roleName,
-          color: roleName === "R5" ? "Red" : roleName === "R4" ? "Blue" : "Green",
-          reason: "Automatyczne tworzenie ról sojuszu"
-        });
-        console.log(`Stworzono rolę ${role.name}`);
-      }
-    }
-  }
-}
+export const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
+});
+
+client.once("ready", () => {
+  console.log(`Zalogowano jako ${client.user?.tag}`);
+});
+
+client.login(process.env.BOT_TOKEN);
