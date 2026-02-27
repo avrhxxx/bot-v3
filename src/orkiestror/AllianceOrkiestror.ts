@@ -1,13 +1,17 @@
-export class AllianceOrkiestror {
-    private static alliances: Record<string, any> = {};
+export interface Alliance {
+    id: string;
+    members: string[];
+    leaderId?: string;
+}
 
-    // metoda do pobierania istniejącej lub null
-    static getAlliance(allianceId: string) {
+export class AllianceOrkiestror {
+    private static alliances: Record<string, Alliance> = {};
+
+    static getAlliance(allianceId: string): Alliance | null {
         return this.alliances[allianceId] || null;
     }
 
-    // metoda do tworzenia/alliance jeśli nie istnieje
-    static createAlliance(allianceId: string) {
+    static createAlliance(allianceId: string): Alliance {
         if (!this.alliances[allianceId]) {
             this.alliances[allianceId] = { id: allianceId, members: [] };
         }
