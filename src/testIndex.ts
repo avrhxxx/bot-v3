@@ -1,5 +1,5 @@
 // src/testIndex.ts
-import { Client, GatewayIntentBits, Guild, PermissionFlagsBits, OverwriteType } from "discord.js";
+import { Client, GatewayIntentBits, Guild } from "discord.js";
 import { BOT_TOKEN, GUILD_ID } from "./config/config";
 
 // Funkcja delay w ms
@@ -28,16 +28,16 @@ client.once("ready", async () => {
     // --------------------------
     // 1️⃣ Tworzenie ról
     // --------------------------
-    const rolesData = [
-      { name: `R5[${TEST_ALLIANCE_TAG}]`, color: "#FF0000" }, // czerwony
-      { name: `R4[${TEST_ALLIANCE_TAG}]`, color: "#0000FF" }, // niebieski
-      { name: `R3[${TEST_ALLIANCE_TAG}]`, color: "#00FF00" }, // zielony
+    const roles = [
+      { name: `R5[${TEST_ALLIANCE_TAG}]`, color: "#FF0000" },
+      { name: `R4[${TEST_ALLIANCE_TAG}]`, color: "#0000FF" },
+      { name: `R3[${TEST_ALLIANCE_TAG}]`, color: "#00FF00" },
       { name: TEST_ALLIANCE_NAME, color: "#FFFF00" } // rola tożsamościowa
     ];
 
-    const createdRoles: Record<string, string> = {};
+    const createdRoles: Record<string, any> = {};
 
-    for (const { name, color } of rolesData) {
+    for (const { name, color } of roles) {
       let role = guild.roles.cache.find(r => r.name === name);
       if (!role) {
         role = await guild.roles.create({ name, color, reason: `Tworzenie roli dla ${TEST_ALLIANCE_NAME}` });
@@ -45,14 +45,14 @@ client.once("ready", async () => {
       } else {
         console.log(`Rola ${name} już istnieje`);
       }
-      createdRoles[name] = role.id;
+      createdRoles[name] = role;
       await delay(3000); // 3 sekundy między rolami
     }
 
     // --------------------------
     // 2️⃣ Tworzenie kategorii
     // --------------------------
-    let category = guild.channels.cache.find(c => c.name === TEST_ALLIANCE_NAME && c.type === 4);
+    let category = guild.channels.cache.find(c => c.name === TEST_ALLIANCE_NAME && c.type === 4); // 4 = CategoryChannel
     if (!category) {
       category = await guild.channels.create({ name: TEST_ALLIANCE_NAME, type: 4 });
       console.log(`✅ Stworzono kategorię: ${TEST_ALLIANCE_NAME}`);
@@ -60,70 +60,75 @@ client.once("ready", async () => {
       console.log(`Kategoria ${TEST_ALLIANCE_NAME} już istnieje`);
     }
 
-    await delay(5000); // 5 sekund przed startem kanałów
+    await delay(5000); // 5 sekund pauzy przed kanałami
 
     // --------------------------
-    // 3️⃣ Tworzenie kanałów tekstowych i głosowych
+    // 3️⃣ Tworzenie i ustawianie kanałów z permisjami
     // --------------------------
+    const everyoneRole = guild.roles.everyone;
+
     const textChannels = [
-      { name: "👋 welcome", perms: [createdRoles[`R5[${TEST_ALLIANCE_TAG}]`], createdRoles[`R4[${TEST_ALLIANCE_TAG}]`], createdRoles[`R3[${TEST_ALLIANCE_TAG}]`]], botWriteOnly: true },
-      { name: "📢 announce", perms: [createdRoles[`R5[${TEST_ALLIANCE_TAG}]`], createdRoles[`R4[${TEST_ALLIANCE_TAG}]`], createdRoles[`R3[${TEST_ALLIANCE_TAG}]`]], botWriteOnly: true },
-      { name: "💬 chat", perms: [createdRoles[`R5[${TEST_ALLIANCE_TAG}]`], createdRoles[`R4[${TEST_ALLIANCE_TAG}]`], createdRoles[`R3[${TEST_ALLIANCE_TAG}]`]] },
-      { name: "🛡 staff-room", perms: [createdRoles[`R5[${TEST_ALLIANCE_TAG}]`], createdRoles[`R4[${TEST_ALLIANCE_TAG}]`]] },
-      { name: "✋ join", perms: [] } // widoczny dla wszystkich poza R3/R4/R5
+      { name: "👋 welcome", roles: ["R3", "R4", "R5"], writeRoles: [] },
+      { name: "📢 announce", roles: ["R3", "R4", "R5"], writeRoles: [] },
+      { name: "💬 chat", roles: ["R3", "R4", "R5"], writeRoles: ["R3", "R4", "R5"] },
+      { name: "🛡 staff-room", roles: ["R4", "R5"], writeRoles: ["R4", "R5"] },
+      { name: "✋ join", roles: [], writeRoles: [] } // widoczny dla wszystkich, nie dla sojuszników
     ];
 
-    for (const { name, perms, botWriteOnly } of textChannels) {
-      let ch = guild.channels.cache.find(c => c.name === name && c.parentId === category.id);
-      if (!ch) {
-        ch = await guild.channels.create({ name, type: 0, parent: category.id });
-        console.log(`✅ Stworzono kanał tekstowy: ${name}`);
-      } else {
-        console.log(`Kanał tekstowy ${name} już istnieje`);
+    for (const ch of textChannels) {
+      let channel = guild.channels.cache.find(c => c.name === ch.name && c.parentId === category.id);
+      if (!channel) {
+        channel = await guild.channels.create({ name: ch.name, type: 0, parent: category.id }); // 0 = GuildText
+        console.log(`✅ Stworzono kanał tekstowy: ${ch.name}`);
       }
 
-      // --------------------------
-      // 4️⃣ Ustawienie permisji
-      // --------------------------
-      for (const roleId of perms) {
-        await ch.permissionOverwrites.edit(roleId, { ViewChannel: true, SendMessages: !botWriteOnly });
-      }
-      // bot zawsze może pisać
-      await ch.permissionOverwrites.edit(client.user!.id, { ViewChannel: true, SendMessages: true });
-      // ukryj dla wszystkich pozostałych
-      await ch.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: perms.length > 0 ? false : true, SendMessages: false });
+      // ---- Ustawienie permisji ----
+      const overwrites = [];
 
-      await delay(2000); // 2 sekundy między ustawieniem permisji
+      if (ch.roles.length > 0) {
+        overwrites.push({ id: everyoneRole.id, deny: ["ViewChannel"] });
+        for (const r of ch.roles) {
+          overwrites.push({ id: createdRoles[`R${r}[${TEST_ALLIANCE_TAG}]`].id, allow: ["ViewChannel"] });
+        }
+      }
+
+      for (const r of ch.writeRoles) {
+        overwrites.push({ id: createdRoles[`R${r}[${TEST_ALLIANCE_TAG}]`].id, allow: ["SendMessages"] });
+      }
+
+      if (overwrites.length > 0) {
+        await channel.permissionOverwrites.set(overwrites);
+        await delay(2000); // 2 sekundy między ustawianiem permisji
+      }
+
       await delay(4000); // 4 sekundy między kanałami
     }
 
     const voiceChannels = [
-      { name: "🎤 General VC", perms: [createdRoles[`R5[${TEST_ALLIANCE_TAG}]`], createdRoles[`R4[${TEST_ALLIANCE_TAG}]`], createdRoles[`R3[${TEST_ALLIANCE_TAG}]`]] },
-      { name: "🎤 Staff VC", perms: [createdRoles[`R5[${TEST_ALLIANCE_TAG}]`], createdRoles[`R4[${TEST_ALLIANCE_TAG}]`]] }
+      { name: "🎤 General VC", roles: ["R3", "R4", "R5"] },
+      { name: "🎤 Staff VC", roles: ["R4", "R5"] }
     ];
 
-    for (const { name, perms } of voiceChannels) {
-      let ch = guild.channels.cache.find(c => c.name === name && c.parentId === category.id);
-      if (!ch) {
-        ch = await guild.channels.create({ name, type: 2, parent: category.id });
-        console.log(`✅ Stworzono kanał głosowy: ${name}`);
-      } else {
-        console.log(`Kanał głosowy ${name} już istnieje`);
+    for (const ch of voiceChannels) {
+      let channel = guild.channels.cache.find(c => c.name === ch.name && c.parentId === category.id);
+      if (!channel) {
+        channel = await guild.channels.create({ name: ch.name, type: 2, parent: category.id }); // 2 = GuildVoice
+        console.log(`✅ Stworzono kanał głosowy: ${ch.name}`);
       }
 
-      for (const roleId of perms) {
-        await ch.permissionOverwrites.edit(roleId, { ViewChannel: true, Connect: true, Speak: true });
+      // ---- Ustawienie permisji ----
+      const overwrites = [{ id: everyoneRole.id, deny: ["ViewChannel"] }];
+      for (const r of ch.roles) {
+        overwrites.push({ id: createdRoles[`R${r}[${TEST_ALLIANCE_TAG}]`].id, allow: ["ViewChannel", "Connect"] });
       }
-      // bot też może wejść
-      await ch.permissionOverwrites.edit(client.user!.id, { ViewChannel: true, Connect: true, Speak: true });
-      // ukryj dla everyone
-      await ch.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false });
 
-      await delay(2000); // 2 sekundy między ustawieniem permisji
+      await channel.permissionOverwrites.set(overwrites);
+      await delay(2000); // 2 sekundy między ustawianiem permisji
+
       await delay(4000); // 4 sekundy między kanałami
     }
 
-    console.log("🎉 Testowy sojusz został w pełni utworzony z rolami, kanałami i permisjami!");
+    console.log("🎉 Testowy sojusz został w pełni utworzony w trybie krokowym z permisjami!");
   } catch (err) {
     console.error("❌ Błąd podczas tworzenia testowego sojuszu:", err);
   }
