@@ -14,14 +14,11 @@ client.once("ready", async () => {
   console.log(`Testowy bot zalogowany jako ${client.user?.tag}`);
 
   const guild: Guild | undefined = client.guilds.cache.get(GUILD_ID);
-  if (!guild) {
-    console.log(`Nie znaleziono guilda o ID ${GUILD_ID}.`);
-    return;
-  }
+  if (!guild) return console.log(`Nie znaleziono guilda o ID ${GUILD_ID}.`);
 
-  // Funkcja tworząca testowy sojusz
   const createAlliance = async () => {
     console.log("🚀 Tworzenie testowego sojuszu...");
+
     const rolesConfig = [
       { name: `R5[${TEST_ALLIANCE_TAG}]`, color: "#FF0000" },
       { name: `R4[${TEST_ALLIANCE_TAG}]`, color: "#0000FF" },
@@ -46,8 +43,6 @@ client.once("ready", async () => {
     if (!category) {
       category = await guild.channels.create({ name: TEST_ALLIANCE_NAME, type: 4 });
       console.log(`✅ Stworzono kategorię: ${TEST_ALLIANCE_NAME}`);
-    } else {
-      console.log(`Kategoria ${TEST_ALLIANCE_NAME} już istnieje`);
     }
 
     await delay(5000);
@@ -63,9 +58,9 @@ client.once("ready", async () => {
     ];
 
     for (const ch of textChannels) {
-      let channel = guild.channels.cache.find(c => c.name === ch.name && c.parentId === category.id);
+      let channel = guild.channels.cache.find(c => c.name === ch.name && c.parentId === category!.id);
       if (!channel) {
-        channel = await guild.channels.create({ name: ch.name, type: 0, parent: category.id });
+        channel = await guild.channels.create({ name: ch.name, type: 0, parent: category!.id });
         console.log(`✅ Stworzono kanał tekstowy: ${ch.name}`);
       }
 
@@ -95,9 +90,9 @@ client.once("ready", async () => {
     ];
 
     for (const ch of voiceChannels) {
-      let channel = guild.channels.cache.find(c => c.name === ch.name && c.parentId === category.id);
+      let channel = guild.channels.cache.find(c => c.name === ch.name && c.parentId === category!.id);
       if (!channel) {
-        channel = await guild.channels.create({ name: ch.name, type: 2, parent: category.id });
+        channel = await guild.channels.create({ name: ch.name, type: 2, parent: category!.id });
         console.log(`✅ Stworzono kanał głosowy: ${ch.name}`);
       }
 
@@ -111,22 +106,44 @@ client.once("ready", async () => {
       await delay(4000);
     }
 
-    console.log("🎉 Testowy sojusz gotowy w tym cyklu!");
+    console.log("🎉 Testowy sojusz gotowy!");
+  };
+
+  const deleteAlliance = async () => {
+    console.log("🗑️ Usuwanie testowego sojuszu...");
+    // Usuwanie kanałów
+    const category = guild.channels.cache.find(c => c.name === TEST_ALLIANCE_NAME && c.type === 4);
+    if (category) {
+      for (const ch of guild.channels.cache.filter(c => c.parentId === category.id).values()) {
+        await ch.delete().catch(() => {});
+        await delay(4000);
+      }
+      await category.delete().catch(() => {});
+    }
+
+    // Usuwanie ról
+    for (const roleName of [`R5[${TEST_ALLIANCE_TAG}]`, `R4[${TEST_ALLIANCE_TAG}]`, `R3[${TEST_ALLIANCE_TAG}]`, TEST_ALLIANCE_NAME]) {
+      const role = guild.roles.cache.find(r => r.name === roleName);
+      if (role) await role.delete().catch(() => {});
+      await delay(3000);
+    }
+
+    console.log("🗑️ Testowy sojusz usunięty.");
   };
 
   // --------------------------
-  // Uruchamiamy cykl co 10 sekund
+  // Cykliczny tryb testowy
   // --------------------------
-  setInterval(async () => {
-    try {
+  const cycle = async () => {
+    while (true) {
       await createAlliance();
-    } catch (err) {
-      console.error("❌ Błąd w cyklu tworzenia sojuszu:", err);
+      await delay(10000);
+      await deleteAlliance();
+      await delay(5000);
     }
-  }, 10000); // co 10 sekund nowy cykl
+  };
+
+  cycle().catch(console.error);
 });
 
-// Logowanie bota
-client.login(BOT_TOKEN).catch(err => {
-  console.error("Nie udało się zalogować testowego bota:", err);
-});
+client.login(BOT_TOKEN).catch(err => console.error("Nie udało się zalogować testowego bota:", err));
