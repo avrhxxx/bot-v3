@@ -1,24 +1,24 @@
 // src/data/Database.ts
-export interface Alliance {
-  id: string;
-  name: string;
-  members: string[];
-  leader?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
 
-export interface AllianceAudit {
-  allianceId: string;
-  action: string;
-  actor: string;
-  timestamp: Date;
-  details?: Record<string, any>;
-}
+import type { Alliance } from '../AllianceServices';
+
+export type OwnershipRecord = {
+  userId: string;
+};
+
+export type JournalEntry = {
+  id: string;
+  timestamp: number;
+};
 
 export class Database {
   public alliances: Map<string, Alliance> = new Map();
-  public audits: AllianceAudit[] = [];
+
+  public ownership: Map<string, OwnershipRecord> = new Map();
+
+  public pendingDeletions: Map<string, Alliance> = new Map();
+
+  public journal: Map<string, JournalEntry> = new Map();
 }
 
 export const db = new Database();
