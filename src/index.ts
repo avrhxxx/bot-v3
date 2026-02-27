@@ -1,42 +1,28 @@
-import { Client, GatewayIntentBits, Guild } from "discord.js";
+import { Client, GatewayIntentBits, Message } from "discord.js";
 import { BOT_TOKEN, GUILD_ID } from "./config/config";
-import { RoleModule } from "./modules/role/RoleModule";
-import { ChannelModule } from "./modules/channel/ChannelModule";
+import { AllianceService, TEST_ALLIANCE } from "./alliance/AllianceService";
 
-// Tworzymy klienta Discord
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+});
 
-client.once("ready", async () => {
-  console.log(`Bot zalogowany jako ${client.user?.tag}`);
+client.on("messageCreate", async (message: Message) => {
+  if (!message.guild || message.author.bot) return;
+  if (message.guild.id !== GUILD_ID) return;
 
-  // Pobieramy guild z cache po ID
-  const guild: Guild | undefined = client.guilds.cache.get(GUILD_ID);
-  if (!guild) {
-    console.log(`Nie znaleziono guilda o ID ${GUILD_ID}.`);
-    return;
+  if (message.content === "!create") {
+    await message.reply(`✅ Komenda !create użyta — tworzymy sojusz ${TEST_ALLIANCE.name} (testowo).`);
+    await AllianceService.createAlliance(message.guild);
   }
 
-  try {
-    // --------------------------
-    // 1️⃣ Tworzymy role dla testowego sojuszu
-    // --------------------------
-    await RoleModule.createRoles(guild, "TsT", "TestAlliance");
-
-    // --------------------------
-    // 2️⃣ Tworzymy szkielet kanałów testowego sojuszu
-    // --------------------------
-    await ChannelModule.createChannels(guild, "test-alliance", "TsT", "TestAlliance");
-
-    console.log("Role i kanały (szkielet) dla TestAlliance zostały utworzone.");
-  } catch (err) {
-    console.error("Błąd podczas tworzenia ról/kanałów:", err);
-  } finally {
-    // Po testach można wylogować bota, żeby nie trzymać połączenia
-    setTimeout(() => client.destroy(), 5000);
+  if (message.content === "!delete") {
+    await message.reply(`✅ Komenda !delete użyta — usuwamy sojusz ${TEST_ALLIANCE.name} (testowo).`);
+    await AllianceService.deleteAlliance(message.guild);
   }
 });
 
-// Logowanie bota
-client.login(BOT_TOKEN).catch(err => {
-  console.error("Nie udało się zalogować bota:", err);
+client.once("ready", () => {
+  console.log(`Zalogowano jako ${client.user?.tag}`);
 });
+
+client.login(BOT_TOKEN);
