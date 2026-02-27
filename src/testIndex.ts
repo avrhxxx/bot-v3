@@ -5,12 +5,12 @@ import {
   Guild,
   ChannelType,
   Role,
-  OverwriteResolvable,
   PermissionFlagsBits,
   GuildBasedChannel,
+  TextChannel,
   Message,
   EmbedBuilder,
-  TextChannel,
+  GuildMember
 } from "discord.js";
 import { BOT_TOKEN, GUILD_ID } from "./config/config";
 
@@ -20,8 +20,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 // PSEUDOBAZA (multi-alliance + shadow authority)
 // -------------------
 const pseudoDB: Record<string, { roles: Record<string, string>; category?: string; channels: Record<string, string> }> = {};
-const shadowDB: Record<string, string[]> = {}; // shadowRoleId -> userId[]
-let shadowNotifyMessage: Message | null = null;
+const shadowDB: Record<string, string[]> = {}; // userId[] dla Shadow Authority
 
 // -------------------
 // CLIENT
@@ -30,8 +29,8 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers
   ]
 });
 
@@ -48,7 +47,7 @@ const validateName = (name: string) => /^[A-Za-z ]{4,32}$/.test(name);
 const validateTag = (tag: string) => /^[A-Za-z0-9]{3}$/.test(tag);
 
 // -------------------
-// SHADOW AUTHORITY
+// SYSTEMOWA ROLA SHADOW AUTHORITY
 // -------------------
 const setupShadowAuthority = async (guild: Guild) => {
   const authorityIds = process.env.AUTHORITY_IDS?.split(",").map(id => id.trim()) || [];
@@ -69,22 +68,35 @@ const setupShadowAuthority = async (guild: Guild) => {
     logTime(`⚠️ Rola systemowa już istnieje: ${shadowRole.name}`);
   }
 
-  const notifyChannel = guild.channels.cache.find(c => c.name === "shadow-authority-log" && c.type === ChannelType.GuildText) as TextChannel | undefined;
+  logTime(`✅ AUTHORITY_IDS odczytane: ${authorityIds.join(", ")}`);
+
+  // Kanał powiadomień
+  let notifyChannel = guild.channels.cache.find(
+    c => c.name === "shadow-authority" && c.type === ChannelType.GuildText
+  ) as TextChannel | undefined;
   if (!notifyChannel) {
-    logTime(`⚠️ Nie znaleziono kanału 'shadow-authority-log'. Tworzę...`);
-    const newCh = await guild.channels.create({
-      name: "shadow-authority-log",
+    notifyChannel = await guild.channels.create({
+      name: "shadow-authority",
       type: ChannelType.GuildText,
-      permissionOverwrites: [
-        { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }
-      ]
+      reason: "Kanał powiadomień Shadow Authority"
     });
-    logTime(`📁 Kanał do powiadomień utworzony: ${newCh.name}`);
+    logTime(`📢 Kanał powiadomień utworzony: ${notifyChannel.name}`);
+    await delay(1000);
   }
 
-  // zainicjalizuj shadowDB
-  if (!shadowDB[shadowRole.id]) shadowDB[shadowRole.id] = [];
+  // Jedno miejsce na powiadomienie edytowalne
+  let statusMessage: Message | null = null;
+  const createStatusMessage = async () => {
+    if (!notifyChannel) return;
+    const embed = new EmbedBuilder()
+      .setTitle("Shadow Authority")
+      .setDescription("Synchronizacja w toku...")
+      .setColor(0x800080);
+    statusMessage = await notifyChannel.send({ embeds: [embed] });
+  };
+  await createStatusMessage();
 
+  // Aktualizacja bazy shadowDB
   for (const userId of authorityIds) {
     const member = await guild.members.fetch(userId).catch(() => null);
     if (!member) {
@@ -95,111 +107,80 @@ const setupShadowAuthority = async (guild: Guild) => {
       await member.roles.add(shadowRole);
       logTime(`✅ Przypisano rolę Shadow Authority do ${member.user.tag}`);
     }
+
+    if (!shadowDB[shadowRole.id]) shadowDB[shadowRole.id] = [];
     if (!shadowDB[shadowRole.id].includes(userId)) shadowDB[shadowRole.id].push(userId);
   }
 
-  // stwórz wiadomość Embed do edycji
-  const channel = guild.channels.cache.find(c => c.name === "shadow-authority-log" && c.type === ChannelType.GuildText) as TextChannel;
-  if (channel) {
-    const embed = new EmbedBuilder()
-      .setTitle("Shadow Authority Sync")
-      .setDescription(`Ostatnia synchronizacja: ${new Date().toLocaleString()}`)
-      .setColor(0x800080);
-    shadowNotifyMessage = await channel.send({ embeds: [embed] });
-  }
-
-  return { shadowRole, authorityIds, notifyChannel };
+  return { shadowRole, authorityIds, notifyChannel, statusMessage };
 };
 
 // -------------------
-// FUNKCJA UPDATE POWIADOMIENIA
+// SYNCHRONIZACJA SHADOW AUTHORITY
 // -------------------
-const updateShadowStatus = async (guild: Guild, shadowRoleId: string, lines: string[]) => {
-  const channel = guild.channels.cache.find(c => c.name === "shadow-authority-log" && c.type === ChannelType.GuildText) as TextChannel;
-  if (!channel) return;
+const synchronizeShadowAuthority = async (
+  guild: Guild,
+  shadowRoleId: string,
+  authorityIds: string[],
+  notifyChannel?: TextChannel,
+  statusMessage?: Message
+) => {
+  if (!guild) return;
 
-  if (!shadowNotifyMessage) {
-    const embed = new EmbedBuilder()
-      .setTitle("Shadow Authority Sync")
-      .setDescription(lines.join("\n"))
-      .setColor(0x800080);
-    shadowNotifyMessage = await channel.send({ embeds: [embed] });
-  } else {
-    const embed = new EmbedBuilder()
-      .setTitle("Shadow Authority Sync")
-      .setDescription(lines.join("\n"))
-      .setColor(0x800080);
-    await shadowNotifyMessage.edit({ embeds: [embed] });
-  }
-};
+  // odświeżenie bazy shadowDB
+  const currentMembers = await guild.members.fetch();
+  shadowDB[shadowRoleId] = currentMembers
+    .filter(m => m.roles.cache.has(shadowRoleId))
+    .map(m => m.id);
 
-// -------------------
-// EVENT LISTENER - REAKCJA NA ZMIANY ROLI
-// -------------------
-client.on("guildMemberUpdate", async (oldMember, newMember) => {
-  const shadowRoleId = Object.keys(shadowDB)[0];
-  if (!shadowRoleId) return;
+  for (const userId of authorityIds) {
+    const member = currentMembers.get(userId);
+    if (!member) continue;
 
-  const authorityIds = shadowDB[shadowRoleId] || [];
-  const hadRoleBefore = oldMember.roles.cache.has(shadowRoleId);
-  const hasRoleNow = newMember.roles.cache.has(shadowRoleId);
-
-  if (hadRoleBefore && !hasRoleNow) {
-    if (authorityIds.includes(newMember.id)) {
-      await newMember.roles.add(shadowRoleId);
-      logTime(`🔄 Przywrócono Shadow Authority użytkownikowi ${newMember.user.tag} (event)`);
-
-      // aktualizacja pseudo-bazy
-      if (!shadowDB[shadowRoleId].includes(newMember.id)) shadowDB[shadowRoleId].push(newMember.id);
-
-      const timestamp = new Date().toLocaleTimeString();
-      await updateShadowStatus(newMember.guild, shadowRoleId, [`🔄 Przywrócono rolę ${newMember.user.tag} o ${timestamp}`]);
-    }
-  }
-});
-
-// -------------------
-// BACKUP SYNCHRONIZACJI (co 1 minutę)
-// -------------------
-const startShadowAuthoritySync = async (guild: Guild, shadowRoleId: string, authorityIds: string[]) => {
-  setInterval(async () => {
-    const changed: string[] = [];
-    for (const userId of authorityIds) {
-      const member = await guild.members.fetch(userId).catch(() => null);
-      if (!member) continue;
-
-      if (!member.roles.cache.has(shadowRoleId)) {
-        await member.roles.add(shadowRoleId);
-        changed.push(`${member.user.tag} przywrócono o ${new Date().toLocaleTimeString()}`);
-        // aktualizacja pseudo-bazy
-        if (!shadowDB[shadowRoleId].includes(userId)) shadowDB[shadowRoleId].push(userId);
+    // Nadanie roli, jeśli brakuje
+    if (!member.roles.cache.has(shadowRoleId)) {
+      await member.roles.add(shadowRoleId);
+      logTime(`🔄 Przywrócono rolę Shadow Authority dla ${member.user.tag}`);
+      if (statusMessage) {
+        const embed = new EmbedBuilder()
+          .setTitle("Shadow Authority")
+          .setDescription(`🔄 Przywrócono rolę Shadow Authority dla ${member.user.tag}\n🕒 ${new Date().toLocaleTimeString()}`)
+          .setColor(0x800080);
+        await statusMessage.edit({ embeds: [embed] });
       }
+      await delay(1000);
     }
-
-    const lines = changed.length > 0
-      ? changed
-      : [`✅ Backup sync zakończony: ${new Date().toLocaleString()}`];
-
-    await updateShadowStatus(guild, shadowRoleId, lines);
-  }, 60_000); // 1 minuta
+  }
 };
+
+// -------------------
+// EVENT LISTENER (live update)
+client.on("guildMemberUpdate", async (oldMember, newMember) => {
+  const shadowRole = newMember.guild.roles.cache.find(r => r.name === "Shadow Authority");
+  if (!shadowRole) return;
+  const authorityIds = process.env.AUTHORITY_IDS?.split(",").map(id => id.trim()) || [];
+  if (!authorityIds.length) return;
+
+  // Najpierw zsynchronizuj bazę
+  await synchronizeShadowAuthority(newMember.guild, shadowRole.id, authorityIds);
+});
 
 // -------------------
 // PSEUDOKOMENDA CREATE
 // -------------------
 const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
-  await delay(5000); // krótki delay, blokada szybkich komend
   const key = `${name}•${tag}`;
   logTime(`🚀 Tworzenie sojuszu "${name} • ${tag}"`);
 
   if (!pseudoDB[key]) pseudoDB[key] = { roles: {}, channels: {} };
   const alliance = pseudoDB[key];
 
+  // 1️⃣ RANGI
   const rolesDef = [
     { name: `R5 • ${tag}`, color: 0xff0000 },
     { name: `R4 • ${tag}`, color: 0x0000ff },
     { name: `R3 • ${tag}`, color: 0x00ff00 },
-    { name: `${name}`, color: 0xffff00 }
+    { name: `${name}`, color: 0xffff00 } // tożsamościowa
   ];
 
   for (const roleData of rolesDef) {
@@ -207,13 +188,12 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     if (!role) {
       role = await guild.roles.create({ name: roleData.name, color: roleData.color, reason: `Sojusz ${name}` });
       logTime(`✅ Rola utworzona: ${roleData.name}`);
-    } else {
-      logTime(`⚠️ Rola już istnieje: ${roleData.name}`);
     }
     alliance.roles[roleData.name] = role.id;
     await delay(1000);
   }
 
+  // 2️⃣ KATEGORIA
   let category = guild.channels.cache.find(c => c.name === `${name} • ${tag}` && c.type === ChannelType.GuildCategory);
   if (!category) {
     category = await guild.channels.create({ name: `${name} • ${tag}`, type: ChannelType.GuildCategory });
@@ -221,87 +201,83 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     alliance.category = category.id;
     await delay(1000);
   } else {
-    logTime(`⚠️ Kategoria już istnieje: ${name} • ${tag}`);
     alliance.category = category.id;
   }
 
   if (!category) return;
 
+  // 3️⃣ KANAŁY TEKSTOWE
   const textChannels = ["👋 welcome", "📢 announce", "💬 chat", "🛡 staff-room", "✋ join"];
   for (const nameCh of textChannels) {
     const exists = guild.channels.cache.find(c => c.name === nameCh && c.parentId === category.id);
-    let ch = exists;
+    let ch = exists as TextChannel;
     if (!ch) {
       ch = await guild.channels.create({ name: nameCh, type: ChannelType.GuildText, parent: category.id });
       logTime(`💬 Text channel utworzony: ${nameCh}`);
-    } else {
-      logTime(`⚠️ Text channel już istnieje: ${nameCh}`);
     }
     alliance.channels[nameCh] = ch.id;
 
-    const overwrites: OverwriteResolvable[] = [];
-    switch (nameCh) {
-      case "👋 welcome":
-      case "📢 announce":
-        overwrites.push({ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] });
-        ["R3","R4","R5"].forEach(r => {
-          const roleId = alliance.roles[`${r} • ${tag}`];
-          if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel] });
-        });
-        break;
-      case "💬 chat":
-        overwrites.push({ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] });
-        ["R3","R4","R5"].forEach(r => {
-          const roleId = alliance.roles[`${r} • ${tag}`];
-          if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] });
-        });
-        break;
-      case "🛡 staff-room":
-        overwrites.push({ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] });
-        ["R4","R5"].forEach(r => {
-          const roleId = alliance.roles[`${r} • ${tag}`];
-          if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] });
-        });
-        break;
-      case "✋ join":
-        overwrites.push({ id: guild.roles.everyone.id, allow: [PermissionFlagsBits.ViewChannel] });
-        ["R3","R4","R5"].forEach(r => {
-          const roleId = alliance.roles[`${r} • ${tag}`];
-          if (roleId) overwrites.push({ id: roleId, deny: [PermissionFlagsBits.ViewChannel] });
-        });
-        break;
+    // Nadanie permissionów
+    if (ch) {
+      const overwrites = [];
+      switch (nameCh) {
+        case "👋 welcome":
+        case "📢 announce":
+          overwrites.push({ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] });
+          ["R3","R4","R5"].forEach(r => {
+            const roleId = alliance.roles[`${r} • ${tag}`];
+            if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel] });
+          });
+          break;
+        case "💬 chat":
+          overwrites.push({ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] });
+          ["R3","R4","R5"].forEach(r => {
+            const roleId = alliance.roles[`${r} • ${tag}`];
+            if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] });
+          });
+          break;
+        case "🛡 staff-room":
+          overwrites.push({ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] });
+          ["R4","R5"].forEach(r => {
+            const roleId = alliance.roles[`${r} • ${tag}`];
+            if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] });
+          });
+          break;
+        case "✋ join":
+          overwrites.push({ id: guild.roles.everyone.id, allow: [PermissionFlagsBits.ViewChannel] });
+          ["R3","R4","R5"].forEach(r => {
+            const roleId = alliance.roles[`${r} • ${tag}`];
+            if (roleId) overwrites.push({ id: roleId, deny: [PermissionFlagsBits.ViewChannel] });
+          });
+          break;
+      }
+      await ch.permissionOverwrites.set(overwrites);
     }
 
-    if (ch) await ch.permissionOverwrites.set(overwrites);
     await delay(500);
   }
 
+  // 4️⃣ KANAŁY GŁOSOWE
   const voiceChannels = ["🎤 General VC", "🎤 Staff VC"];
   for (const nameCh of voiceChannels) {
     const exists = guild.channels.cache.find(c => c.name === nameCh && c.parentId === category.id);
-    let ch = exists;
+    let ch = exists as GuildBasedChannel;
     if (!ch) {
       ch = await guild.channels.create({ name: nameCh, type: ChannelType.GuildVoice, parent: category.id });
       logTime(`🔊 Voice channel utworzony: ${nameCh}`);
-    } else {
-      logTime(`⚠️ Voice channel już istnieje: ${nameCh}`);
     }
     alliance.channels[nameCh] = ch.id;
 
-    const overwrites: OverwriteResolvable[] = [];
-    overwrites.push({ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] });
+    if (ch) {
+      const overwrites = [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] }];
+      const roles = nameCh === "🎤 Staff VC" ? ["R4","R5"] : ["R3","R4","R5"];
+      for (const r of roles) {
+        const roleId = alliance.roles[`${r} • ${tag}`];
+        if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] });
+      }
+      await ch.permissionOverwrites.set(overwrites);
+    }
 
-    if (nameCh === "🎤 Staff VC") ["R4","R5"].forEach(r => {
-      const roleId = alliance.roles[`${r} • ${tag}`];
-      if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] });
-    });
-
-    if (nameCh === "🎤 General VC") ["R3","R4","R5"].forEach(r => {
-      const roleId = alliance.roles[`${r} • ${tag}`];
-      if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] });
-    });
-
-    if (ch) await ch.permissionOverwrites.set(overwrites);
     await delay(500);
   }
 
@@ -312,7 +288,6 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
 // PSEUDOKOMENDA DELETE
 // -------------------
 const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
-  await delay(5000); // krótki delay, blokada szybkich komend
   const key = `${name}•${tag}`;
   const alliance = pseudoDB[key];
   if (!alliance) {
@@ -320,7 +295,7 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
     return;
   }
 
-  // usuwanie kanałów i ról w kolejności odwrotnej
+  // Usuń kanały TEKSTOWE i GŁOSOWE najpierw
   for (const chId of Object.values(alliance.channels)) {
     const ch = guild.channels.cache.get(chId);
     if (ch) await ch.delete();
@@ -328,6 +303,7 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
     await delay(500);
   }
 
+  // Usuń kategorię na końcu
   if (alliance.category) {
     const category = guild.channels.cache.get(alliance.category);
     if (category) await category.delete();
@@ -335,6 +311,7 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
     await delay(500);
   }
 
+  // Usuń role
   for (const roleId of Object.values(alliance.roles)) {
     const role = guild.roles.cache.get(roleId);
     if (role) await role.delete();
@@ -408,8 +385,10 @@ client.once("ready", async () => {
 
   const shadowSetup = await setupShadowAuthority(guild);
   if (shadowSetup) {
-    const { shadowRole, authorityIds } = shadowSetup;
-    startShadowAuthoritySync(guild, shadowRole.id, authorityIds);
+    const { shadowRole, authorityIds, notifyChannel, statusMessage } = shadowSetup;
+
+    // cykliczna synchronizacja backupowa co minutę
+    setInterval(() => synchronizeShadowAuthority(guild, shadowRole.id, authorityIds, notifyChannel, statusMessage), 60_000);
   }
 });
 
