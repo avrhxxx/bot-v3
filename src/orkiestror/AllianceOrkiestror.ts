@@ -1,12 +1,16 @@
-import { MembershipModule } from "../modules/membership/MembershipModule";
-import { TransferLeaderModule } from "../modules/transferleader/TransferLeaderModule";
-
 export class AllianceOrkiestror {
-  static async addMember(allianceId: string, memberId: string) {
-    await MembershipModule.addMember(allianceId, memberId);
-  }
+    private static alliances: Record<string, any> = {};
 
-  static async transferLeader(allianceId: string, newLeaderId: string) {
-    await TransferLeaderModule.transferLeader(allianceId, newLeaderId);
-  }
+    // metoda do pobierania istniejącej lub null
+    static getAlliance(allianceId: string) {
+        return this.alliances[allianceId] || null;
+    }
+
+    // metoda do tworzenia/alliance jeśli nie istnieje
+    static createAlliance(allianceId: string) {
+        if (!this.alliances[allianceId]) {
+            this.alliances[allianceId] = { id: allianceId, members: [] };
+        }
+        return this.alliances[allianceId];
+    }
 }
