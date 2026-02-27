@@ -7,6 +7,7 @@ import {
   PermissionFlagsBits,
   TextChannel,
   VoiceChannel,
+  CategoryChannel,
   Message,
   EmbedBuilder
 } from "discord.js";
@@ -243,7 +244,6 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
       await updateLogMessage(logChannel, `💬 Text channel utworzony: ${nameCh}`, alliance.logMessage);
     }
     alliance.channels[nameCh] = ch.id;
-    // nadanie permisji pozostaje takie samo
   }
 
   const voiceChannels = ["🎤 General VC","🎤 Staff VC"];
@@ -262,7 +262,7 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
 };
 
 // -------------------
-// PSEUDODELETE
+// PSEUDODELETE (poprawione z .children)
 // -------------------
 const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
   if(!validateName(name) || !validateTag(tag)) return;
@@ -276,7 +276,7 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
 
   if(!alliance.logMessage) alliance.logMessage=await updateLogMessage(logChannel, `📜 Rozpoczęto usuwanie sojuszu "${name} • ${tag}"`);
 
-  // Usuwanie kanałów tekstowych i głosowych
+  // Usuń kanały tekstowe i głosowe
   for(const chId of Object.values(alliance.channels)){
     const ch=guild.channels.cache.get(chId);
     if(ch){
@@ -287,26 +287,27 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
     }
   }
 
-  // Usuwanie kategorii
+  // Usuń kategorię i jej dzieci
   if(alliance.category){
-    const category=guild.channels.cache.get(alliance.category);
-    if(category){
-      await updateLogMessage(logChannel, `Usuwanie kategorii: ${category.name}`,alliance.logMessage);
-      // Usuń też kanały w kategorii, jeśli jakieś zostały
-      const children = category.children.cache;
-      for(const child of children.values()){
+    const category = guild.channels.cache.get(alliance.category);
+    if(category && category.type === ChannelType.GuildCategory){
+      const catChannel = category as CategoryChannel;
+      await updateLogMessage(logChannel, `Usuwanie kategorii: ${catChannel.name}`,alliance.logMessage);
+
+      for(const child of catChannel.children.values()){
         await updateLogMessage(logChannel, `Usuwanie kanału z kategorii: ${child.name}`,alliance.logMessage);
         await child.delete();
         await updateLogMessage(logChannel, `🗑 Kanał usunięty: ${child.name}`,alliance.logMessage);
         await delay(1000);
       }
-      await category.delete();
-      await updateLogMessage(logChannel, `🗑 Kategoria usunięta: ${category.name}`,alliance.logMessage);
+
+      await catChannel.delete();
+      await updateLogMessage(logChannel, `🗑 Kategoria usunięta: ${catChannel.name}`,alliance.logMessage);
       await delay(1000);
     }
   }
 
-  // Usuwanie ról
+  // Usuń role
   for(const roleId of Object.values(alliance.roles)){
     const role=guild.roles.cache.get(roleId);
     if(role){
