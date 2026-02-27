@@ -4,9 +4,9 @@ import {
   GatewayIntentBits,
   Guild,
   ChannelType,
-  Role,
   OverwriteResolvable,
   PermissionFlagsBits,
+  Role,
   Message
 } from "discord.js";
 import { BOT_TOKEN, GUILD_ID } from "./config/config";
@@ -105,20 +105,14 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     switch (nameCh) {
       case "👋 welcome":
       case "📢 announce":
-        overwrites.push({
-          id: guild.roles.everyone.id,
-          deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
-        });
+        overwrites.push({ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] });
         ["R3","R4","R5"].forEach(r => {
           const roleId = pseudoDB.roles[`${r}[${tag}]`];
           if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel] });
         });
         break;
       case "💬 chat":
-        overwrites.push({
-          id: guild.roles.everyone.id,
-          deny: [PermissionFlagsBits.ViewChannel]
-        });
+        overwrites.push({ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] });
         ["R3","R4","R5"].forEach(r => {
           const roleId = pseudoDB.roles[`${r}[${tag}]`];
           if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] });
@@ -219,14 +213,22 @@ client.on("messageCreate", async (message: Message) => {
   const parts = message.content.trim().split(" ");
   const cmd = parts[0].toLowerCase();
 
-  if (cmd === "!create" && parts.length >= 3) {
-    const tag = parts.pop()!; 
+  if (cmd === "!create") {
+    if (parts.length < 3) {
+      await message.reply("❌ Podaj nazwę i tag sojuszu, np. `!create Behemoth CEL`");
+      return;
+    }
+    const tag = parts.pop()!;
     const name = parts.slice(1).join(" ");
     await message.reply(`✅ Komenda !create użyta — rozpoczęto tworzenie sojuszu "${name} • ${tag}" (testowo).`);
     await pseudoCreate(message.guild, name, tag);
   }
 
-  if (cmd === "!delete" && parts.length >= 3) {
+  if (cmd === "!delete") {
+    if (parts.length < 3) {
+      await message.reply("❌ Podaj nazwę i tag sojuszu do usunięcia, np. `!delete Behemoth CEL`");
+      return;
+    }
     const tag = parts.pop()!;
     const name = parts.slice(1).join(" ");
     await message.reply(`✅ Komenda !delete użyta — rozpoczęto usuwanie sojuszu "${name} • ${tag}" (testowo).`);
