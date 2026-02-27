@@ -19,10 +19,10 @@ export class RoleModule {
     }
 
     const rolesToCreate: { name: string; color: ColorResolvable }[] = [
-      { name: `R5[${allianceTag}]`, color: "red" },
-      { name: `R4[${allianceTag}]`, color: "blue" },
-      { name: `R3[${allianceTag}]`, color: "green" },
-      { name: `${allianceName}`, color: "yellow" } // rola tożsamościowa
+      { name: `R5[${allianceTag}]`, color: "#FF0000" },      // czerwony
+      { name: `R4[${allianceTag}]`, color: "#0000FF" },      // niebieski
+      { name: `R3[${allianceTag}]`, color: "#00FF00" },      // zielony
+      { name: `${allianceName}`, color: "#FFFF00" }          // żółty, rola tożsamościowa
     ];
 
     const createdRoles: Record<string, string> = {};
