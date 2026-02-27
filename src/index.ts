@@ -1,6 +1,4 @@
-import { startDiscord, ClientStub } from './discord/client';
-import { AllianceOrkiestror } from './orkiestror/AllianceOrkiestror';
-import { AliasIntegrity } from './integrity/AliasIntegrity';
+import { AllianceService } from './AllianceServices';
 
 async function bootstrap() {
   console.log('[Bootstrap] System booting...');
@@ -9,6 +7,11 @@ async function bootstrap() {
   console.log('[Bootstrap] Discord client started.');
 
   console.log('[Bootstrap] Initializing alliances...');
+
+  // ✅ najpierw create
+  await AllianceService.createAlliance('alliance1', 'Test Alliance');
+
+  // potem mutacje
   await AllianceOrkiestror.addMember('alliance1', 'member1');
   await AllianceOrkiestror.transferLeader('alliance1', 'member1');
 
@@ -19,13 +22,3 @@ async function bootstrap() {
 
   keepAlive();
 }
-
-function keepAlive(): void {
-  console.log('[Bootstrap] Keeping process alive...');
-  setInterval(() => console.log('[Bootstrap] Heartbeat...'), 60_000);
-}
-
-bootstrap().catch(err => {
-  console.error('[Bootstrap] Fatal boot error:', err);
-  process.exit(1);
-});
