@@ -9,24 +9,22 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 client.once("ready", async () => {
   console.log(`Bot zalogowany jako ${client.user?.tag}`);
 
-  // Pobieramy guild z cache po ID
   const guild: Guild | undefined = client.guilds.cache.get(GUILD_ID);
   if (!guild) {
     console.log(`Nie znaleziono guilda o ID ${GUILD_ID}.`);
     return;
   }
 
-  // Minimalne stuby - role i kanały
   try {
-    // Tworzymy podstawowe role: R5, R4, R3
+    // Tworzymy role R5/R4/R3
     await RoleModule.ensureRoles(guild);
 
-    // Tworzymy kategorię tylko z nazwą sojuszu i wszystkie standardowe kanały w środku
-    await ChannelModule.createChannels(guild, "alliance-stub");
+    // Tworzymy kategorię + kanały sojuszu (szkielet)
+    await ChannelModule.createChannels(guild, "alliance-stub", "STB", "SojuszStub");
 
     console.log("Role i kanały (szkielet) zostały utworzone.");
-  } catch (err: any) {
-    console.error("Błąd podczas tworzenia ról/kanałów:", err.message || err);
+  } catch (err) {
+    console.error("Błąd podczas tworzenia ról/kanałów:", err);
   }
 });
 
