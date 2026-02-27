@@ -1,69 +1,90 @@
-import { Guild, TextChannel, VoiceChannel, CategoryChannel, ChannelType } from "discord.js";
+import { Guild, CategoryChannel, TextChannel, VoiceChannel, ChannelType } from "discord.js";
 
 export class ChannelModule {
-  private static channels: Record<string, Record<string, string>> = {};
+  // Mapowanie kanałów stworzonych dla sojuszy
+  private static allianceChannels: Record<string, Record<string, string>> = {};
 
-  // ----------------- CREATE CHANNELS -----------------
-  static async createChannels(guild: Guild, allianceId: string, tag: string, name: string) {
-    if (this.channels[allianceId]) return this.channels[allianceId];
+  /**
+   * Tworzy kategorię i podstawowe kanały dla sojuszu
+   * @param guild - serwer Discord
+   * @param allianceId - unikalny ID sojuszu
+   * @param allianceTag - tag sojuszu
+   * @param allianceName - pełna nazwa sojuszu (używana jako nazwa kategorii)
+   */
+  static async createChannels(
+    guild: Guild,
+    allianceId: string,
+    allianceTag: string,
+    allianceName: string
+  ) {
+    if (this.allianceChannels[allianceId]) {
+      console.log(`Kanały dla sojuszu ${allianceTag} już istnieją.`);
+      return this.allianceChannels[allianceId];
+    }
 
-    // Tworzymy kategorię sojuszu
-    const category = await guild.channels.create({
-      name: name, // tylko nazwa sojuszu
-      type: ChannelType.GuildCategory
-    }) as CategoryChannel;
+    // Tworzymy kategorię
+    let category = guild.channels.cache.find(
+      c => c.name === allianceName && c.type === ChannelType.GuildCategory
+    ) as CategoryChannel;
 
-    // Tworzymy kilka prostych kanałów w tej kategorii
-    const welcome = await guild.channels.create({
-      name: "👋 welcome",
-      type: ChannelType.GuildText,
-      parent: category.id
-    }) as TextChannel;
+    if (!category) {
+      category = await guild.channels.create({
+        name: allianceName,
+        type: ChannelType.GuildCategory,
+        reason: `Automatyczne tworzenie kategorii dla sojuszu ${allianceName}`
+      }) as CategoryChannel;
 
-    const chat = await guild.channels.create({
-      name: "💬 chat",
-      type: ChannelType.GuildText,
-      parent: category.id
-    }) as TextChannel;
+      console.log(`Stworzono kategorię: ${category.name}`);
+    }
 
-    const generalVC = await guild.channels.create({
-      name: "🎤 General VC",
-      type: ChannelType.GuildVoice,
-      parent: category.id
-    }) as VoiceChannel;
-
-    const staffVC = await guild.channels.create({
-      name: "🎤 Staff VC",
-      type: ChannelType.GuildVoice,
-      parent: category.id
-    }) as VoiceChannel;
-
-    const result = {
-      categoryId: category.id,
-      welcomeId: welcome.id,
-      chatId: chat.id,
-      generalVCId: generalVC.id,
-      staffVCId: staffVC.id
+    // Funkcja pomocnicza do tworzenia kanału jeśli nie istnieje
+    const createIfNotExist = async (name: string, type: ChannelType) => {
+      let channel = guild.channels.cache.find(
+        c => c.name === name && c.parentId === category.id
+      );
+      if (!channel) {
+        channel = await guild.channels.create({
+          name,
+          type,
+          parent: category.id,
+          reason: `Automatyczne tworzenie kanału dla sojuszu ${allianceName}`
+        });
+        console.log(`Stworzono kanał: ${name}`);
+      }
+      return channel.id;
     };
 
-    this.channels[allianceId] = result;
-    return result;
+    // Tworzymy kanały tekstowe
+    const welcomeId = await createIfNotExist("👋 welcome", ChannelType.GuildText);
+    const announceId = await createIfNotExist("📢 announce", ChannelType.GuildText);
+    const chatId = await createIfNotExist("💬 chat", ChannelType.GuildText);
+    const staffId = await createIfNotExist("🛡 staff-room", ChannelType.GuildText);
+    const joinId = await createIfNotExist("✋ join", ChannelType.GuildText);
+
+    // Tworzymy kanały voice
+    const generalVCId = await createIfNotExist("🎤 General VC", ChannelType.GuildVoice);
+    const staffVCId = await createIfNotExist("🎤 Staff VC", ChannelType.GuildVoice);
+
+    // Zapisujemy do mapy
+    const createdChannels = {
+      categoryId: category.id,
+      welcomeId,
+      announceId,
+      chatId,
+      staffId,
+      joinId,
+      generalVCId,
+      staffVCId
+    };
+
+    this.allianceChannels[allianceId] = createdChannels;
+    return createdChannels;
   }
 
-  // ----------------- GETTER CHANNELS -----------------
-  static getWelcomeChannel(allianceId: string) {
-    return this.channels[allianceId]?.welcomeId;
-  }
-
-  static getChatChannel(allianceId: string) {
-    return this.channels[allianceId]?.chatId;
-  }
-
-  static getGeneralVC(allianceId: string) {
-    return this.channels[allianceId]?.generalVCId;
-  }
-
-  static getStaffVC(allianceId: string) {
-    return this.channels[allianceId]?.staffVCId;
+  /**
+   * Pobiera ID kanału po ID sojuszu
+   */
+  static getChannelId(allianceId: string, key: keyof typeof ChannelModule["allianceChannels"][string]) {
+    return this.allianceChannels[allianceId]?.[key];
   }
 }
