@@ -155,7 +155,6 @@ const pseudoCreate = async (guild: Guild) => {
         break;
     }
 
-    // ✅ tylko jeśli kanał jest text lub voice
     if (ch && (ch.type === ChannelType.GuildText || ch.type === ChannelType.GuildVoice)) {
       await ch.permissionOverwrites.set(overwrites);
     }
@@ -186,14 +185,29 @@ const pseudoCreate = async (guild: Guild) => {
 
     pseudoDB.channels[name] = ch.id;
 
+    // ✅ POPRAWNE PERMISSIONS VC
     const overwrites: OverwriteResolvable[] = [];
+
+    // everyone deny (widoczność + connect)
+    overwrites.push({
+      id: guild.roles.everyone.id,
+      deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect]
+    });
+
     if (name === "🎤 Staff VC") ["R4","R5"].forEach(r => {
       const roleId = pseudoDB.roles[`${r}[${TEST_ALLIANCE.tag}]`];
-      if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] });
+      if (roleId) overwrites.push({
+        id: roleId,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak]
+      });
     });
+
     if (name === "🎤 General VC") ["R3","R4","R5"].forEach(r => {
       const roleId = pseudoDB.roles[`${r}[${TEST_ALLIANCE.tag}]`];
-      if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] });
+      if (roleId) overwrites.push({
+        id: roleId,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak]
+      });
     });
 
     if (ch && (ch.type === ChannelType.GuildText || ch.type === ChannelType.GuildVoice)) {
