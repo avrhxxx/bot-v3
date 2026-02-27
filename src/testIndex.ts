@@ -53,7 +53,6 @@ const setupShadowAuthority = async (guild: Guild) => {
     return null;
   }
 
-  // Sprawdź czy rola istnieje, jeśli nie – stwórz
   let shadowRole = guild.roles.cache.find(r => r.name === "Shadow Authority");
   if (!shadowRole) {
     shadowRole = await guild.roles.create({
@@ -128,7 +127,7 @@ const startShadowAuthoritySync = async (guild: Guild, shadowRoleId: string, auth
             .setColor(0x800080);
           // @ts-ignore
           await notifyChannel.send({ embeds: [embedUpdate] });
-          await delay(1000); // cichy interwał
+          await delay(1000); // krótki interwał
         }
       }
     }
@@ -155,7 +154,7 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
   if (!pseudoDB[key]) pseudoDB[key] = { roles: {}, channels: {} };
   const alliance = pseudoDB[key];
 
-  // 1️⃣ RANGI
+  // 1️⃣ RANGI (R3-R5 + tożsamościowa)
   const rolesDef = [
     { name: `R5 • ${tag}`, color: 0xff0000 },
     { name: `R4 • ${tag}`, color: 0x0000ff },
@@ -203,7 +202,6 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
 
     alliance.channels[nameCh] = ch.id;
 
-    // Overwrites
     const overwrites: OverwriteResolvable[] = [];
     switch (nameCh) {
       case "👋 welcome":
@@ -236,6 +234,40 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
         });
         break;
     }
+
+    if (ch && (ch.type === ChannelType.GuildText || ch.type === ChannelType.GuildVoice)) {
+      await ch.permissionOverwrites.set(overwrites);
+    }
+
+    await delay(500);
+  }
+
+  // 4️⃣ KANAŁY GŁOSOWE
+  const voiceChannels = ["🎤 General VC", "🎤 Staff VC"];
+  for (const nameCh of voiceChannels) {
+    const exists = guild.channels.cache.find(c => c.name === nameCh && c.parentId === category.id);
+    let ch = exists;
+    if (!ch) {
+      ch = await guild.channels.create({ name: nameCh, type: ChannelType.GuildVoice, parent: category.id });
+      logTime(`🔊 Voice channel utworzony: ${nameCh}`);
+    } else {
+      logTime(`⚠️ Voice channel już istnieje: ${nameCh}`);
+    }
+
+    alliance.channels[nameCh] = ch.id;
+
+    const overwrites: OverwriteResolvable[] = [];
+    overwrites.push({ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] });
+
+    if (nameCh === "🎤 Staff VC") ["R4","R5"].forEach(r => {
+      const roleId = alliance.roles[`${r} • ${tag}`];
+      if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] });
+    });
+
+    if (nameCh === "🎤 General VC") ["R3","R4","R5"].forEach(r => {
+      const roleId = alliance.roles[`${r} • ${tag}`];
+      if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] });
+    });
 
     if (ch && (ch.type === ChannelType.GuildText || ch.type === ChannelType.GuildVoice)) {
       await ch.permissionOverwrites.set(overwrites);
