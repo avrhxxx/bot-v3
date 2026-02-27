@@ -1,3 +1,45 @@
+// src/testIndex.ts
+import {
+  Client,
+  GatewayIntentBits,
+  Guild,
+  ChannelType,
+  Role,
+  OverwriteResolvable,
+  PermissionFlagsBits,
+  Message
+} from "discord.js";
+import { BOT_TOKEN, GUILD_ID } from "./config/config";
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const TEST_ALLIANCE = { tag: "CEL", name: "Behemoth Cells" };
+
+// -------------------
+// PSEUDOBAZA W INDEKSIE
+// -------------------
+const pseudoDB: {
+  roles: Record<string, string>;
+  category?: string;
+  channels: Record<string, string>;
+} = { roles: {}, channels: {} };
+
+// -------------------
+// CLIENT
+// -------------------
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
+});
+
+const logTime = (msg: string) => {
+  const now = new Date();
+  const time = now.toISOString().substring(11, 19);
+  console.log(`[${time}] ${msg}`);
+};
+
 // -------------------
 // PSEUDOKOMENDA CREATE
 // -------------------
@@ -113,7 +155,7 @@ const pseudoCreate = async (guild: Guild) => {
         break;
     }
 
-    // ✅ TYLKO DLA TextChannel I VoiceChannel
+    // ✅ tylko jeśli kanał jest text lub voice
     if (ch && (ch.type === ChannelType.GuildText || ch.type === ChannelType.GuildVoice)) {
       await ch.permissionOverwrites.set(overwrites);
     }
@@ -163,3 +205,56 @@ const pseudoCreate = async (guild: Guild) => {
 
   logTime("🎉 Sojusz w pełni utworzony!");
 };
+
+// -------------------
+// PSEUDOKOMENDA DELETE
+// -------------------
+const pseudoDelete = async (guild: Guild) => {
+  logTime(`🗑 Pseudokomenda: Usuwanie sojuszu "${TEST_ALLIANCE.name}"`);
+
+  // 1️⃣ Usuwanie kanałów
+  for (const chId of Object.values(pseudoDB.channels)) {
+    const ch = guild.channels.cache.get(chId);
+    if (ch) await ch.delete();
+    logTime(`❌ Usunięto kanał: ${ch?.name}`);
+    await delay(1000);
+  }
+  pseudoDB.channels = {};
+
+  // 2️⃣ Usuwanie kategorii
+  if (pseudoDB.category) {
+    const category = guild.channels.cache.get(pseudoDB.category);
+    if (category) await category.delete();
+    logTime(`❌ Usunięto kategorię: ${category?.name}`);
+    await delay(1000);
+    pseudoDB.category = undefined;
+  }
+
+  // 3️⃣ Usuwanie ról
+  for (const roleId of Object.values(pseudoDB.roles)) {
+    const role = guild.roles.cache.get(roleId);
+    if (role) await role.delete();
+    logTime(`❌ Usunięto rolę: ${role?.name}`);
+    await delay(1000);
+  }
+  pseudoDB.roles = {};
+
+  logTime(`✅ Sojusz ${TEST_ALLIANCE.name} w pełni usunięty`);
+};
+
+// -------------------
+// OBSŁUGA WIADOMOŚCI
+// -------------------
+client.on("messageCreate", async (message: Message) => {
+  if (!message.guild || message.author.bot) return;
+  if (message.guild.id !== GUILD_ID) return;
+
+  if (message.content === "!create") await pseudoCreate(message.guild);
+  if (message.content === "!delete") await pseudoDelete(message.guild);
+});
+
+client.once("ready", () => {
+  logTime(`Zalogowano jako ${client.user?.tag}`);
+});
+
+client.login(BOT_TOKEN);
