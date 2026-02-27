@@ -123,32 +123,45 @@ const pseudoCreate = async (guild: Guild) => {
     // -------------------
     const overwrites: OverwriteResolvable[] = [];
 
-    if (name !== "👋 welcome" && name !== "✋ join") {
-      overwrites.push({
-        id: guild.roles.everyone.id,
-        deny: [PermissionFlagsBits.ViewChannel]
-      });
-    }
-
     switch (name) {
       case "👋 welcome":
       case "📢 announce":
-      case "💬 chat":
+        overwrites.push({
+          id: guild.roles.everyone.id,
+          deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+        });
         ["R3","R4","R5"].forEach(r => {
           const roleId = pseudoDB.roles[`${r}[${TEST_ALLIANCE.tag}]`];
-          if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel] });
+          if (roleId) overwrites.push({
+            id: roleId,
+            allow: [PermissionFlagsBits.ViewChannel]
+          });
+        });
+        break;
+      case "💬 chat":
+        overwrites.push({
+          id: guild.roles.everyone.id,
+          deny: [PermissionFlagsBits.ViewChannel]
+        });
+        ["R3","R4","R5"].forEach(r => {
+          const roleId = pseudoDB.roles[`${r}[${TEST_ALLIANCE.tag}]`];
+          if (roleId) overwrites.push({
+            id: roleId,
+            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+          });
         });
         break;
       case "🛡 staff-room":
+        overwrites.push({
+          id: guild.roles.everyone.id,
+          deny: [PermissionFlagsBits.ViewChannel]
+        });
         ["R4","R5"].forEach(r => {
           const roleId = pseudoDB.roles[`${r}[${TEST_ALLIANCE.tag}]`];
-          if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] });
-        });
-        break;
-      case "💬 chat":
-        ["R3","R4","R5"].forEach(r => {
-          const roleId = pseudoDB.roles[`${r}[${TEST_ALLIANCE.tag}]`];
-          if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.SendMessages] });
+          if (roleId) overwrites.push({
+            id: roleId,
+            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+          });
         });
         break;
       case "✋ join":
@@ -185,10 +198,7 @@ const pseudoCreate = async (guild: Guild) => {
 
     pseudoDB.channels[name] = ch.id;
 
-    // ✅ POPRAWNE PERMISSIONS VC
     const overwrites: OverwriteResolvable[] = [];
-
-    // everyone deny (widoczność + connect)
     overwrites.push({
       id: guild.roles.everyone.id,
       deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect]
@@ -226,7 +236,6 @@ const pseudoCreate = async (guild: Guild) => {
 const pseudoDelete = async (guild: Guild) => {
   logTime(`🗑 Pseudokomenda: Usuwanie sojuszu "${TEST_ALLIANCE.name}"`);
 
-  // 1️⃣ Usuwanie kanałów
   for (const chId of Object.values(pseudoDB.channels)) {
     const ch = guild.channels.cache.get(chId);
     if (ch) await ch.delete();
@@ -235,7 +244,6 @@ const pseudoDelete = async (guild: Guild) => {
   }
   pseudoDB.channels = {};
 
-  // 2️⃣ Usuwanie kategorii
   if (pseudoDB.category) {
     const category = guild.channels.cache.get(pseudoDB.category);
     if (category) await category.delete();
@@ -244,7 +252,6 @@ const pseudoDelete = async (guild: Guild) => {
     pseudoDB.category = undefined;
   }
 
-  // 3️⃣ Usuwanie ról
   for (const roleId of Object.values(pseudoDB.roles)) {
     const role = guild.roles.cache.get(roleId);
     if (role) await role.delete();
@@ -263,8 +270,14 @@ client.on("messageCreate", async (message: Message) => {
   if (!message.guild || message.author.bot) return;
   if (message.guild.id !== GUILD_ID) return;
 
-  if (message.content === "!create") await pseudoCreate(message.guild);
-  if (message.content === "!delete") await pseudoDelete(message.guild);
+  if (message.content === "!create") {
+    await pseudoCreate(message.guild);
+    await message.reply("✅ Komenda !create użyta — sojusz został stworzony (testowo).");
+  }
+  if (message.content === "!delete") {
+    await pseudoDelete(message.guild);
+    await message.reply("✅ Komenda !delete użyta — sojusz został usunięty (testowo).");
+  }
 });
 
 client.once("ready", () => {
