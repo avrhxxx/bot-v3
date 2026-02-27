@@ -1,17 +1,20 @@
-// Główny plik startowy
-import { MutationGate } from './engine/MutationGate';
-import { AllianceOrkiestror } from './orkiestror/AllianceOrkiestror';
+import { AllianceOrkiestror } from "./orkiestror/AllianceOrkiestror";
+import { MutationGate } from "./engine/MutationGate";
 
 async function main() {
-    console.log('Bot minimalny: start');
+    console.log("[Bootstrap] Starting bot...");
 
-    // Przykład użycia klas – nic nie robią jeszcze
-    const orkiestror = new AllianceOrkiestror();
+    // Inicjalizacja MutationGate (do atomowych operacji)
     const mutationGate = new MutationGate();
 
-    console.log('Instancje utworzone:', { orkiestror, mutationGate });
+    // Inicjalizacja Orkiestrora (koordynator akcji)
+    const allianceOrkiestror = new AllianceOrkiestror(mutationGate);
 
-    // Tu w przyszłości możesz bootstrapować sojusze itp.
+    console.log("[Bootstrap] Bot initialized and ready.");
+
+    // Tu będzie start Discord klienta i rejestracja komend
 }
 
-main().catch(console.error);
+main().catch(err => {
+    console.error("[Bootstrap] Fatal error:", err);
+});
