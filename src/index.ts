@@ -2,35 +2,28 @@
 
 import { startDiscord, ClientStub } from './discord/client';
 import { AllianceOrkiestror } from './orkiestror/AllianceOrkiestror';
-import { AliasIntegrity } from './system/alliance/integrity/AllianceIntegrity';
+import { AliasIntegrity } from './integrity/AliasIntegrity';
 
 async function bootstrap() {
   console.log('[Bootstrap] System booting...');
 
-  // 1️⃣ Start klienta Discord
+  // 1️⃣ Uruchomienie klienta Discord
   const client: ClientStub = await startDiscord();
   console.log('[Bootstrap] Discord client started.');
 
-  // 2️⃣ Inicjalizacja sojuszy
+  // 2️⃣ Inicjalizacja sojuszy / test danych
   console.log('[Bootstrap] Initializing alliances...');
+  await AllianceOrkiestror.addMember('alliance1', 'member1');
+  await AllianceOrkiestror.transferLeader('alliance1', 'member1');
 
-  // ⚠️ Bootstrap test data (memory-safe)
-  try {
-    await AllianceOrkiestror.addMember('alliance1', 'member1');
-    await AllianceOrkiestror.transferLeader('alliance1', 'member1');
-  } catch (err) {
-    console.warn('[Bootstrap] Skipping bootstrap member/leader setup:', err);
-  }
+  // 3️⃣ Sprawdzenie integralności sojuszu
+  console.log('[Bootstrap] Checking integrity...');
+  AliasIntegrity.checkAlliance('alliance1');
 
-  // 3️⃣ Sprawdzenie integralności
-  try {
-    AliasIntegrity.checkAlliance('alliance1');
-  } catch (err) {
-    console.warn('[Bootstrap] Integrity check failed:', err);
-  }
-
+  // 4️⃣ Potwierdzenie zakończenia bootu
   console.log('[Bootstrap] System boot completed. Discord client running.');
 
+  // 5️⃣ Utrzymanie procesu w życiu
   keepAlive();
 }
 
@@ -41,7 +34,7 @@ function keepAlive(): void {
   }, 60_000);
 }
 
-// Start bootstrapping
+// Uruchomienie bootstrapa
 bootstrap().catch(err => {
   console.error('[Bootstrap] Fatal boot error:', err);
   process.exit(1);
