@@ -7,9 +7,9 @@ import {
   PermissionFlagsBits,
   TextChannel,
   VoiceChannel,
-  CategoryChannel,
   Message,
-  EmbedBuilder
+  EmbedBuilder,
+  CategoryChannel
 } from "discord.js";
 import { BOT_TOKEN, GUILD_ID } from "./config/config";
 
@@ -61,7 +61,10 @@ const updateLogMessage = async (
   const timestamp = new Date().toLocaleTimeString();
   const prevDesc = existingMessage?.embeds[0]?.description || "";
   const newDesc = `${prevDesc}\n[${timestamp}] ${content}`;
-  const embed = new EmbedBuilder().setDescription(newDesc).setColor(0x800080).setTimestamp(new Date());
+  const embed = new EmbedBuilder()
+    .setDescription(newDesc)
+    .setColor(0x800080)
+    .setTimestamp(new Date());
 
   if (existingMessage) {
     await existingMessage.edit({ embeds: [embed] });
@@ -107,7 +110,14 @@ const setupShadowAuthority = async (guild: Guild) => {
   // Stała wiadomość dziennika
   let statusMessage: Message | undefined = notifyChannel.messages.cache.first();
   if (!statusMessage) {
-    statusMessage = await notifyChannel.send({ embeds: [new EmbedBuilder().setTitle("Shadow Authority Log").setDescription("Dziennik aktywności...").setColor(0x800080)] });
+    statusMessage = await notifyChannel.send({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("Shadow Authority Log")
+          .setDescription("Dziennik aktywności...")
+          .setColor(0x800080)
+      ]
+    });
   }
 
   // Nadanie ról
@@ -167,7 +177,15 @@ const synchronizeShadowAuthority = async (
     if (added.length) desc += `✅ Przyznano role:\n${added.join("\n")}\n\n`;
     if (removed.length) desc += `⚠️ Odebrano role:\n${removed.join("\n")}\n\n`;
     if (!added.length && !removed.length) desc += "🔄 Brak zmian.";
-    await statusMessage.edit({ embeds: [new EmbedBuilder().setTitle("Shadow Authority Log").setDescription(desc).setColor(0x800080).setTimestamp(new Date())] });
+    await statusMessage.edit({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("Shadow Authority Log")
+          .setDescription(desc)
+          .setColor(0x800080)
+          .setTimestamp(new Date())
+      ]
+    });
   }
 };
 
@@ -225,16 +243,16 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     alliance.roles[roleData.name] = role.id;
   }
 
-  let category = guild.channels.cache.find(c => c.name === `${name} • ${tag}` && c.type === ChannelType.GuildCategory);
+  let category = guild.channels.cache.find(c => c.name === `${name} • ${tag}` && c.type === ChannelType.GuildCategory) as CategoryChannel;
   if (!category) {
     await updateLogMessage(logChannel, `Tworzenie kategorii: ${name} • ${tag}`, alliance.logMessage);
-    category = await guild.channels.create({ name: `${name} • ${tag}`, type: ChannelType.GuildCategory });
+    category = await guild.channels.create({ name: `${name} • ${tag}`, type: ChannelType.GuildCategory }) as CategoryChannel;
     await updateLogMessage(logChannel, `📁 Kategoria utworzona: ${name} • ${tag}`, alliance.logMessage);
     alliance.category = category.id;
     await delay(1000);
   } else alliance.category = category.id;
 
-  // Tworzenie kanałów
+  // Tworzenie kanałów tekstowych
   const textChannels = ["👋 welcome","📢 announce","💬 chat","🛡 staff-room","✋ join"];
   for(const nameCh of textChannels){
     let ch = guild.channels.cache.find(c => c.name===nameCh && c.parentId===category.id) as TextChannel;
@@ -246,6 +264,7 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     alliance.channels[nameCh] = ch.id;
   }
 
+  // Tworzenie kanałów głosowych
   const voiceChannels = ["🎤 General VC","🎤 Staff VC"];
   for(const nameCh of voiceChannels){
     let ch = guild.channels.cache.find(c => c.name===nameCh && c.parentId===category.id) as VoiceChannel;
@@ -262,7 +281,7 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
 };
 
 // -------------------
-// PSEUDODELETE (poprawione z .children)
+// PSEUDODELETE
 // -------------------
 const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
   if(!validateName(name) || !validateTag(tag)) return;
@@ -276,7 +295,7 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
 
   if(!alliance.logMessage) alliance.logMessage=await updateLogMessage(logChannel, `📜 Rozpoczęto usuwanie sojuszu "${name} • ${tag}"`);
 
-  // Usuń kanały tekstowe i głosowe
+  // Usuwanie kanałów tekstowych i głosowych
   for(const chId of Object.values(alliance.channels)){
     const ch=guild.channels.cache.get(chId);
     if(ch){
@@ -287,14 +306,15 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
     }
   }
 
-  // Usuń kategorię i jej dzieci
+  // Usuwanie kategorii
   if(alliance.category){
-    const category = guild.channels.cache.get(alliance.category);
-    if(category && category.type === ChannelType.GuildCategory){
+    const category=guild.channels.cache.get(alliance.category);
+    if(category && category.type===ChannelType.GuildCategory){
       const catChannel = category as CategoryChannel;
       await updateLogMessage(logChannel, `Usuwanie kategorii: ${catChannel.name}`,alliance.logMessage);
 
-      for(const child of catChannel.children.values()){
+      // Usuń kanały w kategorii
+      for(const child of catChannel.children.cache.values()){
         await updateLogMessage(logChannel, `Usuwanie kanału z kategorii: ${child.name}`,alliance.logMessage);
         await child.delete();
         await updateLogMessage(logChannel, `🗑 Kanał usunięty: ${child.name}`,alliance.logMessage);
@@ -307,7 +327,7 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
     }
   }
 
-  // Usuń role
+  // Usuwanie ról
   for(const roleId of Object.values(alliance.roles)){
     const role=guild.roles.cache.get(roleId);
     if(role){
