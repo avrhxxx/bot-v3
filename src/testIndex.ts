@@ -6,14 +6,26 @@ import {
   ChannelType,
   Role,
   OverwriteResolvable,
-  PermissionFlagsBits
+  PermissionFlagsBits,
+  Message
 } from "discord.js";
 import { BOT_TOKEN, GUILD_ID } from "./config/config";
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 const TEST_ALLIANCE = { tag: "CEL", name: "Behemoth Cells" };
 
+// -------------------
+// PSEUDOBAZA W INDEKSIE
+// -------------------
+const pseudoDB: {
+  roles: Record<string, string>;
+  category?: string;
+  channels: Record<string, string>;
+} = { roles: {}, channels: {} };
+
+// -------------------
+// CLIENT
+// -------------------
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
@@ -28,7 +40,7 @@ const logTime = (msg: string) => {
 // PSEUDOKOMENDA CREATE
 // -------------------
 const pseudoCreate = async (guild: Guild) => {
-  logTime(`🚀 Tworzenie sojuszu: ${TEST_ALLIANCE.name}`);
+  logTime(`🚀 Pseudokomenda: Tworzenie sojuszu "${TEST_ALLIANCE.name}"`);
 
   // 1️⃣ ROLE
   const rolesDef = [
@@ -55,6 +67,7 @@ const pseudoCreate = async (guild: Guild) => {
     }
 
     createdRoles[roleData.name] = role;
+    pseudoDB.roles[roleData.name] = role.id;
     await delay(3000);
   }
 
@@ -68,8 +81,12 @@ const pseudoCreate = async (guild: Guild) => {
       name: TEST_ALLIANCE.name,
       type: ChannelType.GuildCategory
     });
+    pseudoDB.category = category.id;
     logTime(`📁 Kategoria utworzona: ${TEST_ALLIANCE.name}`);
     await delay(5000);
+  } else {
+    pseudoDB.category = category.id;
+    logTime(`⚠️ Kategoria już istnieje: ${TEST_ALLIANCE.name}`);
   }
 
   if (!category) return;
@@ -95,10 +112,13 @@ const pseudoCreate = async (guild: Guild) => {
       logTime(`⚠️ Text channel już istnieje: ${name}`);
     }
 
-    // Permissions dwuwarstwowe
+    pseudoDB.channels[name] = ch.id;
+
+    // -------------------
+    // PERMISSIONS DWUWARSTWOWE
+    // -------------------
     const overwrites: OverwriteResolvable[] = [];
 
-    // everyone deny
     if (name !== "👋 welcome" && name !== "✋ join") {
       overwrites.push({
         id: guild.roles.everyone.id,
@@ -106,40 +126,29 @@ const pseudoCreate = async (guild: Guild) => {
       });
     }
 
-    // role allow
     switch (name) {
       case "👋 welcome":
       case "📢 announce":
       case "💬 chat":
-        ["R3", "R4", "R5"].forEach(r => {
-          const role = createdRoles[`${r}[${TEST_ALLIANCE.tag}]`];
-          if (role) overwrites.push({
-            id: role.id,
-            allow: [PermissionFlagsBits.ViewChannel]
-          });
+        ["R3","R4","R5"].forEach(r => {
+          const roleId = pseudoDB.roles[`${r}[${TEST_ALLIANCE.tag}]`];
+          if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel] });
         });
         break;
       case "🛡 staff-room":
-        ["R4", "R5"].forEach(r => {
-          const role = createdRoles[`${r}[${TEST_ALLIANCE.tag}]`];
-          if (role) overwrites.push({
-            id: role.id,
-            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
-          });
+        ["R4","R5"].forEach(r => {
+          const roleId = pseudoDB.roles[`${r}[${TEST_ALLIANCE.tag}]`];
+          if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] });
         });
         break;
       case "💬 chat":
-        ["R3", "R4", "R5"].forEach(r => {
-          const role = createdRoles[`${r}[${TEST_ALLIANCE.tag}]`];
-          if (role) overwrites.push({
-            id: role.id,
-            allow: [PermissionFlagsBits.SendMessages]
-          });
+        ["R3","R4","R5"].forEach(r => {
+          const roleId = pseudoDB.roles[`${r}[${TEST_ALLIANCE.tag}]`];
+          if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.SendMessages] });
         });
         break;
       case "✋ join":
-        // visible dla wszystkich poza R3,R4,R5
-        break;
+        break; // visible dla wszystkich poza R3,R4,R5
     }
 
     if (ch) await ch.permissionOverwrites.set(overwrites);
@@ -147,7 +156,7 @@ const pseudoCreate = async (guild: Guild) => {
   }
 
   // 4️⃣ KANAŁY GŁOSOWE
-  const voiceChannels = ["🎤 General VC", "🎤 Staff VC"];
+  const voiceChannels = ["🎤 General VC","🎤 Staff VC"];
 
   for (const name of voiceChannels) {
     const exists = guild.channels.cache.find(
@@ -167,25 +176,17 @@ const pseudoCreate = async (guild: Guild) => {
       logTime(`⚠️ Voice channel już istnieje: ${name}`);
     }
 
-    const overwrites: OverwriteResolvable[] = [];
-    if (name === "🎤 Staff VC") {
-      ["R4", "R5"].forEach(r => {
-        const role = createdRoles[`${r}[${TEST_ALLIANCE.tag}]`];
-        if (role) overwrites.push({
-          id: role.id,
-          allow: [PermissionFlagsBits.Connect, PermissionFlagsBits.Speak]
-        });
-      });
-    } else if (name === "🎤 General VC") {
-      ["R3", "R4", "R5"].forEach(r => {
-        const role = createdRoles[`${r}[${TEST_ALLIANCE.tag}]`];
-        if (role) overwrites.push({
-          id: role.id,
-          allow: [PermissionFlagsBits.Connect, PermissionFlagsBits.Speak]
-        });
-      });
-    }
+    pseudoDB.channels[name] = ch.id;
 
+    const overwrites: OverwriteResolvable[] = [];
+    if (name === "🎤 Staff VC") ["R4","R5"].forEach(r => {
+      const roleId = pseudoDB.roles[`${r}[${TEST_ALLIANCE.tag}]`];
+      if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] });
+    });
+    if (name === "🎤 General VC") ["R3","R4","R5"].forEach(r => {
+      const roleId = pseudoDB.roles[`${r}[${TEST_ALLIANCE.tag}]`];
+      if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] });
+    });
     if (ch) await ch.permissionOverwrites.set(overwrites);
     await delay(2000);
   }
@@ -197,53 +198,57 @@ const pseudoCreate = async (guild: Guild) => {
 // PSEUDOKOMENDA DELETE
 // -------------------
 const pseudoDelete = async (guild: Guild) => {
-  logTime(`🗑 Usuwanie sojuszu: ${TEST_ALLIANCE.name}`);
+  logTime(`🗑 Pseudokomenda: Usuwanie sojuszu "${TEST_ALLIANCE.name}"`);
 
-  const category = guild.channels.cache.find(
-    c => c.name === TEST_ALLIANCE.name && c.type === ChannelType.GuildCategory
-  );
-
-  if (category && category.type === ChannelType.GuildCategory) {
-    for (const ch of category.children.cache.values()) {
+  // 1️⃣ Usuwanie kanałów
+  for (const chId of Object.values(pseudoDB.channels)) {
+    const ch = guild.channels.cache.get(chId);
+    if (ch) {
       await ch.delete();
       logTime(`❌ Usunięto kanał: ${ch.name}`);
       await delay(1000);
     }
+  }
+  pseudoDB.channels = {};
 
-    await category.delete();
-    logTime(`❌ Usunięto kategorię: ${TEST_ALLIANCE.name}`);
-    await delay(1000);
+  // 2️⃣ Usuwanie kategorii
+  if (pseudoDB.category) {
+    const category = guild.channels.cache.get(pseudoDB.category);
+    if (category) {
+      await category.delete();
+      logTime(`❌ Usunięto kategorię: ${category.name}`);
+      await delay(1000);
+    }
+    pseudoDB.category = undefined;
   }
 
-  const roleNames = [
-    `R5[${TEST_ALLIANCE.tag}]`,
-    `R4[${TEST_ALLIANCE.tag}]`,
-    `R3[${TEST_ALLIANCE.tag}]`,
-    TEST_ALLIANCE.name
-  ];
-
-  for (const name of roleNames) {
-    const role = guild.roles.cache.find(r => r.name === name);
+  // 3️⃣ Usuwanie ról
+  for (const roleId of Object.values(pseudoDB.roles)) {
+    const role = guild.roles.cache.get(roleId);
     if (role) {
       await role.delete();
-      logTime(`❌ Usunięto rolę: ${name}`);
+      logTime(`❌ Usunięto rolę: ${role.name}`);
       await delay(1000);
     }
   }
+  pseudoDB.roles = {};
 
   logTime(`✅ Sojusz ${TEST_ALLIANCE.name} w pełni usunięty`);
 };
 
 // -------------------
-// WYWOŁANIE PSEUDOKOMEND (tylko dla testów)
+// OBSŁUGA WIADOMOŚCI
 // -------------------
-client.once("ready", async () => {
-  const guild: Guild | undefined = client.guilds.cache.get(GUILD_ID);
-  if (!guild) return;
+client.on("messageCreate", async (message: Message) => {
+  if (!message.guild || message.author.bot) return;
+  if (message.guild.id !== GUILD_ID) return;
 
-  // przykładowe wywołania do testu:
-  // await pseudoCreate(guild);
-  // await pseudoDelete(guild);
+  if (message.content === "!create") await pseudoCreate(message.guild);
+  if (message.content === "!delete") await pseudoDelete(message.guild);
+});
+
+client.once("ready", () => {
+  logTime(`Zalogowano jako ${client.user?.tag}`);
 });
 
 client.login(BOT_TOKEN);
