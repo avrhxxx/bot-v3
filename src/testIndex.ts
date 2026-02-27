@@ -23,7 +23,9 @@ const pseudoDB: Record<string, {
   channels: Record<string, string>;
   logMessage?: Message; // Wiadomość logów per sojusz
 }> = {};
+
 const shadowDB: Record<string, string[]> = {}; // userId[] dla Shadow Authority
+let shadowStatusMessage: Message | undefined;
 
 // -------------------
 // CLIENT
@@ -50,29 +52,29 @@ const validateName = (name: string) => /^[A-Za-z ]{4,32}$/.test(name);
 const validateTag = (tag: string) => /^[A-Za-z0-9]{3}$/.test(tag);
 
 // -------------------
-// POMOCNICZA FUNKCJA LOGOWANIA
+// FUNKCJA LOGOWANIA DO JEDNEJ WIADOMOŚCI
 // -------------------
-// Dynamiczne dodawanie etapów do jednej wiadomości
 const updateLogMessage = async (
   channel: TextChannel,
   content: string,
-  existingMessage?: Message,
-  title?: string
+  existingMessage?: Message
 ): Promise<Message> => {
   const timestamp = new Date().toLocaleTimeString();
-  const embed = new EmbedBuilder().setColor(0x800080).setTimestamp(new Date());
-
   if (existingMessage) {
     const prevEmbed = existingMessage.embeds[0];
     const prevDesc = prevEmbed?.description || "";
     const newDesc = `${prevDesc}\n[${timestamp}] ${content}`;
-    embed.setDescription(newDesc);
-    if (title) embed.setTitle(title);
+    const embed = new EmbedBuilder()
+      .setDescription(newDesc)
+      .setColor(0x800080)
+      .setTimestamp(new Date());
     await existingMessage.edit({ embeds: [embed] });
     return existingMessage;
   } else {
-    embed.setDescription(`[${timestamp}] ${content}`);
-    if (title) embed.setTitle(title);
+    const embed = new EmbedBuilder()
+      .setDescription(`[${timestamp}] ${content}`)
+      .setColor(0x800080)
+      .setTimestamp(new Date());
     const msg = await channel.send({ embeds: [embed] });
     return msg;
   }
@@ -116,14 +118,18 @@ const setupShadowAuthority = async (guild: Guild) => {
     ]);
   }
 
-  let statusMessage: Message | undefined = notifyChannel.messages.cache.first();
-  if (!statusMessage) {
-    statusMessage = await notifyChannel.send({
-      embeds: [new EmbedBuilder().setTitle("Shadow Authority").setDescription("Status wczytywania...").setColor(0x800080)]
+  shadowStatusMessage = notifyChannel.messages.cache.first();
+  if (!shadowStatusMessage) {
+    shadowStatusMessage = await notifyChannel.send({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("Shadow Authority")
+          .setDescription("Status wczytywania...")
+          .setColor(0x800080)
+      ]
     });
   }
 
-  // Nadanie ról
   for (const userId of authorityIds) {
     const member = await guild.members.fetch(userId).catch(() => null);
     if (!member) continue;
@@ -132,7 +138,7 @@ const setupShadowAuthority = async (guild: Guild) => {
     if (!shadowDB[shadowRole.id].includes(userId)) shadowDB[shadowRole.id].push(userId);
   }
 
-  return { shadowRole, authorityIds, notifyChannel, statusMessage };
+  return { shadowRole, authorityIds, notifyChannel };
 };
 
 // -------------------
@@ -142,12 +148,11 @@ const synchronizeShadowAuthority = async (
   guild: Guild,
   shadowRoleId: string,
   authorityIds: string[],
-  notifyChannel?: TextChannel,
-  statusMessage?: Message,
   manual = false
 ) => {
-  if (!guild || !statusMessage) return;
+  if (!guild || !shadowStatusMessage) return;
   const currentMembers = await guild.members.fetch();
+
   const added: string[] = [];
   const removed: string[] = [];
 
@@ -174,16 +179,19 @@ const synchronizeShadowAuthority = async (
   shadowDB[shadowRoleId] = currentMembers.filter(m => m.roles.cache.has(shadowRoleId)).map(m => m.id);
 
   let description = `👥 Uprawnieni użytkownicy:\n${authorityIds.map(id => `<@${id}>`).join(", ")}\n\n`;
-  if (manual) description += `🕒 Ostatnia synchronizacja ręczna: ${new Date().toLocaleTimeString()}\n\n`;
+  description += manual ? `🕒 Ostatnia synchronizacja ręczna: ${new Date().toLocaleTimeString()}\n\n`
+                        : `🕒 Ostatnia synchronizacja automatyczna: ${new Date().toLocaleTimeString()}\n\n`;
   if (added.length) description += `✅ Przyznano role:\n${added.join("\n")}\n\n`;
   if (removed.length) description += `⚠️ Odebrano role:\n${removed.join("\n")}\n\n`;
   if (!added.length && !removed.length) description += "🔄 Brak zmian.";
 
-  await statusMessage.edit({ embeds: [new EmbedBuilder().setTitle("Shadow Authority - Synchronizacja").setDescription(description).setColor(0x800080).setTimestamp(new Date())] });
+  await shadowStatusMessage.edit({
+    embeds: [new EmbedBuilder().setTitle("Shadow Authority").setDescription(description).setColor(0x800080).setTimestamp(new Date())]
+  });
 };
 
 // -------------------
-// EVENT LISTENER (ręczna synchronizacja przy zmianie roli)
+// EVENT LISTENER (manual update przy zmianie roli)
 // -------------------
 client.on("guildMemberUpdate", async (oldMember, newMember) => {
   const shadowRole = newMember.guild.roles.cache.find(r => r.name === "Shadow Authority");
@@ -191,13 +199,11 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
   const authorityIds = process.env.AUTHORITY_IDS?.split(",").map(id => id.trim()) || [];
   if (!authorityIds.length) return;
 
-  const shadowChannel = newMember.guild.channels.cache.find(c => c.name === "shadow-authority" && c.type === ChannelType.GuildText) as TextChannel | undefined;
-  const statusMessage = shadowChannel?.messages.cache.first();
-  await synchronizeShadowAuthority(newMember.guild, shadowRole.id, authorityIds, shadowChannel, statusMessage, true);
+  await synchronizeShadowAuthority(newMember.guild, shadowRole.id, authorityIds, true);
 });
 
 // -------------------
-// LOGI SOJUSZY (jedna wiadomość per sojusz, dziennik etapowy)
+// LOGI SOJUSZY (kanał tekstowy)
 // -------------------
 const getAllianceLogChannel = async (guild: Guild, shadowRoleId: string) => {
   let logChannel = guild.channels.cache.find(c => c.name === "alliance-logs" && c.type === ChannelType.GuildText) as TextChannel;
@@ -229,10 +235,9 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
   if (!logChannel) return;
 
   if (!alliance.logMessage) {
-    alliance.logMessage = await updateLogMessage(logChannel, `📜 Rozpoczęto tworzenie sojuszu "${name} • ${tag}"`, undefined, `Tworzenie sojuszu: ${name} • ${tag}`);
+    alliance.logMessage = await updateLogMessage(logChannel, `📜 Rozpoczęto tworzenie sojuszu "${name} • ${tag}"`);
   }
 
-  // --- Etap 1: Tworzenie ról ---
   const rolesDef = [
     { name: `R5 • ${tag}`, color: 0xff0000 },
     { name: `R4 • ${tag}`, color: 0x0000ff },
@@ -240,7 +245,7 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     { name: `${name}`, color: 0xffff00 }
   ];
 
-  await updateLogMessage(logChannel, `--- Etap 1: Tworzenie ról ---`, alliance.logMessage);
+  // Tworzenie ról
   for (const roleData of rolesDef) {
     let role = guild.roles.cache.find(r => r.name === roleData.name);
     if (!role) {
@@ -252,8 +257,7 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     alliance.roles[roleData.name] = role.id;
   }
 
-  // --- Etap 2: Tworzenie kategorii ---
-  await updateLogMessage(logChannel, `--- Etap 2: Tworzenie kategorii ---`, alliance.logMessage);
+  // Kategorie
   let category = guild.channels.cache.find(c => c.name === `${name} • ${tag}` && c.type === ChannelType.GuildCategory);
   if (!category) {
     await updateLogMessage(logChannel, `Tworzenie kategorii: ${name} • ${tag}`, alliance.logMessage);
@@ -263,8 +267,7 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     await delay(500);
   } else alliance.category = category.id;
 
-  // --- Etap 3: Tworzenie kanałów tekstowych ---
-  await updateLogMessage(logChannel, `--- Etap 3: Tworzenie kanałów tekstowych ---`, alliance.logMessage);
+  // Tekstowe i głosowe kanały oraz permission
   const textChannels = ["👋 welcome", "📢 announce", "💬 chat", "🛡 staff-room", "✋ join"];
   for (const nameCh of textChannels) {
     let ch = guild.channels.cache.find(c => c.name === nameCh && c.parentId === category.id) as TextChannel;
@@ -311,8 +314,6 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     await delay(250);
   }
 
-  // --- Etap 4: Tworzenie kanałów głosowych ---
-  await updateLogMessage(logChannel, `--- Etap 4: Tworzenie kanałów głosowych ---`, alliance.logMessage);
   const voiceChannels = ["🎤 General VC", "🎤 Staff VC"];
   for (const nameCh of voiceChannels) {
     let ch = guild.channels.cache.find(c => c.name === nameCh && c.parentId === category.id) as VoiceChannel;
@@ -343,7 +344,7 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
 };
 
 // -------------------
-// PSEUDODELETE (etapowy dzienniczek)
+// PSEUDODELETE
 // -------------------
 const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
   if (!validateName(name) || !validateTag(tag)) return;
@@ -356,10 +357,9 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
   if (!logChannel) return;
 
   if (!alliance.logMessage) {
-    alliance.logMessage = await updateLogMessage(logChannel, `📜 Rozpoczęto usuwanie sojuszu "${name} • ${tag}"`, undefined, `Usuwanie sojuszu: ${name} • ${tag}`);
+    alliance.logMessage = await updateLogMessage(logChannel, `📜 Rozpoczęto usuwanie sojuszu "${name} • ${tag}"`);
   }
 
-  await updateLogMessage(logChannel, `--- Etap 1: Usuwanie kanałów ---`, alliance.logMessage);
   for (const chId of Object.values(alliance.channels)) {
     const ch = guild.channels.cache.get(chId);
     if (ch) {
@@ -371,7 +371,6 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
   }
 
   if (alliance.category) {
-    await updateLogMessage(logChannel, `--- Etap 2: Usuwanie kategorii ---`, alliance.logMessage);
     const category = guild.channels.cache.get(alliance.category);
     if (category) {
       await updateLogMessage(logChannel, `Usuwanie kategorii: ${category.name}`, alliance.logMessage);
@@ -381,7 +380,6 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
     }
   }
 
-  await updateLogMessage(logChannel, `--- Etap 3: Usuwanie ról ---`, alliance.logMessage);
   for (const roleId of Object.values(alliance.roles)) {
     const role = guild.roles.cache.get(roleId);
     if (role) {
@@ -430,8 +428,8 @@ client.once("ready", async () => {
 
   const shadowSetup = await setupShadowAuthority(guild);
   if (shadowSetup) {
-    const { shadowRole, authorityIds, notifyChannel, statusMessage } = shadowSetup;
-    setInterval(() => synchronizeShadowAuthority(guild, shadowRole.id, authorityIds, notifyChannel, statusMessage), 60_000);
+    const { shadowRole, authorityIds } = shadowSetup;
+    setInterval(() => synchronizeShadowAuthority(guild, shadowRole.id, authorityIds), 60_000);
   }
 });
 
