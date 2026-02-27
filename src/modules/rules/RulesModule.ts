@@ -1,14 +1,17 @@
-// src/modules/rules/RulesModule.ts
-import { AllianceService } from '../../AllianceServices';
+import { AllianceService } from "../../AllianceServices";
 
 export class RulesModule {
   /**
    * Walidacja dołączenia członka do sojuszu.
+   * Jeśli sojusz nie istnieje, automatycznie go tworzy.
    */
   static async validateJoin(allianceId: string, memberId: string): Promise<void> {
-    const alliance = await AllianceService.getAlliance(allianceId);
+    let alliance = await AllianceService.getAlliance(allianceId);
+
     if (!alliance) {
-      throw new Error(`[RulesModule] Alliance ${allianceId} does not exist`);
+      console.log(`[RulesModule] Alliance ${allianceId} does not exist. Auto-creating...`);
+      await AllianceService.createAlliance(allianceId, 'AutoCreated Alliance');
+      alliance = await AllianceService.getAlliance(allianceId);
     }
 
     if (alliance.members.includes(memberId)) {
@@ -19,7 +22,8 @@ export class RulesModule {
   }
 
   /**
-   * Walidacja zmiany lidera sojuszu.
+   * Walidacja zmiany lidera w sojuszu.
+   * Sprawdza, czy sojusz istnieje i czy nowy lider jest członkiem.
    */
   static async validateLeaderChange(allianceId: string, newLeaderId: string): Promise<void> {
     const alliance = await AllianceService.getAlliance(allianceId);
@@ -28,7 +32,7 @@ export class RulesModule {
     }
 
     if (!alliance.members.includes(newLeaderId)) {
-      throw new Error(`[RulesModule] Member ${newLeaderId} is not in alliance ${allianceId}`);
+      throw new Error(`[RulesModule] New leader ${newLeaderId} is not a member of alliance ${allianceId}`);
     }
 
     console.log(`[RulesModule] validateLeaderChange: ${newLeaderId} in ${allianceId}`);
