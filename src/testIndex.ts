@@ -4,13 +4,11 @@ import {
   GatewayIntentBits,
   Guild,
   ChannelType,
-  Role,
   PermissionFlagsBits,
   TextChannel,
   VoiceChannel,
   Message,
-  EmbedBuilder,
-  GuildMember
+  EmbedBuilder
 } from "discord.js";
 import { BOT_TOKEN, GUILD_ID } from "./config/config";
 
@@ -51,7 +49,7 @@ const validateTag = (tag: string) => /^[A-Za-z0-9]{3}$/.test(tag);
 // -------------------
 const setupShadowAuthority = async (guild: Guild) => {
   const authorityIds = process.env.AUTHORITY_IDS?.split(",").map(id => id.trim()) || [];
-  if (authorityIds.length === 0) {
+  if (!authorityIds.length) {
     logTime("⚠️ Brak zdefiniowanych AUTHORITY_IDS w zmiennych środowiskowych");
     return null;
   }
@@ -66,29 +64,40 @@ const setupShadowAuthority = async (guild: Guild) => {
     logTime(`✅ Rola systemowa utworzona: ${shadowRole.name}`);
   }
 
+  // Prywatny kanał dla Shadow Authority
   let notifyChannel = guild.channels.cache.find(
     c => c.name === "shadow-authority" && c.type === ChannelType.GuildText
   ) as TextChannel | undefined;
+
   if (!notifyChannel) {
     notifyChannel = await guild.channels.create({
       name: "shadow-authority",
       type: ChannelType.GuildText,
+      permissionOverwrites: [
+        { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+        { id: shadowRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
+      ],
       reason: "Kanał powiadomień Shadow Authority"
     });
     logTime(`📢 Kanał powiadomień utworzony: ${notifyChannel.name}`);
     await delay(500);
+  } else {
+    // upewnij się, że kanał jest prywatny
+    await notifyChannel.permissionOverwrites.set([
+      { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+      { id: shadowRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
+    ]);
   }
 
-  let statusMessage: Message | undefined = undefined;
-  const createStatusMessage = async () => {
-    if (!notifyChannel) return;
+  // Utworzenie jednej stałej wiadomości statusowej
+  let statusMessage: Message | undefined = notifyChannel.messages.cache.first();
+  if (!statusMessage) {
     const embed = new EmbedBuilder()
       .setTitle("Shadow Authority")
       .setDescription("Synchronizacja w toku...")
       .setColor(0x800080);
     statusMessage = await notifyChannel.send({ embeds: [embed] });
-  };
-  await createStatusMessage();
+  }
 
   for (const userId of authorityIds) {
     const member = await guild.members.fetch(userId).catch(() => null);
@@ -112,53 +121,53 @@ const synchronizeShadowAuthority = async (
   statusMessage?: Message
 ) => {
   if (!guild) return;
-
   const currentMembers = await guild.members.fetch();
-  shadowDB[shadowRoleId] = currentMembers.filter(m => m.roles.cache.has(shadowRoleId)).map(m => m.id);
 
+  const added: string[] = [];
+  const removed: string[] = [];
+
+  // Przywracanie ról dla uprawnionych
   for (const userId of authorityIds) {
     const member = currentMembers.get(userId);
     if (!member) continue;
     if (!member.roles.cache.has(shadowRoleId)) {
       await member.roles.add(shadowRoleId);
-      logTime(`🔄 Przywrócono rolę Shadow Authority dla ${member.user.tag}`);
-      if (statusMessage) {
-        const embed = new EmbedBuilder()
-          .setTitle("Shadow Authority")
-          .setDescription(`🔄 Przywrócono rolę Shadow Authority dla ${member.user.tag}\n🕒 ${new Date().toLocaleTimeString()}`)
-          .setColor(0x800080);
-        await statusMessage?.edit({ embeds: [embed] });
-      }
-      await delay(500);
+      added.push(member.user.tag);
+      if (!shadowDB[shadowRoleId]) shadowDB[shadowRoleId] = [];
+      if (!shadowDB[shadowRoleId].includes(userId)) shadowDB[shadowRoleId].push(userId);
+      await delay(300);
     }
   }
 
+  // Odebranie ról dla nieuprawnionych
   for (const [id, member] of currentMembers) {
     if (!authorityIds.includes(id) && member.roles.cache.has(shadowRoleId)) {
       await member.roles.remove(shadowRoleId);
-      logTime(`⚠️ Odebrano rolę Shadow Authority osobie nieuprawnionej: ${member.user.tag}`);
-      if (statusMessage) {
-        const embed = new EmbedBuilder()
-          .setTitle("Shadow Authority")
-          .setDescription(`⚠️ Odebrano rolę Shadow Authority osobie nieuprawnionej: ${member.user.tag}\n🕒 ${new Date().toLocaleTimeString()}`)
-          .setColor(0xff0000);
-        await statusMessage?.edit({ embeds: [embed] });
-      }
-      await delay(500);
+      removed.push(member.user.tag);
+      await delay(300);
     }
   }
 
+  // Aktualizacja bazy
+  shadowDB[shadowRoleId] = currentMembers.filter(m => m.roles.cache.has(shadowRoleId)).map(m => m.id);
+
+  // Jedna edytowana wiadomość statusowa
   if (statusMessage) {
+    let description = "";
+    if (added.length) description += `✅ Przywrócono rolę Shadow Authority:\n${added.join("\n")}\n\n`;
+    if (removed.length) description += `⚠️ Odebrano rolę Shadow Authority:\n${removed.join("\n")}\n\n`;
+    if (!description) description = "🔄 Synchronizacja zakończona — brak zmian.";
     const embed = new EmbedBuilder()
       .setTitle("Shadow Authority")
-      .setDescription(`✅ Synchronizacja zakończona\n🕒 ${new Date().toLocaleTimeString()}`)
-      .setColor(0x00ff00);
-    await statusMessage?.edit({ embeds: [embed] });
+      .setDescription(description)
+      .setColor(added.length ? 0x00ff00 : removed.length ? 0xff0000 : 0x808080)
+      .setTimestamp(new Date());
+    await statusMessage.edit({ embeds: [embed] });
   }
 };
 
 // -------------------
-// EVENT LISTENER
+// EVENT LISTENER (natychmiastowa reakcja na ręczne zmiany)
 // -------------------
 client.on("guildMemberUpdate", async (oldMember, newMember) => {
   const shadowRole = newMember.guild.roles.cache.find(r => r.name === "Shadow Authority");
@@ -166,8 +175,9 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
   const authorityIds = process.env.AUTHORITY_IDS?.split(",").map(id => id.trim()) || [];
   if (!authorityIds.length) return;
 
-  // wymuszona synchronizacja bazy
-  await synchronizeShadowAuthority(newMember.guild, shadowRole.id, authorityIds);
+  const shadowSetupChannel = newMember.guild.channels.cache.find(c => c.name === "shadow-authority" && c.type === ChannelType.GuildText) as TextChannel | undefined;
+  const statusMessage = shadowSetupChannel?.messages.cache.first();
+  await synchronizeShadowAuthority(newMember.guild, shadowRole.id, authorityIds, shadowSetupChannel, statusMessage);
 });
 
 // -------------------
