@@ -48,7 +48,7 @@ const setupShadowAuthority = async (guild: Guild) => {
   const authorityIds = process.env.AUTHORITY_IDS?.split(",").map(id => id.trim()) || [];
   if (authorityIds.length === 0) {
     logTime("⚠️ Brak zdefiniowanych AUTHORITY_IDS w zmiennych środowiskowych");
-    return;
+    return null;
   }
 
   // Sprawdź czy rola istnieje, jeśli nie – stwórz
@@ -56,12 +56,22 @@ const setupShadowAuthority = async (guild: Guild) => {
   if (!shadowRole) {
     shadowRole = await guild.roles.create({
       name: "Shadow Authority",
-      color: 0x800080, // przykładowy kolor, można zmienić później
+      color: 0x800080,
       reason: "Rola systemowa Shadow Authority"
     });
     logTime(`✅ Rola systemowa utworzona: ${shadowRole.name}`);
   } else {
     logTime(`⚠️ Rola systemowa już istnieje: ${shadowRole.name}`);
+  }
+
+  // Potwierdzenie odczytu AUTHORITY_IDS w konsoli
+  logTime(`✅ AUTHORITY_IDS odczytane: ${authorityIds.join(", ")}`);
+
+  // Znajdź kanał do powiadomień (na razie pierwszy tekstowy)
+  const notifyChannel = guild.channels.cache.find(c => c.type === ChannelType.GuildText) as GuildBasedChannel | undefined;
+  if (notifyChannel) {
+    // @ts-ignore
+    await notifyChannel.send(`✅ Lista AUTHORITY_IDS odczytana poprawnie: ${authorityIds.join(", ")}`);
   }
 
   // Przypisz rolę użytkownikom z listy
@@ -78,6 +88,44 @@ const setupShadowAuthority = async (guild: Guild) => {
       logTime(`⚠️ Użytkownik ${member.user.tag} już ma rolę Shadow Authority`);
     }
   }
+
+  return { shadowRole, authorityIds, notifyChannel };
+};
+
+// -------------------
+// CYKL SYNCHRONIZACJI SHADOW AUTHORITY
+// -------------------
+const startShadowAuthoritySync = async (guild: Guild, shadowRoleId: string, authorityIds: string[], notifyChannel?: GuildBasedChannel) => {
+  const syncInterval = 15000; // 15 sekund
+  setInterval(async () => {
+    logTime("🔄 Rozpoczynam cykl synchronizacji Shadow Authority...");
+    if (notifyChannel) {
+      // @ts-ignore
+      await notifyChannel.send("🔄 Rozpoczynam cykl synchronizacji Shadow Authority...");
+    }
+
+    for (const userId of authorityIds) {
+      const member = await guild.members.fetch(userId).catch(() => null);
+      if (!member) {
+        logTime(`❌ Nie znaleziono użytkownika do synchronizacji Shadow Authority: ${userId}`);
+        continue;
+      }
+      if (!member.roles.cache.has(shadowRoleId)) {
+        await member.roles.add(shadowRoleId);
+        logTime(`🔄 Przywrócono rolę Shadow Authority dla ${member.user.tag}`);
+        if (notifyChannel) {
+          // @ts-ignore
+          await notifyChannel.send(`🔄 Przywrócono rolę Shadow Authority dla ${member.user.tag}`);
+        }
+      }
+    }
+
+    logTime("✅ Cykl synchronizacji Shadow Authority zakończony poprawnie");
+    if (notifyChannel) {
+      // @ts-ignore
+      await notifyChannel.send("✅ Cykl synchronizacji Shadow Authority zakończony poprawnie");
+    }
+  }, syncInterval);
 };
 
 // -------------------
@@ -85,11 +133,10 @@ const setupShadowAuthority = async (guild: Guild) => {
 // (Twój oryginalny kod pseudoCreate)
 // -------------------
 const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
-  // ... cały Twój dotychczasowy kod pseudoCreate pozostaje bez zmian
   const key = `${name}•${tag}`;
   logTime(`🚀 Tworzenie sojuszu "${name}"`);
   if (!pseudoDB[key]) pseudoDB[key] = { roles: {}, channels: {} };
-  // dalej Twój kod...
+  // dalej Twój kod pseudoCreate pozostaje bez zmian
 };
 
 // -------------------
@@ -97,7 +144,13 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
 // (Twój oryginalny kod pseudoDelete)
 // -------------------
 const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
-  // ... cały Twój dotychczasowy kod pseudoDelete pozostaje bez zmian
+  const key = `${name}•${tag}`;
+  const alliance = pseudoDB[key];
+  if (!alliance) {
+    logTime(`❌ Sojusz "${name} • ${tag}" nie istnieje`);
+    return;
+  }
+  // dalej Twój kod pseudoDelete pozostaje bez zmian
 };
 
 // -------------------
@@ -117,16 +170,7 @@ client.on("messageCreate", async (message: Message) => {
     }
     const tag = parts.pop()!;
     const name = parts.slice(1).join(" ");
-
-    if (!validateName(name)) {
-      await message.reply("❌ Niepoprawna nazwa sojuszu. Dozwolone: A-Z, a-z, spacje, długość 4–32 znaki.");
-      return;
-    }
-    if (!validateTag(tag)) {
-      await message.reply("❌ Niepoprawny tag. Dozwolone: A-Z, a-z, 0-9, dokładnie 3 znaki.");
-      return;
-    }
-
+    if (!validateName(name) || !validateTag(tag)) return;
     await message.reply(`✅ Komenda !create użyta — rozpoczęto tworzenie sojuszu "${name} • ${tag}" (testowo).`);
     await pseudoCreate(message.guild, name, tag);
   }
@@ -138,16 +182,7 @@ client.on("messageCreate", async (message: Message) => {
     }
     const tag = parts.pop()!;
     const name = parts.slice(1).join(" ");
-
-    if (!validateName(name)) {
-      await message.reply("❌ Niepoprawna nazwa sojuszu. Dozwolone: A-Z, a-z, spacje, długość 4–32 znaki.");
-      return;
-    }
-    if (!validateTag(tag)) {
-      await message.reply("❌ Niepoprawny tag. Dozwolone: A-Z, a-z, 0-9, dokładnie 3 znaki.");
-      return;
-    }
-
+    if (!validateName(name) || !validateTag(tag)) return;
     await message.reply(`✅ Komenda !delete użyta — rozpoczęto usuwanie sojuszu "${name} • ${tag}" (testowo).`);
     await pseudoDelete(message.guild, name, tag);
   }
@@ -165,7 +200,12 @@ client.once("ready", async () => {
     return;
   }
 
-  await setupShadowAuthority(guild);
+  // Setup Shadow Authority i start synchronizacji
+  const shadowSetup = await setupShadowAuthority(guild);
+  if (shadowSetup) {
+    const { shadowRole, authorityIds, notifyChannel } = shadowSetup;
+    startShadowAuthoritySync(guild, shadowRole.id, authorityIds, notifyChannel);
+  }
 });
 
 client.login(BOT_TOKEN);
