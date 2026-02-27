@@ -5,7 +5,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc",
     "start": "node dist/index.js",
-    "build:test": "tsc -p tsconfig.test.json",
+    "build:test": "rm -rf dist-test && tsc -p tsconfig.test.json",
     "start:test": "ts-node src/testIndex.ts",
     "dev": "tsc --watch"
   },
