@@ -1,36 +1,23 @@
-import { startDiscord, ClientStub } from './discord/client';
 import { AllianceOrkiestror } from './orkiestror/AllianceOrkiestror';
-import { AliasIntegrity } from './integrity/AliasIntegrity';
+import { RulesModule } from './modules/rules/RulesModule';
+import { TransferLeaderModule } from './modules/transferleader/TransferLeaderModule';
+import { RoleModule } from './modules/role/RoleModule';
+import { MembershipModule } from './modules/membership/MembershipModule';
 
-async function bootstrap() {
-  console.log('[Bootstrap] System booting...');
+// Tworzenie sojuszu
+const alliance = AllianceOrkiestror.createAlliance('alliance1');
 
-  const client: ClientStub = await startDiscord();
-  console.log('[Bootstrap] Discord client started.');
+// Dodawanie członka
+MembershipModule.addMember('member1', 'alliance1', 'admin1');
 
-  console.log('[Bootstrap] Initializing alliances...');
+// Przypisywanie ról
+RoleModule.assignMemberRoles('member1', 'alliance1', 'admin1');
 
-  const allianceId = 'alliance1';
-  const memberId = 'member1';
+// Przeniesienie lidera
+TransferLeaderModule.transferLeader('alliance1', 'member1', 'admin1', 'auto-promotion');
 
-  // Dodanie członka + transfer lidera (memory-mode automatycznie tworzy sojusz)
-  await AllianceOrkiestror.addMember(allianceId, memberId);
-  await AllianceOrkiestror.transferLeader(allianceId, memberId);
+// Walidacja
+RulesModule.validateJoin('member1', 'alliance1');
+RulesModule.validateLeaderChange('member1', 'alliance1');
 
-  console.log('[Bootstrap] Checking integrity...');
-  AliasIntegrity.checkAlliance(allianceId);
-
-  console.log('[Bootstrap] System boot completed. Discord client running.');
-
-  keepAlive();
-}
-
-function keepAlive(): void {
-  console.log('[Bootstrap] Keeping process alive...');
-  setInterval(() => console.log('[Bootstrap] Heartbeat...'), 60_000);
-}
-
-bootstrap().catch(err => {
-  console.error('[Bootstrap] Fatal boot error:', err);
-  process.exit(1);
-});
+console.log('System boot completed successfully.');
