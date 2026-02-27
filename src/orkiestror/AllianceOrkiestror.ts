@@ -1,17 +1,20 @@
-// Minimalna klasa AllianceOrkiestror
+import { MutationGate } from "../engine/MutationGate";
+
+// Orkiestror koordynuje przepływ akcji między modułami
 export class AllianceOrkiestror {
-    constructor() {
-        // Konstruktor – w przyszłości może przechowywać sojusze w pamięci
+    private mutationGate: MutationGate;
+
+    constructor(mutationGate: MutationGate) {
+        this.mutationGate = mutationGate;
+        console.log("[AllianceOrkiestror] Initialized");
     }
 
-    // Przykładowa metoda – do późniejszej implementacji
-    createAlliance(name: string): void {
-        console.log(`[AllianceOrkiestror] Tworzenie sojuszu: ${name}`);
-    }
-
-    findAlliance(name: string): null {
-        // Minimalna wersja zwracająca null
-        console.log(`[AllianceOrkiestror] Szukanie sojuszu: ${name}`);
-        return null;
+    // placeholder dla przykładowej akcji
+    async performAction(actionName: string) {
+        console.log(`[AllianceOrkiestror] Performing action: ${actionName}`);
+        return this.mutationGate.execute(async () => {
+            // tu w przyszłości wywołania modułów (Rules, Membership, Role, Broadcast)
+            return `Action ${actionName} executed`;
+        });
     }
 }
