@@ -1,23 +1,32 @@
-// src/index.ts
-import "dotenv/config";
-import { Client, GatewayIntentBits } from "discord.js";
-import { AllianceOrkiestror } from "./orkiestror/AllianceOrkiestror";
+import { Client, GatewayIntentBits, Guild } from "discord.js";
+import { BOT_TOKEN, GUILD_ID } from "./config/config";
+import { RoleModule } from "./modules/role/RoleModule";
+import { ChannelModule } from "./modules/channel/ChannelModule";
 
-const token = process.env.BOT_ID;
-if (!token) throw new Error("Brak BOT_ID w env");
-
+// Tworzymy klienta Discord
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.once("ready", async () => {
   console.log(`Bot zalogowany jako ${client.user?.tag}`);
 
-  const guild = client.guilds.cache.first();
-  if (!guild) return console.log("Bot nie jest w żadnym guildzie");
+  // Pobieramy guild z cache po ID
+  const guild: Guild | undefined = client.guilds.cache.get(GUILD_ID);
+  if (!guild) {
+    console.log(`Nie znaleziono guilda o ID ${GUILD_ID}.`);
+    return;
+  }
 
-  const orkiestror = new AllianceOrkiestror();
-  await orkiestror.setupAllianceStub(guild, "alliance1", "TAG1", "Sojusz1");
-
-  console.log("[Index] setupAllianceStub zakończone");
+  // Minimalne stuby - role i kanały
+  try {
+    await RoleModule.ensureRoles(guild);          // tworzymy R5, R4, R3
+    await ChannelModule.createChannels(guild, "alliance-stub", "STB", "SojuszStub");
+    console.log("Role i kanały (szkielet) zostały utworzone.");
+  } catch (err) {
+    console.error("Błąd podczas tworzenia ról/kanałów:", err);
+  }
 });
 
-client.login(token);
+// Logowanie bota
+client.login(BOT_TOKEN).catch(err => {
+  console.error("Nie udało się zalogować bota:", err);
+});
