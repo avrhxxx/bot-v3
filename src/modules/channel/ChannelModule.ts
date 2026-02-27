@@ -1,43 +1,33 @@
-import { Guild, TextChannel, CategoryChannel, VoiceChannel, ChannelType, PermissionFlagsBits } from "discord.js";
+import { Guild, CategoryChannel, TextChannel, ChannelType } from "discord.js";
 
 export class ChannelModule {
-  constructor(private guild: Guild) {}
-
-  async createAllianceCategory(name: string) {
-    let category = this.guild.channels.cache.find(
-      ch => ch.name === name && ch.type === ChannelType.GuildCategory
-    ) as CategoryChannel;
+  static async setupAllianceChannels(guild: Guild, allianceName: string) {
+    // Tworzymy kategorię
+    let category = guild.channels.cache.find(
+      c => c.name === allianceName && c.type === ChannelType.GuildCategory
+    ) as CategoryChannel | undefined;
 
     if (!category) {
-      category = await this.guild.channels.create({
-        name,
+      category = await guild.channels.create({
+        name: allianceName,
         type: ChannelType.GuildCategory,
       });
+      console.log(`Utworzono kategorię: ${allianceName}`);
     }
-    return category;
-  }
 
-  async createAllianceChannels(category: CategoryChannel) {
-    const textName = `${category.name}-text`;
-    const voiceName = `${category.name}-voice`;
+    // Tworzymy przykładowy kanał tekstowy
+    const textChannelName = "ogłoszenia";
+    let textChannel = category.children.find(
+      c => c.name === textChannelName && c.isTextBased()
+    ) as TextChannel | undefined;
 
-    if (!category.children.find(ch => ch.name === textName)) {
-      await this.guild.channels.create({
-        name: textName,
+    if (!textChannel) {
+      textChannel = await guild.channels.create({
+        name: textChannelName,
         type: ChannelType.GuildText,
         parent: category,
-        permissionOverwrites: [
-          { id: category.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-        ],
       });
-    }
-
-    if (!category.children.find(ch => ch.name === voiceName)) {
-      await this.guild.channels.create({
-        name: voiceName,
-        type: ChannelType.GuildVoice,
-        parent: category,
-      });
+      console.log(`Utworzono kanał tekstowy: ${textChannelName}`);
     }
   }
 }
