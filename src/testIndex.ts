@@ -118,9 +118,6 @@ const pseudoCreate = async (guild: Guild) => {
 
     pseudoDB.channels[name] = ch.id;
 
-    // -------------------
-    // PERMISSIONS DWUWARSTWOWE
-    // -------------------
     const overwrites: OverwriteResolvable[] = [];
 
     switch (name) {
@@ -165,6 +162,18 @@ const pseudoCreate = async (guild: Guild) => {
         });
         break;
       case "✋ join":
+        // widoczny dla everyone, ale DENY dla R3,R4,R5
+        overwrites.push({
+          id: guild.roles.everyone.id,
+          allow: [PermissionFlagsBits.ViewChannel]
+        });
+        ["R3","R4","R5"].forEach(r => {
+          const roleId = pseudoDB.roles[`${r}[${TEST_ALLIANCE.tag}]`];
+          if (roleId) overwrites.push({
+            id: roleId,
+            deny: [PermissionFlagsBits.ViewChannel]
+          });
+        });
         break;
     }
 
