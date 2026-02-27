@@ -1,28 +1,27 @@
 import "dotenv/config";
 import { Client, GatewayIntentBits } from "discord.js";
-import { RoleModule } from "./orkiestror/RoleModule";
+import { RoleModule } from "./modules/role/RoleModule";
 import { ChannelModule } from "./modules/channel/ChannelModule";
 
-const token = process.env.BOT_TOKEN; // lepiej BOT_TOKEN
-const guildId = process.env.GUILD_ID;
+const token = process.env.BOT_TOKEN; // Twój token bota
 if (!token) throw new Error("Brak BOT_TOKEN w env");
-if (!guildId) throw new Error("Brak GUILD_ID w env");
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.once("ready", async () => {
   console.log(`Bot zalogowany jako ${client.user?.tag}`);
 
-  const guild = client.guilds.cache.get(guildId);
-  if (!guild) return console.error("Nie znaleziono guilda o podanym ID");
+  // Pobieramy pierwszy guild, w którym jest bot
+  const guild = client.guilds.cache.first();
+  if (!guild) return console.log("Bot nie jest w żadnym guildzie");
 
   // Tworzymy role
   await RoleModule.ensureRoles(guild);
 
-  // Tworzymy kategorię i kanały sojuszu
-  await ChannelModule.setupAllianceChannels(guild, "sojusz1");
+  // Tworzymy strukturę kanałów dla testowego sojuszu
+  await ChannelModule.createChannels(guild, "alliance1", "TAG1", "Sojusz1");
 
-  console.log("Setup ról i kanałów zakończony.");
+  console.log("Role i struktura kanałów utworzona");
 });
 
 client.login(token);
