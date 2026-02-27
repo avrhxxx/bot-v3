@@ -2,7 +2,6 @@ export interface MutationOptions {
     actorId?: string;
     reason?: string;
     timestamp?: number;
-    // operacja powinna być określona w module wywołującym, nie w options
 }
 
 export class MutationGate {
