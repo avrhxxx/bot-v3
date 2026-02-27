@@ -17,11 +17,7 @@ async function bootstrap() {
   const allianceId = 'alliance1';
   const memberId = 'member1';
 
-  // Bootstrap test data safely
-  if (!AllianceOrkiestror.getAlliance(allianceId)) {
-    await AllianceOrkiestror.createAlliance(allianceId, 'AutoCreated Alliance');
-  }
-
+  // Memory-mode automatycznie tworzy sojusz, jeśli go nie ma
   await AllianceOrkiestror.addMember(allianceId, memberId);
   await AllianceOrkiestror.transferLeader(allianceId, memberId);
 
