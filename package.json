@@ -5,12 +5,14 @@
   "scripts": {
     "build": "rm -rf dist && tsc",
     "start": "node dist/index.js",
+    "start:test": "ts-node src/testIndex.ts",
     "dev": "tsc --watch"
   },
   "dependencies": {
     "discord.js": "^14.13.0"
   },
   "devDependencies": {
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "ts-node": "^10.9.1"
   }
 }
