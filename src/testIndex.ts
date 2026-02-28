@@ -179,7 +179,7 @@ const initChannels = async (guild: Guild, controlRoleId: string) => {
     });
   }
 
-  return { synchronizationChannel, allianceLogChannel, botCommandsChannel, commentsChannel };
+  return { synchronizationChannel, allianceLogChannel, botCommandsChannel };
 };
 
 // -------------------
@@ -385,7 +385,7 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
 
   // Delete roles
   for (const roleId of Object.values(alliance.roles)) {
-    const role = guild.channels.cache.get(roleId);
+    const role = guild.roles.cache.get(roleId);
     if (role) {
       roleLogs.push(`🗑 ${role.name}`);
       await alliance.logMessage.edit({ embeds: [buildAllianceEmbed(`🗑 Deleting "${name} • ${tag}"`, roleLogs, structureLogs, false, startedAt)] });
@@ -438,63 +438,6 @@ client.once("ready", async () => {
   const controlUnitSetup = await setupControlUnit(guild);
   if (controlUnitSetup) {
     const { controlRole, authorityIds } = controlUnitSetup;
-
-    const updateControlUnitEmbed = async (added: string[], removed: string[]) => {
-      if (controlUnitEmbed) {
-        await controlUnitEmbed.edit({
-          embeds: [new EmbedBuilder()
-            .setTitle("🛡 Bot Control Unit")
-            .setColor(0x800080)
-            .setDescription(
-              `👥 **Authorized:**\n${authorityIds.map(id => `<@${id}>`).join("\n") || "None"}\n\n` +
-              `📜 **Recent changes:**\n${[...added.map(a => `➕ ${a}`), ...removed.map(r => `➖ ${r}`)].join("\n") || "No changes"}`
-            )
-          ]
-        });
-      }
-
-      if (syncMainEmbed) {
-        await syncMainEmbed.edit({
-          embeds: [new EmbedBuilder()
-            .setTitle("📡 Synchronization")
-            .setColor(0x800080)
-            .setDescription(`Last change: ${[...added, ...removed].join(", ") || "No changes"}\n🕒 Last sync: ${new Date().toLocaleTimeString()}`)
-          ]
-        });
-      }
-    };
-
-    // Event: przywracanie ról Bot Control
-    client.on("guildMemberAdd", async (member) => {
-      const added: string[] = [];
-      if (authorityIds.includes(member.id) && !member.roles.cache.has(controlRole.id)) {
-        await member.roles.add(controlRole).catch(() => {});
-        added.push(member.user.tag);
-        logTime(`🔄 Restored Bot Control role to new member ${member.user.tag}`);
-      }
-      if (added.length) await updateControlUnitEmbed(added, []);
-    });
-
-    client.on("guildMemberUpdate", async (oldMember, newMember) => {
-      const added: string[] = [];
-      const removed: string[] = [];
-
-      // Przywracanie roli jeśli została usunięta
-      if (authorityIds.includes(newMember.id) && !newMember.roles.cache.has(controlRole.id)) {
-        await newMember.roles.add(controlRole).catch(() => {});
-        added.push(newMember.user.tag);
-        logTime(`🔄 Restored Bot Control role to updated member ${newMember.user.tag}`);
-      }
-
-      // W przypadku nieautoryzowanego usunięcia roli
-      if (oldMember.roles.cache.has(controlRole.id) && !newMember.roles.cache.has(controlRole.id) && !authorityIds.includes(newMember.id)) {
-        removed.push(newMember.user.tag);
-      }
-
-      if (added.length || removed.length) await updateControlUnitEmbed(added, removed);
-    });
-
-    // Interval sync
     setInterval(() => synchronizeControlUnit(guild, controlRole.id, authorityIds), 60_000);
   }
 });
