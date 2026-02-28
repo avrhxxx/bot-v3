@@ -1,7 +1,7 @@
 import { Guild, OverwriteResolvable, PermissionFlagsBits } from "discord.js";
 import { BotControlModule } from "../modules/BotControlModule";
 import { BotControlDB } from "../db/BotControlDB";
-import { SyncNotify } from "../sync/SyncNotify";
+import { NotificationCenter } from "../notiications/NotificationCenter";
 
 export class BotControlService {
   private module: BotControlModule;
