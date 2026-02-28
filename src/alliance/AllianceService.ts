@@ -1,4 +1,4 @@
-// src/allianceSystem/AllianceService.ts
+// src/alliance/AllianceService.ts
 import { Guild, OverwriteResolvable, PermissionFlagsBits, ChannelType } from "discord.js";
 import { RoleModule } from "../modules/RoleModule";
 import { ChannelModule } from "../modules/ChannelModule";
