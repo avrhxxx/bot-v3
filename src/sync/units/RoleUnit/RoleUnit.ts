@@ -1,49 +1,82 @@
-// src/sync/units/RoleUnit/RoleUnit.ts
-import { Guild } from "discord.js";
+// src/sync/units/PermsUnit/PermsUnit.ts
+import { Guild, PermissionFlagsBits, TextChannel, VoiceChannel } from "discord.js";
 import { DelayModel } from "../../SyncDelayModel";
 import { SyncLiveDB } from "../../../db/SyncLiveDB";
 import { allianceDB } from "../../../db/AllianceDB";
+import { BotControlDB } from "../../../db/BotControlDB";
 import { AllianceService } from "../../../alliance/AllianceService";
+import { BotControlService } from "../../../botControl/BotControlService";
 
-export class RoleUnit {
-  public name = "RoleUnit";
+export class PermsUnit {
+  public name = "PermsUnit";
   private delayModel: DelayModel;
+  private botControlService: BotControlService;
 
-  constructor(delayModel: DelayModel) {
+  constructor(delayModel: DelayModel, botControlService: BotControlService) {
     this.delayModel = delayModel;
+    this.botControlService = botControlService;
   }
 
   public async run(guild: Guild): Promise<void> {
-    console.log(`[RoleUnit] Start checking alliance roles`);
+    console.log(`[PermsUnit] Start checking channel permissions`);
 
-    const liveData = SyncLiveDB.getData(); // live roles info
-    const sourceRoles = allianceDB.roles; // sourceDB
+    const liveData = SyncLiveDB.getData();
 
-    // 1️⃣ Sprawdzenie brakujących ról
-    for (const [roleName, roleId] of Object.entries(sourceRoles)) {
-      const liveRoleId = liveData.roles?.[roleName];
-      if (!liveRoleId || liveRoleId !== roleId) {
-        console.log(`[RoleUnit] Rola "${roleName}" nie istnieje w liveDB lub różni się od sourceDB`);
-        // Zgłaszamy do serwisu, aby utworzył/naprawił rolę
-        await AllianceService.createAlliance(guild, roleName.split(" · ")[0], roleName.slice(-3));
+    // --- 1️⃣ Kanały sojuszy ---
+    for (const [channelName, channelId] of Object.entries(allianceDB.channels)) {
+      const channel = guild.channels.cache.get(channelId) as TextChannel | VoiceChannel;
+      if (!channel) continue;
+
+      const sourceOverwrites = channel.permissionOverwrites.cache;
+      const liveOverwrites = channel.permissionOverwrites.cache;
+
+      let mismatchFound = false;
+
+      sourceOverwrites.forEach((sourcePerms, id) => {
+        const livePerms = liveOverwrites.get(id);
+        if (!livePerms || livePerms.allow.bitfield !== sourcePerms.allow.bitfield || livePerms.deny.bitfield !== sourcePerms.deny.bitfield) {
+          mismatchFound = true;
+        }
+      });
+
+      if (mismatchFound) {
+        console.log(`[PermsUnit] Permissions mismatch in channel "${channelName}"`);
+        // Zgłaszamy do serwisu sojuszu korektę
+        // Tu używamy delete+create jako prosty mechanizm, serwis może rozwinąć bardziej precyzyjny update
+        const allianceName = channelName.split(" · ")[0];
+        const tag = channelName.slice(-3);
+        await AllianceService.deleteAlliance(guild, allianceName, tag);
+        await AllianceService.createAlliance(guild, allianceName, tag);
+
         await this.delayModel.waitAction();
       }
     }
 
-    // 2️⃣ Sprawdzenie nieautoryzowanych ról w liveDB
-    for (const [roleName, liveRoleId] of Object.entries(liveData.roles || {})) {
-      if (!sourceRoles[roleName]) {
-        console.log(`[RoleUnit] Rola "${roleName}" istnieje w liveDB, ale nie ma jej w sourceDB`);
-        // Zgłaszamy do serwisu usunięcie roli
-        await AllianceService.deleteAlliance(
-          guild,
-          roleName.split(" · ")[0],
-          roleName.slice(-3)
-        );
+    // --- 2️⃣ Kanały systemowe (Bot Control) ---
+    for (const [channelName, channelId] of Object.entries(BotControlDB.channels)) {
+      const channel = guild.channels.cache.get(channelId) as TextChannel | undefined;
+      if (!channel) continue;
+
+      const sourceOverwrites = channel.permissionOverwrites.cache;
+      const liveOverwrites = channel.permissionOverwrites.cache;
+
+      let mismatchFound = false;
+
+      sourceOverwrites.forEach((sourcePerms, id) => {
+        const livePerms = liveOverwrites.get(id);
+        if (!livePerms || livePerms.allow.bitfield !== sourcePerms.allow.bitfield || livePerms.deny.bitfield !== sourcePerms.deny.bitfield) {
+          mismatchFound = true;
+        }
+      });
+
+      if (mismatchFound) {
+        console.log(`[PermsUnit] Permissions mismatch in system channel "${channelName}"`);
+        // Zgłaszamy do serwisu Bot Control
+        await this.botControlService.init(guild); // inicjalizacja korekty uprawnień
         await this.delayModel.waitAction();
       }
     }
 
-    console.log(`[RoleUnit] Check complete`);
+    console.log(`[PermsUnit] Permission check complete`);
   }
 }
