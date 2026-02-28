@@ -1,5 +1,14 @@
 // src/modules/channel/ChannelModule.ts
-import { Guild, CategoryChannel, TextChannel, VoiceChannel, ChannelType, GuildChannel } from "discord.js";
+import { 
+  Guild, 
+  CategoryChannel, 
+  TextChannel, 
+  VoiceChannel, 
+  ChannelType, 
+  GuildChannel, 
+  PermissionOverwrites, 
+  Role 
+} from "discord.js";
 
 // -------------------
 // CHANNEL MODULE
@@ -18,10 +27,15 @@ export class ChannelModule {
   // -------------------
   // CREATE CATEGORY
   // -------------------
-  public async createCategory(guild: Guild, name: string): Promise<CategoryChannel> {
+  public async createCategory(
+    guild: Guild, 
+    name: string, 
+    permissionOverwrites?: PermissionOverwrites[]
+  ): Promise<CategoryChannel> {
     const category = await guild.channels.create({
       name,
-      type: ChannelType.GuildCategory
+      type: ChannelType.GuildCategory,
+      permissionOverwrites
     }) as CategoryChannel;
     await this.delay();
     return category;
@@ -30,11 +44,17 @@ export class ChannelModule {
   // -------------------
   // CREATE TEXT CHANNEL
   // -------------------
-  public async createTextChannel(guild: Guild, name: string, parent?: CategoryChannel): Promise<TextChannel> {
+  public async createTextChannel(
+    guild: Guild, 
+    name: string, 
+    parent?: CategoryChannel, 
+    permissionOverwrites?: PermissionOverwrites[]
+  ): Promise<TextChannel> {
     const channel = await guild.channels.create({
       name,
       type: ChannelType.GuildText,
-      parent: parent?.id
+      parent: parent?.id,
+      permissionOverwrites
     }) as TextChannel;
     await this.delay();
     return channel;
@@ -43,11 +63,17 @@ export class ChannelModule {
   // -------------------
   // CREATE VOICE CHANNEL
   // -------------------
-  public async createVoiceChannel(guild: Guild, name: string, parent?: CategoryChannel): Promise<VoiceChannel> {
+  public async createVoiceChannel(
+    guild: Guild, 
+    name: string, 
+    parent?: CategoryChannel, 
+    permissionOverwrites?: PermissionOverwrites[]
+  ): Promise<VoiceChannel> {
     const channel = await guild.channels.create({
       name,
       type: ChannelType.GuildVoice,
-      parent: parent?.id
+      parent: parent?.id,
+      permissionOverwrites
     }) as VoiceChannel;
     await this.delay();
     return channel;
