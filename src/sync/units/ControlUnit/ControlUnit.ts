@@ -1,57 +1,41 @@
 // src/sync/units/ControlUnit/ControlUnit.ts
 import { Guild } from "discord.js";
-import { BotControlService } from "../../../botControl/BotControlService";
-import { BotControlDB } from "../../../db/BotControlDB";
-import { SyncLiveDB } from "../../../db/SyncLiveDB";
 import { DelayModel } from "../../SyncDelayModel";
+import { SyncLiveDB } from "../../../db/SyncLiveDB";
+import { BotControlDB } from "../../../db/BotControlDB";
+import { BotControlService } from "../../../botControl/BotControlService";
 
 export class ControlUnit {
   public name = "ControlUnit";
-  private botService: BotControlService;
   private delayModel: DelayModel;
+  private botService: BotControlService;
 
-  constructor(botService: BotControlService, delayModel: DelayModel) {
-    this.botService = botService;
+  constructor(delayModel: DelayModel, botService: BotControlService) {
     this.delayModel = delayModel;
+    this.botService = botService;
   }
 
-  // Główna funkcja uruchamiana przez SyncEngine
   public async run(guild: Guild): Promise<void> {
     console.log(`[ControlUnit] Start checking Bot Control roles`);
 
-    // Pobieramy aktualny live stan z SyncLiveDB
-    const liveData = SyncLiveDB.getData(); // roleId, authorityIds
-    const botData = BotControlDB.getData(); // baza source
+    const liveMembers = SyncLiveDB.getData().members || {};
+    const authorityIds = BotControlDB.authorityIds || [];
 
-    // --- 1️⃣ Sprawdzenie roli Bot Control ---
-    if (!botData.roleId) {
-      console.warn("[ControlUnit] Brak zdefiniowanej roli Bot Control w DB. Tworzymy ją...");
-      // Role tworzy BotControlService, nie unit
-    } else if (liveData.roleId !== botData.roleId) {
-      console.log(`[ControlUnit] Live roleId różni się od DB, aktualizacja w SyncLiveDB`);
-      liveData.roleId = botData.roleId; // aktualizacja liveDB
-    }
-
-    // --- 2️⃣ Sprawdzenie członków z uprawnieniami ---
-    const authorityIds = botData.authorityIds || [];
+    // 1️⃣ Przydział brakujących ról
     for (const id of authorityIds) {
-      const memberHasRole = liveData.membersWithRole?.includes(id) || false;
-
-      if (!memberHasRole) {
-        console.log(`[ControlUnit] Członek ${id} nie ma roli Bot Control w liveDB`);
-        // Sygnalizujemy serwisowi, aby przydzielił rolę
+      if (!liveMembers[id] || !liveMembers[id].roles.includes(BotControlDB.roleId)) {
+        console.log(`[ControlUnit] User ${id} nie ma roli Bot Control, zgłaszam do serwisu`);
         await this.botService.updateMembers(guild, authorityIds);
-        await this.delayModel.waitAction(); // dynamiczny delay między użytkownikami
+        await this.delayModel.waitAction();
       }
     }
 
-    // --- 3️⃣ Usuwanie nieautoryzowanych członków ---
-    const membersWithRole = liveData.membersWithRole || [];
-    for (const id of membersWithRole) {
-      if (!authorityIds.includes(id)) {
-        console.log(`[ControlUnit] Członek ${id} posiada rolę Bot Control, ale nie jest w authorityIds`);
+    // 2️⃣ Usunięcie roli z osób, które nie są już authority
+    for (const [id, member] of Object.entries(liveMembers)) {
+      if (!authorityIds.includes(id) && member.roles.includes(BotControlDB.roleId)) {
+        console.log(`[ControlUnit] User ${id} nie jest authority, zgłaszam do serwisu`);
         await this.botService.updateMembers(guild, authorityIds);
-        await this.delayModel.waitAction(); // dynamiczny delay
+        await this.delayModel.waitAction();
       }
     }
 
