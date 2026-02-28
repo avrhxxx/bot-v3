@@ -25,7 +25,7 @@ const pseudoDB: Record<string, {
   logMessage?: Message;
 }> = {};
 
-const shadowDB: Record<string, string[]> = {};
+const botControlDB: Record<string, string[]> = {};
 
 // -------------------
 // CLIENT
@@ -61,7 +61,6 @@ const buildAllianceEmbed = (
   startedAt?: number
 ) => {
   const duration = startedAt ? `${Math.floor((Date.now() - startedAt) / 1000)}s` : "-";
-
   return new EmbedBuilder()
     .setTitle(title)
     .setColor(0x800080)
@@ -74,63 +73,71 @@ const buildAllianceEmbed = (
 };
 
 // -------------------
-// SHADOW AUTHORITY SETUP
+// BOT CONTROL SETUP
 // -------------------
-const setupShadowAuthority = async (guild: Guild) => {
+const setupBotControl = async (guild: Guild) => {
   const authorityIds = process.env.AUTHORITY_IDS?.split(",").map(id => id.trim()) || [];
   if (!authorityIds.length) return null;
 
-  let shadowRole = guild.roles.cache.find(r => r.name === "Shadow Authority");
-  if (!shadowRole) {
-    shadowRole = await guild.roles.create({
-      name: "Shadow Authority",
+  let controlRole = guild.roles.cache.find(r => r.name === "Bot Control");
+  if (!controlRole) {
+    controlRole = await guild.roles.create({
+      name: "Bot Control",
       color: 0x800080
     });
+    logTime("✅ Utworzono rolę Bot Control");
   }
 
-  let notifyChannel = guild.channels.cache.find(
-    c => c.name === "shadow-authority" && c.type === ChannelType.GuildText
+  let channel = guild.channels.cache.find(
+    c => c.name === "bot-control" && c.type === ChannelType.GuildText
   ) as TextChannel | undefined;
 
-  if (!notifyChannel) {
-    notifyChannel = await guild.channels.create({
-      name: "shadow-authority",
+  if (!channel) {
+    channel = await guild.channels.create({
+      name: "bot-control",
       type: ChannelType.GuildText,
       permissionOverwrites: [
         { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-        { id: shadowRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
+        { id: controlRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
       ]
     });
   }
 
-  const messages = await notifyChannel.messages.fetch({ limit: 1 });
+  const messages = await channel.messages.fetch({ limit: 1 });
   let statusMessage = messages.first();
 
   if (!statusMessage) {
-    statusMessage = await notifyChannel.send({
+    statusMessage = await channel.send({
       embeds: [new EmbedBuilder()
-        .setTitle("Shadow Authority")
+        .setTitle("Bot Control")
         .setColor(0x800080)
         .setDescription("Inicjalizacja...")
       ]
     });
   }
 
-  return { shadowRole, authorityIds, notifyChannel, statusMessage };
+  // Nadanie ról w Bot Control
+  for (const userId of authorityIds) {
+    const member = await guild.members.fetch(userId).catch(() => null);
+    if (!member) continue;
+    if (!member.roles.cache.has(controlRole.id)) await member.roles.add(controlRole);
+    if (!botControlDB[controlRole.id]) botControlDB[controlRole.id] = [];
+    if (!botControlDB[controlRole.id].includes(userId)) botControlDB[controlRole.id].push(userId);
+  }
+
+  return { controlRole, authorityIds, channel, statusMessage };
 };
 
 // -------------------
-// SHADOW SYNC
+// BOT CONTROL SYNC
 // -------------------
-const synchronizeShadowAuthority = async (
+const synchronizeBotControl = async (
   guild: Guild,
-  shadowRoleId: string,
+  controlRoleId: string,
   authorityIds: string[],
-  notifyChannel?: TextChannel,
   statusMessage?: Message
 ) => {
   if (!statusMessage) return;
-
   const members = await guild.members.fetch();
   const added: string[] = [];
   const removed: string[] = [];
@@ -138,23 +145,25 @@ const synchronizeShadowAuthority = async (
   for (const userId of authorityIds) {
     const member = members.get(userId);
     if (!member) continue;
-    if (!member.roles.cache.has(shadowRoleId)) {
-      await member.roles.add(shadowRoleId);
+    if (!member.roles.cache.has(controlRoleId)) {
+      await member.roles.add(controlRoleId);
       added.push(member.user.tag);
       await delay(500);
     }
   }
 
   for (const [id, member] of members) {
-    if (!authorityIds.includes(id) && member.roles.cache.has(shadowRoleId)) {
-      await member.roles.remove(shadowRoleId);
+    if (!authorityIds.includes(id) && member.roles.cache.has(controlRoleId)) {
+      await member.roles.remove(controlRoleId);
       removed.push(member.user.tag);
       await delay(500);
     }
   }
 
+  botControlDB[controlRoleId] = members.filter(m => m.roles.cache.has(controlRoleId)).map(m => m.id);
+
   const embed = new EmbedBuilder()
-    .setTitle("Shadow Authority")
+    .setTitle("Bot Control")
     .setColor(0x800080)
     .setDescription(
       `👥 **Uprawnieni:**\n${authorityIds.map(id => `<@${id}>`).join("\n") || "Brak"}\n\n` +
@@ -168,9 +177,9 @@ const synchronizeShadowAuthority = async (
 };
 
 // -------------------
-// LOG CHANNEL
+// LOG CHANNEL SOJUSZY
 // -------------------
-const getAllianceLogChannel = async (guild: Guild, shadowRoleId: string) => {
+const getAllianceLogChannel = async (guild: Guild, controlRoleId: string) => {
   let logChannel = guild.channels.cache.find(
     c => c.name === "alliance-logs" && c.type === ChannelType.GuildText
   ) as TextChannel;
@@ -181,7 +190,7 @@ const getAllianceLogChannel = async (guild: Guild, shadowRoleId: string) => {
       type: ChannelType.GuildText,
       permissionOverwrites: [
         { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-        { id: shadowRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
+        { id: controlRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
       ]
     });
   }
@@ -198,10 +207,10 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
   if (!pseudoDB[key]) pseudoDB[key] = { roles: {}, channels: {} };
   const alliance = pseudoDB[key];
 
-  const shadowRole = guild.roles.cache.find(r => r.name === "Shadow Authority");
-  if (!shadowRole) return;
+  const controlRole = guild.roles.cache.find(r => r.name === "Bot Control");
+  if (!controlRole) return;
+  const logChannel = await getAllianceLogChannel(guild, controlRole.id);
 
-  const logChannel = await getAllianceLogChannel(guild, shadowRole.id);
   const startedAt = Date.now();
   const roleLogs: string[] = [];
   const structureLogs: string[] = [];
@@ -221,11 +230,9 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
     const role = await guild.roles.create({ name: roleData.name, color: roleData.color });
     alliance.roles[roleData.name] = role.id;
     roleLogs.push(`✅ ${roleData.name}`);
-
     await alliance.logMessage.edit({
       embeds: [buildAllianceEmbed(`📦 Tworzenie "${name} • ${tag}"`, roleLogs, structureLogs, false, startedAt)]
     });
-
     await delay(300);
   }
 
@@ -271,15 +278,14 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
 // -------------------
 const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
   if (!validateName(name) || !validateTag(tag)) return;
-
   const key = `${name}•${tag}`;
   const alliance = pseudoDB[key];
   if (!alliance) return;
 
-  const shadowRole = guild.roles.cache.find(r => r.name === "Shadow Authority");
-  if (!shadowRole) return;
+  const controlRole = guild.roles.cache.find(r => r.name === "Bot Control");
+  if (!controlRole) return;
 
-  const logChannel = await getAllianceLogChannel(guild, shadowRole.id);
+  const logChannel = await getAllianceLogChannel(guild, controlRole.id);
   const startedAt = Date.now();
   const roleLogs: string[] = [];
   const structureLogs: string[] = [];
@@ -347,11 +353,11 @@ client.once("ready", async () => {
   const guild = client.guilds.cache.get(GUILD_ID);
   if (!guild) return;
 
-  const shadowSetup = await setupShadowAuthority(guild);
-  if (shadowSetup) {
-    const { shadowRole, authorityIds, notifyChannel, statusMessage } = shadowSetup;
+  const botControlSetup = await setupBotControl(guild);
+  if (botControlSetup) {
+    const { controlRole, authorityIds, statusMessage } = botControlSetup;
     setInterval(() => {
-      synchronizeShadowAuthority(guild, shadowRole.id, authorityIds, notifyChannel, statusMessage);
+      synchronizeBotControl(guild, controlRole.id, authorityIds, statusMessage);
     }, 60_000);
   }
 });
