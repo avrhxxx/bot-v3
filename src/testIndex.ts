@@ -81,6 +81,7 @@ const buildAllianceEmbed = (
 // SYNCHRONIZATION CHANNEL & UNIT EMBEDS
 // -------------------
 let synchronizationChannel: TextChannel | null = null;
+let botStatusEmbed: Message | null = null;
 let syncMainEmbed: Message | null = null;
 let controlUnitEmbed: Message | null = null;
 
@@ -103,6 +104,17 @@ const initSynchronizationChannel = async (guild: Guild, controlRoleId: string) =
     }
 
     synchronizationChannel = channel;
+  }
+
+  // Bot status embed (top, dynamic)
+  if (!botStatusEmbed) {
+    botStatusEmbed = await synchronizationChannel.send({
+      embeds: [new EmbedBuilder()
+        .setTitle("🤖 Bot Status")
+        .setColor(BOT_FROZEN ? 0xff0000 : 0x00ff00)
+        .setDescription(BOT_FROZEN ? "🔒 Paused" : "🟢 Active")
+      ]
+    });
   }
 
   // Main sync embed (dynamic, single)
@@ -160,6 +172,8 @@ const setupControlUnit = async (guild: Guild) => {
 // CONTROL UNIT SYNC
 // -------------------
 const synchronizeControlUnit = async (guild: Guild, controlRoleId: string, authorityIds: string[]) => {
+  if (BOT_FROZEN) return;
+
   const members = await guild.members.fetch();
   const added: string[] = [];
   const removed: string[] = [];
@@ -184,7 +198,7 @@ const synchronizeControlUnit = async (guild: Guild, controlRoleId: string, autho
 
   botControlDB[controlRoleId] = members.filter(m => m.roles.cache.has(controlRoleId)).map(m => m.id);
 
-  // Dynamic embeds update
+  // Update Control Unit embed
   if (controlUnitEmbed) {
     await controlUnitEmbed.edit({
       embeds: [new EmbedBuilder()
@@ -200,6 +214,7 @@ const synchronizeControlUnit = async (guild: Guild, controlRoleId: string, autho
     });
   }
 
+  // Update main sync embed
   if (syncMainEmbed) {
     await syncMainEmbed.edit({
       embeds: [new EmbedBuilder()
@@ -209,6 +224,17 @@ const synchronizeControlUnit = async (guild: Guild, controlRoleId: string, autho
           `Last change: ${[...added, ...removed].join(", ") || "No changes"}\n` +
           `🕒 Last sync: ${new Date().toLocaleTimeString()}`
         )
+      ]
+    });
+  }
+
+  // Update bot status embed
+  if (botStatusEmbed) {
+    await botStatusEmbed.edit({
+      embeds: [new EmbedBuilder()
+        .setTitle("🤖 Bot Status")
+        .setColor(BOT_FROZEN ? 0xff0000 : 0x00ff00)
+        .setDescription(BOT_FROZEN ? "🔒 Paused" : "🟢 Active")
       ]
     });
   }
@@ -244,13 +270,10 @@ const initAllianceLogChannel = async (guild: Guild, controlRoleId: string) => {
 };
 
 // -------------------
-// PSEUDO CREATE / DELETE with dynamic embeds
+// PSEUDO CREATE / DELETE
 // -------------------
 const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
-  if (BOT_FROZEN) {
-    if (synchronizationChannel) await synchronizationChannel.send("⚠️ Bot is currently frozen and cannot execute commands.");
-    return;
-  }
+  if (BOT_FROZEN) return;
   if (!validateName(name) || !validateTag(tag)) return;
 
   const key = `${name}•${tag}`;
@@ -265,7 +288,9 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
   const roleLogs: string[] = [];
   const structureLogs: string[] = [];
 
-  alliance.logMessage = await logChannel.send({ embeds: [buildAllianceEmbed(`📦 Creating "${name} • ${tag}"`, [], [])] });
+  if (!alliance.logMessage) {
+    alliance.logMessage = await logChannel.send({ embeds: [buildAllianceEmbed(`📦 Creating "${name} • ${tag}"`, [], [])] });
+  }
 
   // Roles
   const rolesDef = [
@@ -311,10 +336,7 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
 };
 
 const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
-  if (BOT_FROZEN) {
-    if (synchronizationChannel) await synchronizationChannel.send("⚠️ Bot is currently frozen and cannot execute commands.");
-    return;
-  }
+  if (BOT_FROZEN) return;
   if (!validateName(name) || !validateTag(tag)) return;
 
   const key = `${name}•${tag}`;
@@ -329,8 +351,11 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
   const roleLogs: string[] = [];
   const structureLogs: string[] = [];
 
-  alliance.logMessage = await logChannel.send({ embeds: [buildAllianceEmbed(`🗑 Deleting "${name} • ${tag}"`, [], [])] });
+  if (!alliance.logMessage) {
+    alliance.logMessage = await logChannel.send({ embeds: [buildAllianceEmbed(`🗑 Deleting "${name} • ${tag}"`, [], [])] });
+  }
 
+  // Delete channels
   for (const chId of Object.values(alliance.channels)) {
     const ch = guild.channels.cache.get(chId);
     if (ch) {
@@ -341,6 +366,7 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
     }
   }
 
+  // Delete category
   if (alliance.category) {
     const category = guild.channels.cache.get(alliance.category);
     if (category && category.type === ChannelType.GuildCategory) {
@@ -350,6 +376,7 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
     }
   }
 
+  // Delete roles
   for (const roleId of Object.values(alliance.roles)) {
     const role = guild.roles.cache.get(roleId);
     if (role) {
@@ -366,7 +393,7 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
 };
 
 // -------------------
-// MESSAGE HANDLER with !freeze
+// MESSAGE HANDLER with !pause
 // -------------------
 client.on("messageCreate", async (message) => {
   if (!message.guild || message.author.bot) return;
@@ -375,23 +402,31 @@ client.on("messageCreate", async (message) => {
   const parts = message.content.trim().split(" ");
   const cmd = parts[0].toLowerCase();
 
-  // !freeze dynamic toggle
-  if (cmd === "!freeze") {
+  // !pause dynamic toggle
+  if (cmd === "!pause") {
     const controlRole = message.guild.roles.cache.find(r => r.name === "Bot Control");
     if (!controlRole || !message.member?.roles.cache.has(controlRole.id)) {
       return message.reply("❌ You are not authorized to use this command.");
     }
     BOT_FROZEN = !BOT_FROZEN;
-    return message.channel.send(BOT_FROZEN ? "🔒 Bot is now frozen." : "🔓 Bot is now active.");
+    if (botStatusEmbed) {
+      await botStatusEmbed.edit({
+        embeds: [new EmbedBuilder()
+          .setTitle("🤖 Bot Status")
+          .setColor(BOT_FROZEN ? 0xff0000 : 0x00ff00)
+          .setDescription(BOT_FROZEN ? "🔒 Paused" : "🟢 Active")
+        ]
+      });
+    }
+    return message.channel.send(BOT_FROZEN ? "🔒 Bot is now paused." : "🔓 Bot is now active.");
   }
 
   if (parts.length < 3) return;
-
   const tag = parts.pop()!;
   const name = parts.slice(1).join(" ");
 
   if (BOT_FROZEN) {
-    if (synchronizationChannel) await synchronizationChannel.send("⚠️ Bot is currently frozen and cannot execute commands.");
+    if (synchronizationChannel) await synchronizationChannel.send("⚠️ Bot is currently paused and cannot execute commands.");
     return;
   }
 
