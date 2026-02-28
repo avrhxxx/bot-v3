@@ -2,6 +2,7 @@ import { Guild, OverwriteResolvable, PermissionFlagsBits, ChannelType } from "di
 import { RoleModule } from "../modules/RoleModule";
 import { ChannelModule } from "../modules/ChannelModule";
 import { allianceDB } from "./AllianceDB";
+import { SyncNotify } from "../sync/SyncNotify";
 
 // -------------------
 // VALIDATION
@@ -24,6 +25,9 @@ export class AllianceService {
 
     console.log(`🚀 Creating alliance "${name} • ${tag}"`);
 
+    const createdRoles: string[] = [];
+    const createdChannels: string[] = [];
+
     // 1️⃣ Roles
     const rolesDef = [
       { name: `R5[${tag}]`, color: 0xff0000 },
@@ -35,6 +39,7 @@ export class AllianceService {
     for (const roleData of rolesDef) {
       const role = await RoleModule.createRole(guild, roleData.name, roleData.color);
       allianceDB.roles[roleData.name] = role.id;
+      createdRoles.push(roleData.name);
       await delay(3000);
       console.log(`✅ Role created: ${roleData.name}`);
     }
@@ -61,7 +66,6 @@ export class AllianceService {
     const textChannels = ["👋 welcome", "📢 announce", "💬 chat", "🛡 staff-room", "✋ join"];
     for (const nameCh of textChannels) {
       const overwrites: OverwriteResolvable[] = [];
-
       switch (nameCh) {
         case "👋 welcome":
         case "📢 announce":
@@ -74,7 +78,6 @@ export class AllianceService {
             if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel] });
           });
           break;
-
         case "💬 chat":
           overwrites.push({ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] });
           ["R3","R4","R5"].forEach(r => {
@@ -82,7 +85,6 @@ export class AllianceService {
             if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] });
           });
           break;
-
         case "🛡 staff-room":
           overwrites.push({ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] });
           ["R4","R5"].forEach(r => {
@@ -90,7 +92,6 @@ export class AllianceService {
             if (roleId) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] });
           });
           break;
-
         case "✋ join":
           overwrites.push({ id: guild.roles.everyone.id, allow: [PermissionFlagsBits.ViewChannel] });
           ["R3","R4","R5"].forEach(r => {
@@ -102,6 +103,7 @@ export class AllianceService {
 
       const ch = await ChannelModule.createTextChannel(guild, nameCh, category?.id, overwrites);
       allianceDB.channels[nameCh] = ch.id;
+      createdChannels.push(nameCh);
       await delay(2000);
       console.log(`💬 Channel created: ${nameCh}`);
     }
@@ -111,7 +113,6 @@ export class AllianceService {
     for (const nameCh of voiceChannels) {
       const overwrites: OverwriteResolvable[] = [];
       overwrites.push({ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] });
-
       const allowedRoles = nameCh === "🎤 Staff VC" ? ["R4","R5"] : ["R3","R4","R5"];
       allowedRoles.forEach(r => {
         const roleId = allianceDB.roles[`${r}[${tag}]`];
@@ -120,13 +121,15 @@ export class AllianceService {
           allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak]
         });
       });
-
       const ch = await ChannelModule.createVoiceChannel(guild, nameCh, category?.id, overwrites);
       allianceDB.channels[nameCh] = ch.id;
+      createdChannels.push(nameCh);
       await delay(2000);
       console.log(`🔊 Voice channel created: ${nameCh}`);
     }
 
+    // 5️⃣ Notify Embed
+    await SyncNotify.sendAllianceOperation(guild, "Alliance Created", createdRoles, createdChannels, true);
     console.log(`🎉 Alliance "${name} · ${tag}" fully created!`);
   }
 
@@ -134,6 +137,9 @@ export class AllianceService {
   // DELETE ALLIANCE
   // -------------------
   static async deleteAlliance(guild: Guild, name: string, tag: string) {
+    const deletedRoles: string[] = [];
+    const deletedChannels: string[] = [];
+
     console.log(`🗑 Deleting alliance "${name} · ${tag}"`);
 
     // channels
@@ -141,6 +147,7 @@ export class AllianceService {
       if (!channelName.includes(tag) || !channelName.includes(name)) continue;
       const ch = guild.channels.cache.get(channelId);
       if (ch) await ch.delete();
+      deletedChannels.push(channelName);
       delete allianceDB.channels[channelName];
       await delay(500);
       console.log(`❌ Deleted channel: ${channelName}`);
@@ -162,32 +169,14 @@ export class AllianceService {
       if (!roleName.includes(tag) || !roleName.includes(name)) continue;
       const role = guild.roles.cache.get(roleId);
       if (role) await role.delete();
+      deletedRoles.push(roleName);
       delete allianceDB.roles[roleName];
       await delay(500);
       console.log(`❌ Deleted role: ${roleName}`);
     }
 
+    // Notify Embed
+    await SyncNotify.sendAllianceOperation(guild, "Alliance Deleted", deletedRoles, deletedChannels, true);
     console.log(`✅ Alliance "${name} · ${tag}" fully deleted`);
-  }
-
-  // -------------------
-  // UPDATE CHANNEL PERMISSIONS
-  // -------------------
-  static async updateChannelPermissions(guild: Guild, channelName: string, newPermissions: OverwriteResolvable[]) {
-    const channelId = allianceDB.channels[channelName];
-    if (!channelId) {
-      console.warn(`[AllianceService] Channel "${channelName}" missing in DB`);
-      return;
-    }
-    const channel = guild.channels.cache.get(channelId);
-    if (!channel) {
-      console.warn(`[AllianceService] Channel "${channelName}" does not exist in guild`);
-      return;
-    }
-    await channel.permissionOverwrites.set(newPermissions);
-    console.log(`[AllianceService] Permissions updated for channel "${channelName}"`);
-
-    allianceDB.permissions = allianceDB.permissions || {};
-    allianceDB.permissions[channelName] = newPermissions;
   }
 }
