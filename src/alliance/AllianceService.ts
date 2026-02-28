@@ -1,11 +1,10 @@
-// src/alliance/AllianceService.ts
 import { Guild, OverwriteResolvable, PermissionFlagsBits, ChannelType } from "discord.js";
 import { RoleModule } from "../modules/RoleModule";
 import { ChannelModule } from "../modules/ChannelModule";
 import { allianceDB } from "./AllianceDB";
 
 // -------------------
-// WALIDACJA
+// VALIDATION
 // -------------------
 const validateName = (name: string) => /^[A-Za-z ]{4,32}$/.test(name);
 const validateTag = (tag: string) => /^[A-Za-z0-9]{3}$/.test(tag);
@@ -17,15 +16,15 @@ const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 export class AllianceService {
   // -------------------
-  // TWORZENIE SOJUSZU
+  // CREATE ALLIANCE
   // -------------------
   static async createAlliance(guild: Guild, name: string, tag: string) {
-    if (!validateName(name)) throw new Error("Niepoprawna nazwa sojuszu.");
-    if (!validateTag(tag)) throw new Error("Niepoprawny tag.");
+    if (!validateName(name)) throw new Error("Invalid alliance name.");
+    if (!validateTag(tag)) throw new Error("Invalid tag.");
 
-    console.log(`🚀 Tworzenie sojuszu "${name} • ${tag}"`);
+    console.log(`🚀 Creating alliance "${name} • ${tag}"`);
 
-    // 1️⃣ ROLE
+    // 1️⃣ Roles
     const rolesDef = [
       { name: `R5[${tag}]`, color: 0xff0000 },
       { name: `R4[${tag}]`, color: 0x0000ff },
@@ -37,10 +36,10 @@ export class AllianceService {
       const role = await RoleModule.createRole(guild, roleData.name, roleData.color);
       allianceDB.roles[roleData.name] = role.id;
       await delay(3000);
-      console.log(`✅ Rola utworzona: ${roleData.name}`);
+      console.log(`✅ Role created: ${roleData.name}`);
     }
 
-    // 2️⃣ KATEGORIA
+    // 2️⃣ Category
     let category = guild.channels.cache.find(
       c => c.name === `${name} · ${tag}` && c.type === ChannelType.GuildCategory
     );
@@ -52,13 +51,13 @@ export class AllianceService {
       });
       allianceDB.category = category.id;
       await delay(5000);
-      console.log(`📁 Kategoria utworzona: ${name} · ${tag}`);
+      console.log(`📁 Category created: ${name} · ${tag}`);
     } else {
       allianceDB.category = category.id;
-      console.log(`⚠️ Kategoria już istnieje: ${name} · ${tag}`);
+      console.log(`⚠️ Category already exists: ${name} · ${tag}`);
     }
 
-    // 3️⃣ KANAŁY TEKSTOWE
+    // 3️⃣ Text channels
     const textChannels = ["👋 welcome", "📢 announce", "💬 chat", "🛡 staff-room", "✋ join"];
     for (const nameCh of textChannels) {
       const overwrites: OverwriteResolvable[] = [];
@@ -104,10 +103,10 @@ export class AllianceService {
       const ch = await ChannelModule.createTextChannel(guild, nameCh, category?.id, overwrites);
       allianceDB.channels[nameCh] = ch.id;
       await delay(2000);
-      console.log(`💬 Kanał utworzony: ${nameCh}`);
+      console.log(`💬 Channel created: ${nameCh}`);
     }
 
-    // 4️⃣ KANAŁY GŁOSOWE
+    // 4️⃣ Voice channels
     const voiceChannels = ["🎤 General VC", "🎤 Staff VC"];
     for (const nameCh of voiceChannels) {
       const overwrites: OverwriteResolvable[] = [];
@@ -125,49 +124,70 @@ export class AllianceService {
       const ch = await ChannelModule.createVoiceChannel(guild, nameCh, category?.id, overwrites);
       allianceDB.channels[nameCh] = ch.id;
       await delay(2000);
-      console.log(`🔊 Kanał głosowy utworzony: ${nameCh}`);
+      console.log(`🔊 Voice channel created: ${nameCh}`);
     }
 
-    console.log(`🎉 Sojusz "${name} · ${tag}" w pełni utworzony!`);
+    console.log(`🎉 Alliance "${name} · ${tag}" fully created!`);
   }
 
   // -------------------
-  // USUWANIE SOJUSZU
+  // DELETE ALLIANCE
   // -------------------
   static async deleteAlliance(guild: Guild, name: string, tag: string) {
-    console.log(`🗑 Usuwanie sojuszu "${name} · ${tag}"`);
+    console.log(`🗑 Deleting alliance "${name} · ${tag}"`);
 
-    // kanały
+    // channels
     for (const [channelName, channelId] of Object.entries(allianceDB.channels)) {
-      if (!channelName.includes(tag) || !channelName.includes(name)) continue; // ✅ OR zamiast AND
+      if (!channelName.includes(tag) || !channelName.includes(name)) continue;
       const ch = guild.channels.cache.get(channelId);
       if (ch) await ch.delete();
       delete allianceDB.channels[channelName];
       await delay(500);
-      console.log(`❌ Usunięto kanał: ${channelName}`);
+      console.log(`❌ Deleted channel: ${channelName}`);
     }
 
-    // kategoria
+    // category
     if (allianceDB.category) {
       const category = guild.channels.cache.get(allianceDB.category);
       if (category && category.name.includes(name) && category.name.includes(tag)) {
         await category.delete();
         allianceDB.category = undefined;
         await delay(500);
-        console.log(`❌ Usunięto kategorię: ${category.name}`);
+        console.log(`❌ Deleted category: ${category.name}`);
       }
     }
 
-    // role
+    // roles
     for (const [roleName, roleId] of Object.entries(allianceDB.roles)) {
-      if (!roleName.includes(tag) || !roleName.includes(name)) continue; // ✅ OR zamiast AND
+      if (!roleName.includes(tag) || !roleName.includes(name)) continue;
       const role = guild.roles.cache.get(roleId);
       if (role) await role.delete();
       delete allianceDB.roles[roleName];
       await delay(500);
-      console.log(`❌ Usunięto rolę: ${roleName}`);
+      console.log(`❌ Deleted role: ${roleName}`);
     }
 
-    console.log(`✅ Sojusz "${name} · ${tag}" w pełni usunięty`);
+    console.log(`✅ Alliance "${name} · ${tag}" fully deleted`);
+  }
+
+  // -------------------
+  // UPDATE CHANNEL PERMISSIONS
+  // -------------------
+  static async updateChannelPermissions(guild: Guild, channelName: string, newPermissions: OverwriteResolvable[]) {
+    const channelId = allianceDB.channels[channelName];
+    if (!channelId) {
+      console.warn(`[AllianceService] Channel "${channelName}" missing in DB`);
+      return;
+    }
+    const channel = guild.channels.cache.get(channelId);
+    if (!channel) {
+      console.warn(`[AllianceService] Channel "${channelName}" does not exist in guild`);
+      return;
+    }
+    await channel.permissionOverwrites.set(newPermissions);
+    console.log(`[AllianceService] Permissions updated for channel "${channelName}"`);
+
+    allianceDB.permissions = allianceDB.permissions || {};
+    allianceDB.permissions[channelName] = newPermissions;
   }
 }
