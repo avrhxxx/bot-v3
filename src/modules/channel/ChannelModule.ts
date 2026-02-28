@@ -1,41 +1,22 @@
-// src/modules/channel/ChannelModule.ts
-import { 
-  Guild, 
-  CategoryChannel, 
-  TextChannel, 
-  VoiceChannel, 
-  ChannelType, 
-  GuildChannel, 
-  PermissionOverwrites, 
-  Role 
-} from "discord.js";
+import { Guild, CategoryChannel, TextChannel, VoiceChannel, ChannelType, GuildChannel, OverwriteResolvable } from "discord.js";
 
 // -------------------
 // CHANNEL MODULE
 // -------------------
 export class ChannelModule {
-  private delayMs: number;
+  private static delayMs = 300; // domyślny delay między operacjami
 
-  constructor(delayMs = 300) {
-    this.delayMs = delayMs; // lokalny delay między operacjami
-  }
-
-  private async delay() {
+  private static async delay() {
     return new Promise(resolve => setTimeout(resolve, this.delayMs));
   }
 
   // -------------------
   // CREATE CATEGORY
   // -------------------
-  public async createCategory(
-    guild: Guild, 
-    name: string, 
-    permissionOverwrites?: PermissionOverwrites[]
-  ): Promise<CategoryChannel> {
+  static async createCategory(guild: Guild, name: string): Promise<CategoryChannel> {
     const category = await guild.channels.create({
       name,
-      type: ChannelType.GuildCategory,
-      permissionOverwrites
+      type: ChannelType.GuildCategory
     }) as CategoryChannel;
     await this.delay();
     return category;
@@ -44,17 +25,17 @@ export class ChannelModule {
   // -------------------
   // CREATE TEXT CHANNEL
   // -------------------
-  public async createTextChannel(
-    guild: Guild, 
-    name: string, 
-    parent?: CategoryChannel, 
-    permissionOverwrites?: PermissionOverwrites[]
+  static async createTextChannel(
+    guild: Guild,
+    name: string,
+    parentId?: string,
+    overwrites?: OverwriteResolvable[]
   ): Promise<TextChannel> {
     const channel = await guild.channels.create({
       name,
       type: ChannelType.GuildText,
-      parent: parent?.id,
-      permissionOverwrites
+      parent: parentId,
+      permissionOverwrites: overwrites
     }) as TextChannel;
     await this.delay();
     return channel;
@@ -63,17 +44,17 @@ export class ChannelModule {
   // -------------------
   // CREATE VOICE CHANNEL
   // -------------------
-  public async createVoiceChannel(
-    guild: Guild, 
-    name: string, 
-    parent?: CategoryChannel, 
-    permissionOverwrites?: PermissionOverwrites[]
+  static async createVoiceChannel(
+    guild: Guild,
+    name: string,
+    parentId?: string,
+    overwrites?: OverwriteResolvable[]
   ): Promise<VoiceChannel> {
     const channel = await guild.channels.create({
       name,
       type: ChannelType.GuildVoice,
-      parent: parent?.id,
-      permissionOverwrites
+      parent: parentId,
+      permissionOverwrites: overwrites
     }) as VoiceChannel;
     await this.delay();
     return channel;
@@ -82,7 +63,7 @@ export class ChannelModule {
   // -------------------
   // DELETE CHANNEL / CATEGORY
   // -------------------
-  public async deleteChannel(channel: GuildChannel): Promise<void> {
+  static async deleteChannel(channel: GuildChannel): Promise<void> {
     if (!channel) return;
     await channel.delete().catch(() => {});
     await this.delay();
@@ -91,7 +72,7 @@ export class ChannelModule {
   // -------------------
   // DELETE MULTIPLE CHANNELS
   // -------------------
-  public async deleteChannels(channels: GuildChannel[]): Promise<void> {
+  static async deleteChannels(channels: GuildChannel[]): Promise<void> {
     for (const ch of channels) {
       await this.deleteChannel(ch);
     }
