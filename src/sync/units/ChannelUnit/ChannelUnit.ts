@@ -1,28 +1,53 @@
-import { Guild } from "discord.js";
-import { syncLiveDB } from "../../../db/SyncLiveDB";
-import { allianceDB } from "../../../db/AllianceDB";
+// src/sync/units/ChannelUnit/ChannelUnit.ts
+import { Guild, TextChannel, VoiceChannel, CategoryChannel } from "discord.js";
 import { DelayModel } from "../../SyncDelayModel";
-import { ChannelModule } from "../../../modules/ChannelModule";
+import { SyncLiveDB } from "../../../db/SyncLiveDB";
+import { allianceDB } from "../../../db/AllianceDB";
+import { AllianceService } from "../../../alliance/AllianceService";
 
 export class ChannelUnit {
-  private delayModel: DelayModel;
   public name = "ChannelUnit";
+  private delayModel: DelayModel;
 
   constructor(delayModel: DelayModel) {
     this.delayModel = delayModel;
   }
 
-  public async run(guild: Guild) {
-    console.log(`[ChannelUnit] Checking channels...`);
+  public async run(guild: Guild): Promise<void> {
+    console.log(`[ChannelUnit] Start checking alliance channels`);
 
-    const liveChannels = syncLiveDB.channels;
+    const liveChannels = SyncLiveDB.getData().channels || {};
     const sourceChannels = allianceDB.channels;
 
+    // 1️⃣ Sprawdzenie brakujących kanałów w liveDB
     for (const [chName, chId] of Object.entries(sourceChannels)) {
-      if (!Object.values(liveChannels).includes(chId)) {
-        console.log(`[ChannelUnit] Missing channel: ${chName}, should create via ChannelModule`);
+      const liveChId = liveChannels[chName];
+      if (!liveChId || !guild.channels.cache.has(liveChId)) {
+        console.log(`[ChannelUnit] Kanał "${chName}" brak w liveDB lub nie istnieje`);
+        // Zgłaszamy do serwisu utworzenie sojuszu, który stworzy kanały
+        await AllianceService.createAlliance(
+          guild,
+          chName.split(" · ")[0],
+          chName.slice(-3)
+        );
+        await this.delayModel.waitAction();
       }
-      await this.delayModel.waitAction();
     }
+
+    // 2️⃣ Sprawdzenie nieautoryzowanych kanałów w liveDB
+    for (const [chName, liveChId] of Object.entries(liveChannels)) {
+      if (!sourceChannels[chName]) {
+        console.log(`[ChannelUnit] Kanał "${chName}" istnieje w liveDB, ale nie ma go w sourceDB`);
+        // Zgłaszamy do serwisu usunięcie
+        await AllianceService.deleteAlliance(
+          guild,
+          chName.split(" · ")[0],
+          chName.slice(-3)
+        );
+        await this.delayModel.waitAction();
+      }
+    }
+
+    console.log(`[ChannelUnit] Check complete`);
   }
 }
