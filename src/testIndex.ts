@@ -66,7 +66,7 @@ const buildAllianceEmbed = (
     .setColor(0x800080)
     .setDescription(
       `${roles.length ? "🛠 **Role:**\n" + roles.join("\n") + "\n\n" : ""}` +
-      `${structure.length ? "📂 **Struktura:**\n" + structure.join("\n") + "\n\n" : ""}` +
+      `${structure.length ? "📂 **Kanały:**\n" + structure.join("\n") + "\n\n" : ""}` +
       `${finished ? "🎉 Operacja zakończona\n\n" : ""}` +
       `🕒 Czas operacji: ${duration}`
     );
@@ -179,7 +179,11 @@ const synchronizeBotControl = async (
 // -------------------
 // LOG CHANNEL SOJUSZY
 // -------------------
-const getAllianceLogChannel = async (guild: Guild, controlRoleId: string) => {
+let allianceLogChannel: TextChannel | null = null;
+
+const initAllianceLogChannel = async (guild: Guild, controlRoleId: string) => {
+  if (allianceLogChannel) return allianceLogChannel;
+
   let logChannel = guild.channels.cache.find(
     c => c.name === "alliance-logs" && c.type === ChannelType.GuildText
   ) as TextChannel;
@@ -193,7 +197,10 @@ const getAllianceLogChannel = async (guild: Guild, controlRoleId: string) => {
         { id: controlRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
       ]
     });
+    logTime("✅ Utworzono kanał alliance-logs");
   }
+
+  allianceLogChannel = logChannel;
   return logChannel;
 };
 
@@ -209,7 +216,8 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
 
   const controlRole = guild.roles.cache.find(r => r.name === "Bot Control");
   if (!controlRole) return;
-  const logChannel = await getAllianceLogChannel(guild, controlRole.id);
+
+  const logChannel = await initAllianceLogChannel(guild, controlRole.id);
 
   const startedAt = Date.now();
   const roleLogs: string[] = [];
@@ -242,7 +250,7 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
   }) as CategoryChannel;
 
   alliance.category = category.id;
-  structureLogs.push(`📁 ${category.name}`);
+  structureLogs.push(`✅ ${category.name}`);
 
   const textChannels = ["👋 welcome","📢 announce","💬 chat","🛡 staff-room","✋ join"];
   for (const chName of textChannels) {
@@ -252,7 +260,7 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
       parent: category.id
     });
     alliance.channels[chName] = ch.id;
-    structureLogs.push(`💬 ${chName}`);
+    structureLogs.push(`✅ ${chName}`);
     await delay(200);
   }
 
@@ -264,7 +272,7 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
       parent: category.id
     });
     alliance.channels[chName] = ch.id;
-    structureLogs.push(`🔊 ${chName}`);
+    structureLogs.push(`✅ ${chName}`);
     await delay(200);
   }
 
@@ -285,7 +293,7 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
   const controlRole = guild.roles.cache.find(r => r.name === "Bot Control");
   if (!controlRole) return;
 
-  const logChannel = await getAllianceLogChannel(guild, controlRole.id);
+  const logChannel = await initAllianceLogChannel(guild, controlRole.id);
   const startedAt = Date.now();
   const roleLogs: string[] = [];
   const structureLogs: string[] = [];
@@ -346,6 +354,52 @@ client.on("messageCreate", async (message) => {
 });
 
 // -------------------
+// BOT CONTROL EVENT SYNC (na żywo)
+// -------------------
+client.on("guildMemberUpdate", async (oldMember, newMember) => {
+  const controlRole = newMember.guild.roles.cache.find(r => r.name === "Bot Control");
+  if (!controlRole || !botControlDB[controlRole.id]) return;
+
+  const statusChannel = newMember.guild.channels.cache.find(
+    c => c.name === "bot-control" && c.type === ChannelType.GuildText
+  ) as TextChannel;
+  if (!statusChannel) return;
+
+  const messages = await statusChannel.messages.fetch({ limit: 1 });
+  const statusMessage = messages.first();
+  if (!statusMessage) return;
+
+  const oldHas = oldMember.roles.cache.has(controlRole.id);
+  const newHas = newMember.roles.cache.has(controlRole.id);
+
+  let updated = false;
+  if (!oldHas && newHas) {
+    if (!botControlDB[controlRole.id].includes(newMember.id)) {
+      botControlDB[controlRole.id].push(newMember.id);
+      updated = true;
+    }
+  } else if (oldHas && !newHas) {
+    botControlDB[controlRole.id] = botControlDB[controlRole.id].filter(id => id !== newMember.id);
+    updated = true;
+  }
+
+  if (updated) {
+    const authorityIds = botControlDB[controlRole.id];
+    const embed = new EmbedBuilder()
+      .setTitle("Bot Control")
+      .setColor(0x800080)
+      .setDescription(
+        `👥 **Uprawnieni:**\n${authorityIds.map(id => `<@${id}>`).join("\n") || "Brak"}\n\n` +
+        `📜 **Ostatnie zmiany:**\n${
+          (!oldHas && newHas ? `➕ ${newMember.user.tag}` : `➖ ${newMember.user.tag}`)
+        }\n\n` +
+        `🕒 Ostatnia synchronizacja: ${new Date().toLocaleTimeString()}`
+      );
+    await statusMessage.edit({ embeds: [embed] });
+  }
+});
+
+// -------------------
 // READY
 // -------------------
 client.once("ready", async () => {
@@ -356,6 +410,8 @@ client.once("ready", async () => {
   const botControlSetup = await setupBotControl(guild);
   if (botControlSetup) {
     const { controlRole, authorityIds, statusMessage } = botControlSetup;
+
+    // Backup sync co minutę
     setInterval(() => {
       synchronizeBotControl(guild, controlRole.id, authorityIds, statusMessage);
     }, 60_000);
