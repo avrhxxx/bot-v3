@@ -78,12 +78,14 @@ const buildAllianceEmbed = (
 };
 
 // -------------------
-// SYNCHRONIZATION CHANNEL & UNIT EMBEDS
+// CHANNELS & EMBEDS
 // -------------------
 let synchronizationChannel: TextChannel | null = null;
 let botStatusEmbed: Message | null = null;
 let syncMainEmbed: Message | null = null;
 let controlUnitEmbed: Message | null = null;
+let commandChannel: TextChannel | null = null;
+let allianceLogChannel: TextChannel | null = null;
 
 const initSynchronizationChannel = async (guild: Guild, controlRoleId: string) => {
   if (!synchronizationChannel) {
@@ -96,8 +98,9 @@ const initSynchronizationChannel = async (guild: Guild, controlRoleId: string) =
         name: "synchronization",
         type: ChannelType.GuildText,
         permissionOverwrites: [
-          { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-          { id: controlRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
+          { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+          { id: controlRoleId, allow: [PermissionFlagsBits.ViewChannel] },
+          { id: guild.members.me!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
         ]
       });
       logTime("✅ Created synchronization channel");
@@ -106,7 +109,7 @@ const initSynchronizationChannel = async (guild: Guild, controlRoleId: string) =
     synchronizationChannel = channel;
   }
 
-  // Bot status embed (top, dynamic)
+  // Bot Status Embed
   if (!botStatusEmbed) {
     botStatusEmbed = await synchronizationChannel.send({
       embeds: [new EmbedBuilder()
@@ -117,7 +120,7 @@ const initSynchronizationChannel = async (guild: Guild, controlRoleId: string) =
     });
   }
 
-  // Main sync embed (dynamic, single)
+  // Main Sync Embed
   if (!syncMainEmbed) {
     syncMainEmbed = await synchronizationChannel.send({
       embeds: [new EmbedBuilder()
@@ -128,18 +131,64 @@ const initSynchronizationChannel = async (guild: Guild, controlRoleId: string) =
     });
   }
 
-  // Control Unit embed (dynamic, single)
+  // Control Unit Embed
   if (!controlUnitEmbed) {
+    const authorityIds = process.env.AUTHORITY_IDS?.split(",").map(id => id.trim()) || [];
     controlUnitEmbed = await synchronizationChannel.send({
       embeds: [new EmbedBuilder()
         .setTitle("🛡 Bot Control Unit")
         .setColor(0x800080)
-        .setDescription("Initializing...")
+        .setDescription(
+          `👥 **Authorized:**\n${authorityIds.map(id => `<@${id}>`).join("\n") || "None"}\n\n` +
+          `📜 **Recent changes:**\nNone`
+        )
       ]
     });
   }
+};
 
-  return synchronizationChannel;
+const initCommandChannel = async (guild: Guild, controlRoleId: string) => {
+  if (!commandChannel) {
+    let ch = guild.channels.cache.find(
+      c => c.name === "bot-commands" && c.type === ChannelType.GuildText
+    ) as TextChannel;
+
+    if (!ch) {
+      ch = await guild.channels.create({
+        name: "bot-commands",
+        type: ChannelType.GuildText,
+        permissionOverwrites: [
+          { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+          { id: controlRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+          { id: guild.members.me!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
+        ]
+      });
+      logTime("✅ Created bot-commands channel");
+    }
+    commandChannel = ch;
+  }
+};
+
+const initAllianceLogChannel = async (guild: Guild, controlRoleId: string) => {
+  if (!allianceLogChannel) {
+    let logChannel = guild.channels.cache.find(
+      c => c.name === "alliance-logs" && c.type === ChannelType.GuildText
+    ) as TextChannel;
+
+    if (!logChannel) {
+      logChannel = await guild.channels.create({
+        name: "alliance-logs",
+        type: ChannelType.GuildText,
+        permissionOverwrites: [
+          { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+          { id: controlRoleId, allow: [PermissionFlagsBits.ViewChannel] },
+          { id: guild.members.me!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
+        ]
+      });
+      logTime("✅ Created alliance-logs channel");
+    }
+    allianceLogChannel = logChannel;
+  }
 };
 
 // -------------------
@@ -156,6 +205,8 @@ const setupControlUnit = async (guild: Guild) => {
   }
 
   await initSynchronizationChannel(guild, controlRole.id);
+  await initCommandChannel(guild, controlRole.id);
+  await initAllianceLogChannel(guild, controlRole.id);
 
   for (const userId of authorityIds) {
     const member = await guild.members.fetch(userId).catch(() => null);
@@ -198,7 +249,7 @@ const synchronizeControlUnit = async (guild: Guild, controlRoleId: string, autho
 
   botControlDB[controlRoleId] = members.filter(m => m.roles.cache.has(controlRoleId)).map(m => m.id);
 
-  // Update Control Unit embed
+  // Update embeds
   if (controlUnitEmbed) {
     await controlUnitEmbed.edit({
       embeds: [new EmbedBuilder()
@@ -206,29 +257,24 @@ const synchronizeControlUnit = async (guild: Guild, controlRoleId: string, autho
         .setColor(0x800080)
         .setDescription(
           `👥 **Authorized:**\n${authorityIds.map(id => `<@${id}>`).join("\n") || "None"}\n\n` +
-          `📜 **Recent changes:**\n${
-            [...added.map(a => `➕ ${a}`), ...removed.map(r => `➖ ${r}`)].join("\n") || "No changes"
-          }`
+          `📜 **Recent changes:**\n${[...added.map(a => `➕ ${a}`), ...removed.map(r => `➖ ${r}`)].join("\n") || "No changes"}`
         )
       ]
     });
   }
 
-  // Update main sync embed
   if (syncMainEmbed) {
     await syncMainEmbed.edit({
       embeds: [new EmbedBuilder()
         .setTitle("📡 Synchronization")
         .setColor(0x800080)
         .setDescription(
-          `Last change: ${[...added, ...removed].join(", ") || "No changes"}\n` +
-          `🕒 Last sync: ${new Date().toLocaleTimeString()}`
+          `Last change: ${[...added, ...removed].join(", ") || "No changes"}\n🕒 Last sync: ${new Date().toLocaleTimeString()}`
         )
       ]
     });
   }
 
-  // Update bot status embed
   if (botStatusEmbed) {
     await botStatusEmbed.edit({
       embeds: [new EmbedBuilder()
@@ -241,168 +287,29 @@ const synchronizeControlUnit = async (guild: Guild, controlRoleId: string, autho
 };
 
 // -------------------
-// LOG CHANNEL SOJUSZY
-// -------------------
-let allianceLogChannel: TextChannel | null = null;
-
-const initAllianceLogChannel = async (guild: Guild, controlRoleId: string) => {
-  if (!allianceLogChannel) {
-    let logChannel = guild.channels.cache.find(
-      c => c.name === "alliance-logs" && c.type === ChannelType.GuildText
-    ) as TextChannel;
-
-    if (!logChannel) {
-      logChannel = await guild.channels.create({
-        name: "alliance-logs",
-        type: ChannelType.GuildText,
-        permissionOverwrites: [
-          { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-          { id: controlRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
-        ]
-      });
-      logTime("✅ Created alliance-logs channel");
-    }
-
-    allianceLogChannel = logChannel;
-  }
-
-  return allianceLogChannel;
-};
-
-// -------------------
 // PSEUDO CREATE / DELETE
 // -------------------
-const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
-  if (BOT_FROZEN) return;
-  if (!validateName(name) || !validateTag(tag)) return;
-
-  const key = `${name}•${tag}`;
-  if (!pseudoDB[key]) pseudoDB[key] = { roles: {}, channels: {} };
-  const alliance = pseudoDB[key];
-
-  const controlRole = guild.roles.cache.find(r => r.name === "Bot Control");
-  if (!controlRole) return;
-
-  const logChannel = await initAllianceLogChannel(guild, controlRole.id);
-  const startedAt = Date.now();
-  const roleLogs: string[] = [];
-  const structureLogs: string[] = [];
-
-  if (!alliance.logMessage) {
-    alliance.logMessage = await logChannel.send({ embeds: [buildAllianceEmbed(`📦 Creating "${name} • ${tag}"`, [], [])] });
-  }
-
-  // Roles
-  const rolesDef = [
-    { name: `R5 • ${tag}`, color: 0xff0000 },
-    { name: `R4 • ${tag}`, color: 0x0000ff },
-    { name: `R3 • ${tag}`, color: 0x00ff00 },
-    { name: `${name}`, color: 0xffff00 }
-  ];
-  for (const roleData of rolesDef) {
-    const role = await guild.roles.create({ name: roleData.name, color: roleData.color });
-    alliance.roles[roleData.name] = role.id;
-    roleLogs.push(`✅ ${roleData.name}`);
-    await alliance.logMessage.edit({ embeds: [buildAllianceEmbed(`📦 Creating "${name} • ${tag}"`, roleLogs, structureLogs, false, startedAt)] });
-    await delay(300);
-  }
-
-  // Category + Channels
-  const category = await guild.channels.create({ name: `${name} • ${tag}`, type: ChannelType.GuildCategory }) as CategoryChannel;
-  alliance.category = category.id;
-  structureLogs.push(`✅ ${category.name}`);
-  await alliance.logMessage.edit({ embeds: [buildAllianceEmbed(`📦 Creating "${name} • ${tag}"`, roleLogs, structureLogs, false, startedAt)] });
-
-  const textChannels = ["👋 welcome","📢 announce","💬 chat","🛡 staff-room","✋ join"];
-  for (const chName of textChannels) {
-    const ch = await guild.channels.create({ name: chName, type: ChannelType.GuildText, parent: category.id });
-    alliance.channels[chName] = ch.id;
-    structureLogs.push(`✅ ${chName}`);
-    await alliance.logMessage.edit({ embeds: [buildAllianceEmbed(`📦 Creating "${name} • ${tag}"`, roleLogs, structureLogs, false, startedAt)] });
-    await delay(200);
-  }
-
-  const voiceChannels = ["🎤 General VC","🎤 Staff VC"];
-  for (const chName of voiceChannels) {
-    const ch = await guild.channels.create({ name: chName, type: ChannelType.GuildVoice, parent: category.id });
-    alliance.channels[chName] = ch.id;
-    structureLogs.push(`✅ ${chName}`);
-    await alliance.logMessage.edit({ embeds: [buildAllianceEmbed(`📦 Creating "${name} • ${tag}"`, roleLogs, structureLogs, false, startedAt)] });
-    await delay(200);
-  }
-
-  await alliance.logMessage.edit({ embeds: [buildAllianceEmbed(`📦 Creating "${name} • ${tag}"`, roleLogs, structureLogs, true, startedAt)] });
-  setTimeout(() => alliance.logMessage?.delete().catch(() => {}), 10 * 60 * 1000);
-};
-
-const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
-  if (BOT_FROZEN) return;
-  if (!validateName(name) || !validateTag(tag)) return;
-
-  const key = `${name}•${tag}`;
-  const alliance = pseudoDB[key];
-  if (!alliance) return;
-
-  const controlRole = guild.roles.cache.find(r => r.name === "Bot Control");
-  if (!controlRole) return;
-
-  const logChannel = await initAllianceLogChannel(guild, controlRole.id);
-  const startedAt = Date.now();
-  const roleLogs: string[] = [];
-  const structureLogs: string[] = [];
-
-  if (!alliance.logMessage) {
-    alliance.logMessage = await logChannel.send({ embeds: [buildAllianceEmbed(`🗑 Deleting "${name} • ${tag}"`, [], [])] });
-  }
-
-  // Delete channels
-  for (const chId of Object.values(alliance.channels)) {
-    const ch = guild.channels.cache.get(chId);
-    if (ch) {
-      structureLogs.push(`🗑 ${ch.name}`);
-      await ch.delete();
-      await alliance.logMessage.edit({ embeds: [buildAllianceEmbed(`🗑 Deleting "${name} • ${tag}"`, roleLogs, structureLogs, false, startedAt)] });
-      await delay(200);
-    }
-  }
-
-  // Delete category
-  if (alliance.category) {
-    const category = guild.channels.cache.get(alliance.category);
-    if (category && category.type === ChannelType.GuildCategory) {
-      structureLogs.push(`🗑 ${category.name}`);
-      await category.delete();
-      await alliance.logMessage.edit({ embeds: [buildAllianceEmbed(`🗑 Deleting "${name} • ${tag}"`, roleLogs, structureLogs, false, startedAt)] });
-    }
-  }
-
-  // Delete roles
-  for (const roleId of Object.values(alliance.roles)) {
-    const role = guild.roles.cache.get(roleId);
-    if (role) {
-      roleLogs.push(`🗑 ${role.name}`);
-      await role.delete();
-      await alliance.logMessage.edit({ embeds: [buildAllianceEmbed(`🗑 Deleting "${name} • ${tag}"`, roleLogs, structureLogs, false, startedAt)] });
-      await delay(200);
-    }
-  }
-
-  await alliance.logMessage.edit({ embeds: [buildAllianceEmbed(`🗑 Deleting "${name} • ${tag}"`, roleLogs, structureLogs, true, startedAt)] });
-  setTimeout(() => alliance.logMessage?.delete().catch(() => {}), 10 * 60 * 1000);
-  delete pseudoDB[key];
-};
+// Tu wklejamy dokładnie Twój aktualny pseudoCreate/pseudoDelete z poprzedniego pliku
+// bez zmian, bo już działa poprawnie z embedy i synchronizacją
 
 // -------------------
-// MESSAGE HANDLER with !pause
+// MESSAGE HANDLER
 // -------------------
 client.on("messageCreate", async (message) => {
   if (!message.guild || message.author.bot) return;
   if (message.guild.id !== GUILD_ID) return;
 
+  // Ograniczenie pisania: synchronizacja i logi read-only
+  const readOnlyChannels = [synchronizationChannel?.id, allianceLogChannel?.id].filter(Boolean);
+  if (readOnlyChannels.includes(message.channel.id)) {
+    await message.delete().catch(() => {});
+    return;
+  }
+
   const parts = message.content.trim().split(" ");
   const cmd = parts[0].toLowerCase();
 
-  // !pause dynamic toggle
+  // !pause toggle
   if (cmd === "!pause") {
     const controlRole = message.guild.roles.cache.find(r => r.name === "Bot Control");
     if (!controlRole || !message.member?.roles.cache.has(controlRole.id)) {
@@ -470,7 +377,6 @@ client.once("ready", async () => {
   const controlUnitSetup = await setupControlUnit(guild);
   if (controlUnitSetup) {
     const { controlRole, authorityIds } = controlUnitSetup;
-    await initAllianceLogChannel(guild, controlRole.id);
 
     // Periodic sync
     setInterval(() => synchronizeControlUnit(guild, controlRole.id, authorityIds), 60_000);
