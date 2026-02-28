@@ -1,45 +1,109 @@
-import { Guild, Role } from "discord.js";
-
-const INTERNAL_ROLE_DELAY = 300; // zabezpieczenie przed rate limit
+// src/modules/role/RoleModule.ts
+import { Guild, Role, Message } from "discord.js";
+import { EmbedFactory } from "../../EmbedBuilder";
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export class RoleModule {
 
-  /**
-   * Tworzy rolę w guild
-   */
-  static async createRole(
+  // ================================
+  // CREATE ROLES
+  // ================================
+  static async createRoles(
     guild: Guild,
-    name: string,
-    color: number
-  ): Promise<Role> {
+    rolesData: { name: string; color?: number }[],
+    logMessage?: Message
+  ): Promise<Record<string, string>> {
+    const createdRoles: Record<string, string> = {};
+    const roleLogs: string[] = [];
 
-    const role = await guild.roles.create({
-      name,
-      color
-    });
+    for (const r of rolesData) {
+      const role = await guild.roles.create({ name: r.name, color: r.color });
+      createdRoles[r.name] = role.id;
+      roleLogs.push(`✅ ${r.name}`);
 
-    // wewnętrzny delay ochronny
-    await delay(INTERNAL_ROLE_DELAY);
+      if (logMessage) {
+        await logMessage.edit({
+          embeds: [EmbedFactory.buildAllianceOperation("📦 Creating Roles", roleLogs, [], false)]
+        });
+      }
 
-    return role;
+      await delay(300); // zabezpieczenie API
+    }
+
+    if (logMessage) {
+      await logMessage.edit({
+        embeds: [EmbedFactory.buildAllianceOperation("📦 Creating Roles", roleLogs, [], true)]
+      });
+    }
+
+    return createdRoles;
   }
 
-  /**
-   * Usuwa rolę po ID
-   */
-  static async deleteRole(
+  // ================================
+  // DELETE ROLES
+  // ================================
+  static async deleteRoles(
     guild: Guild,
-    roleId: string
+    roleIds: string[],
+    logMessage?: Message
   ): Promise<void> {
+    const roleLogs: string[] = [];
 
-    const role = guild.roles.cache.get(roleId);
-    if (!role) return;
+    for (const id of roleIds) {
+      const role = guild.roles.cache.get(id);
+      if (!role) continue;
 
-    await role.delete();
+      roleLogs.push(`🗑 ${role.name}`);
+      await role.delete();
 
-    // wewnętrzny delay ochronny
-    await delay(INTERNAL_ROLE_DELAY);
+      if (logMessage) {
+        await logMessage.edit({
+          embeds: [EmbedFactory.buildAllianceOperation("🗑 Deleting Roles", roleLogs, [], false)]
+        });
+      }
+
+      await delay(300);
+    }
+
+    if (logMessage) {
+      await logMessage.edit({
+        embeds: [EmbedFactory.buildAllianceOperation("🗑 Deleting Roles", roleLogs, [], true)]
+      });
+    }
+  }
+
+  // ================================
+  // RESTORE EXISTING ROLES (RolesUnit)
+  // ================================
+  static async restoreRoles(
+    guild: Guild,
+    rolesData: { name: string; id: string; color?: number }[],
+    logMessage?: Message
+  ): Promise<void> {
+    const roleLogs: string[] = [];
+
+    for (const r of rolesData) {
+      let role = guild.roles.cache.get(r.id);
+      if (!role) {
+        role = await guild.roles.create({ name: r.name, color: r.color });
+      }
+
+      roleLogs.push(`🔄 ${r.name}`);
+
+      if (logMessage) {
+        await logMessage.edit({
+          embeds: [EmbedFactory.buildAllianceOperation("🔄 Restoring Roles", roleLogs, [], false)]
+        });
+      }
+
+      await delay(300);
+    }
+
+    if (logMessage) {
+      await logMessage.edit({
+        embeds: [EmbedFactory.buildAllianceOperation("🔄 Restoring Roles", roleLogs, [], true)]
+      });
+    }
   }
 }
