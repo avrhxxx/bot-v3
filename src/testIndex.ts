@@ -78,97 +78,126 @@ const buildAllianceEmbed = (
 };
 
 // -------------------
-// SYNCHRONIZATION & CONTROL CHANNELS
+// CHANNELS
 // -------------------
 let synchronizationChannel: TextChannel | null = null;
 let botStatusEmbed: Message | null = null;
 let syncMainEmbed: Message | null = null;
 let controlUnitEmbed: Message | null = null;
+let allianceLogChannel: TextChannel | null = null;
 let botCommandsChannel: TextChannel | null = null;
+let commentsChannel: TextChannel | null = null;
 
+// -------------------
+// INIT CHANNELS
+// -------------------
 const initChannels = async (guild: Guild, controlRoleId: string) => {
-  // Helper to create read-only text channel for everyone except bot control
-  const createReadOnlyChannel = async (name: string) => {
-    let ch = guild.channels.cache.find(c => c.name === name && c.type === ChannelType.GuildText) as TextChannel;
-    if (!ch) {
-      ch = await guild.channels.create({
-        name,
+  // Synchronization Channel
+  if (!synchronizationChannel) {
+    let channel = guild.channels.cache.find(c => c.name === "synchronization" && c.type === ChannelType.GuildText) as TextChannel;
+    if (!channel) {
+      channel = await guild.channels.create({
+        name: "synchronization",
         type: ChannelType.GuildText,
         permissionOverwrites: [
-          { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+          { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
           { id: controlRoleId, allow: [PermissionFlagsBits.ViewChannel] }
         ]
       });
-      logTime(`✅ Created ${name} channel`);
+      logTime("✅ Created synchronization channel");
     }
-    return ch;
-  };
-
-  // Synchronization channel
-  if (!synchronizationChannel) {
-    synchronizationChannel = await createReadOnlyChannel("synchronization");
-
-    // Bot status embed
-    if (!botStatusEmbed) {
-      botStatusEmbed = await synchronizationChannel.send({
-        embeds: [new EmbedBuilder()
-          .setTitle("🤖 Bot Status")
-          .setColor(BOT_FROZEN ? 0xff0000 : 0x00ff00)
-          .setDescription(BOT_FROZEN ? "🔒 Paused" : "🟢 Active")
-        ]
-      });
-    }
-
-    // Main sync embed
-    if (!syncMainEmbed) {
-      syncMainEmbed = await synchronizationChannel.send({
-        embeds: [new EmbedBuilder()
-          .setTitle("📡 Synchronization")
-          .setColor(0x800080)
-          .setDescription("Last change: none\n🕒 Last sync: -")
-        ]
-      });
-    }
-
-    // Control Unit embed
-    if (!controlUnitEmbed) {
-      const authorityIds = process.env.AUTHORITY_IDS?.split(",").map(id => id.trim()) || [];
-      controlUnitEmbed = await synchronizationChannel.send({
-        embeds: [new EmbedBuilder()
-          .setTitle("🛡 Bot Control Unit")
-          .setColor(0x800080)
-          .setDescription(
-            `👥 **Authorized:**\n${authorityIds.map(id => `<@${id}>`).join("\n") || "None"}\n\n` +
-            `📜 **Recent changes:**\nNone`
-          )
-        ]
-      });
-    }
+    synchronizationChannel = channel;
   }
 
-  // Alliance logs
+  // Alliance Logs Channel
   if (!allianceLogChannel) {
-    allianceLogChannel = await createReadOnlyChannel("alliance-logs");
+    let logChannel = guild.channels.cache.find(c => c.name === "alliance-logs" && c.type === ChannelType.GuildText) as TextChannel;
+    if (!logChannel) {
+      logChannel = await guild.channels.create({
+        name: "alliance-logs",
+        type: ChannelType.GuildText,
+        permissionOverwrites: [
+          { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+          { id: controlRoleId, allow: [PermissionFlagsBits.ViewChannel] }
+        ]
+      });
+      logTime("✅ Created alliance-logs channel");
+    }
+    allianceLogChannel = logChannel;
   }
 
-  // Bot commands channel (writeable by bot control)
+  // Bot Commands Channel
   if (!botCommandsChannel) {
-    let ch = guild.channels.cache.find(c => c.name === "bot-commands" && c.type === ChannelType.GuildText) as TextChannel;
-    if (!ch) {
-      ch = await guild.channels.create({
+    let cmdChannel = guild.channels.cache.find(c => c.name === "bot-commands" && c.type === ChannelType.GuildText) as TextChannel;
+    if (!cmdChannel) {
+      cmdChannel = await guild.channels.create({
         name: "bot-commands",
         type: ChannelType.GuildText,
         permissionOverwrites: [
-          { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+          { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
           { id: controlRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
         ]
       });
       logTime("✅ Created bot-commands channel");
     }
-    botCommandsChannel = ch;
+    botCommandsChannel = cmdChannel;
   }
 
-  return { synchronizationChannel, allianceLogChannel, botCommandsChannel };
+  // Comments Channel
+  if (!commentsChannel) {
+    let commChannel = guild.channels.cache.find(c => c.name === "comments" && c.type === ChannelType.GuildText) as TextChannel;
+    if (!commChannel) {
+      commChannel = await guild.channels.create({
+        name: "comments",
+        type: ChannelType.GuildText,
+        permissionOverwrites: [
+          { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+          { id: controlRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
+        ]
+      });
+      logTime("✅ Created comments channel");
+    }
+    commentsChannel = commChannel;
+  }
+
+  // Bot Status Embed
+  if (!botStatusEmbed && synchronizationChannel) {
+    botStatusEmbed = await synchronizationChannel.send({
+      embeds: [new EmbedBuilder()
+        .setTitle("🤖 Bot Status")
+        .setColor(BOT_FROZEN ? 0xff0000 : 0x00ff00)
+        .setDescription(BOT_FROZEN ? "🔒 Paused" : "🟢 Active")
+      ]
+    });
+  }
+
+  // Sync Main Embed
+  if (!syncMainEmbed && synchronizationChannel) {
+    syncMainEmbed = await synchronizationChannel.send({
+      embeds: [new EmbedBuilder()
+        .setTitle("📡 Synchronization")
+        .setColor(0x800080)
+        .setDescription("Last change: none\n🕒 Last sync: -")
+      ]
+    });
+  }
+
+  // Control Unit Embed
+  if (!controlUnitEmbed && synchronizationChannel) {
+    const authorityIds = process.env.AUTHORITY_IDS?.split(",").map(id => id.trim()) || [];
+    controlUnitEmbed = await synchronizationChannel.send({
+      embeds: [new EmbedBuilder()
+        .setTitle("🛡 Bot Control Unit")
+        .setColor(0x800080)
+        .setDescription(
+          `👥 **Authorized:**\n${authorityIds.map(id => `<@${id}>`).join("\n") || "None"}\n\n` +
+          `📜 **Recent changes:**\nNone`
+        )
+      ]
+    });
+  }
+
+  return { synchronizationChannel, allianceLogChannel, botCommandsChannel, commentsChannel };
 };
 
 // -------------------
@@ -227,7 +256,6 @@ const synchronizeControlUnit = async (guild: Guild, controlRoleId: string, autho
 
   botControlDB[controlRoleId] = members.filter(m => m.roles.cache.has(controlRoleId)).map(m => m.id);
 
-  // Update embeds
   if (controlUnitEmbed) {
     await controlUnitEmbed.edit({
       embeds: [new EmbedBuilder()
@@ -235,9 +263,7 @@ const synchronizeControlUnit = async (guild: Guild, controlRoleId: string, autho
         .setColor(0x800080)
         .setDescription(
           `👥 **Authorized:**\n${authorityIds.map(id => `<@${id}>`).join("\n") || "None"}\n\n` +
-          `📜 **Recent changes:**\n${
-            [...added.map(a => `➕ ${a}`), ...removed.map(r => `➖ ${r}`)].join("\n") || "No changes"
-          }`
+          `📜 **Recent changes:**\n${[...added.map(a => `➕ ${a}`), ...removed.map(r => `➖ ${r}`)].join("\n") || "No changes"}`
         )
       ]
     });
@@ -248,10 +274,7 @@ const synchronizeControlUnit = async (guild: Guild, controlRoleId: string, autho
       embeds: [new EmbedBuilder()
         .setTitle("📡 Synchronization")
         .setColor(0x800080)
-        .setDescription(
-          `Last change: ${[...added, ...removed].join(", ") || "No changes"}\n` +
-          `🕒 Last sync: ${new Date().toLocaleTimeString()}`
-        )
+        .setDescription(`Last change: ${[...added, ...removed].join(", ") || "No changes"}\n🕒 Last sync: ${new Date().toLocaleTimeString()}`)
       ]
     });
   }
@@ -268,11 +291,6 @@ const synchronizeControlUnit = async (guild: Guild, controlRoleId: string, autho
 };
 
 // -------------------
-// ALLIANCE LOG CHANNEL
-// -------------------
-let allianceLogChannel: TextChannel | null = null;
-
-// -------------------
 // PSEUDO CREATE / DELETE
 // -------------------
 const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
@@ -286,7 +304,9 @@ const pseudoCreate = async (guild: Guild, name: string, tag: string) => {
   const controlRole = guild.roles.cache.find(r => r.name === "Bot Control");
   if (!controlRole) return;
 
-  const logChannel = allianceLogChannel || await initChannels(guild, controlRole.id).then(c => c.allianceLogChannel!);
+  const { allianceLogChannel: logChannel } = await initChannels(guild, controlRole.id);
+  if (!logChannel) return;
+
   const startedAt = Date.now();
   const roleLogs: string[] = [];
   const structureLogs: string[] = [];
@@ -349,7 +369,9 @@ const pseudoDelete = async (guild: Guild, name: string, tag: string) => {
   const controlRole = guild.roles.cache.find(r => r.name === "Bot Control");
   if (!controlRole) return;
 
-  const logChannel = allianceLogChannel || await initChannels(guild, controlRole.id).then(c => c.allianceLogChannel!);
+  const { allianceLogChannel: logChannel } = await initChannels(guild, controlRole.id);
+  if (!logChannel) return;
+
   const startedAt = Date.now();
   const roleLogs: string[] = [];
   const structureLogs: string[] = [];
@@ -405,22 +427,12 @@ client.on("messageCreate", async (message) => {
   const parts = message.content.trim().split(" ");
   const cmd = parts[0].toLowerCase();
 
-  // !pause dynamic toggle
+  // !pause
   if (cmd === "!pause") {
     const controlRole = message.guild.roles.cache.find(r => r.name === "Bot Control");
-    if (!controlRole || !message.member?.roles.cache.has(controlRole.id)) {
-      return message.reply("❌ You are not authorized to use this command.");
-    }
+    if (!controlRole || !message.member?.roles.cache.has(controlRole.id)) return message.reply("❌ You are not authorized to use this command.");
     BOT_FROZEN = !BOT_FROZEN;
-    if (botStatusEmbed) {
-      await botStatusEmbed.edit({
-        embeds: [new EmbedBuilder()
-          .setTitle("🤖 Bot Status")
-          .setColor(BOT_FROZEN ? 0xff0000 : 0x00ff00)
-          .setDescription(BOT_FROZEN ? "🔒 Paused" : "🟢 Active")
-        ]
-      });
-    }
+    if (botStatusEmbed) await botStatusEmbed.edit({ embeds: [new EmbedBuilder().setTitle("🤖 Bot Status").setColor(BOT_FROZEN ? 0xff0000 : 0x00ff00).setDescription(BOT_FROZEN ? "🔒 Paused" : "🟢 Active")] });
     return message.channel.send(BOT_FROZEN ? "🔒 Bot is now paused." : "🔓 Bot is now active.");
   }
 
@@ -428,38 +440,10 @@ client.on("messageCreate", async (message) => {
   const tag = parts.pop()!;
   const name = parts.slice(1).join(" ");
 
-  if (BOT_FROZEN) {
-    if (synchronizationChannel) await synchronizationChannel.send("⚠️ Bot is currently paused and cannot execute commands.");
-    return;
-  }
+  if (BOT_FROZEN && synchronizationChannel) await synchronizationChannel.send("⚠️ Bot is currently paused and cannot execute commands.");
 
   if (cmd === "!create") await pseudoCreate(message.guild, name, tag);
   if (cmd === "!delete") await pseudoDelete(message.guild, name, tag);
-});
-
-// -------------------
-// LIVE CONTROL UNIT EVENTS
-// -------------------
-client.on("guildMemberUpdate", async (oldMember, newMember) => {
-  const controlRole = newMember.guild.roles.cache.find(r => r.name === "Bot Control");
-  if (!controlRole || !botControlDB[controlRole.id]) return;
-
-  const oldHas = oldMember.roles.cache.has(controlRole.id);
-  const newHas = newMember.roles.cache.has(controlRole.id);
-  let updated = false;
-
-  if (!oldHas && newHas && !botControlDB[controlRole.id].includes(newMember.id)) {
-    botControlDB[controlRole.id].push(newMember.id);
-    updated = true;
-  } else if (oldHas && !newHas) {
-    botControlDB[controlRole.id] = botControlDB[controlRole.id].filter(id => id !== newMember.id);
-    updated = true;
-  }
-
-  if (updated) {
-    const authorityIds = botControlDB[controlRole.id];
-    await synchronizeControlUnit(newMember.guild, controlRole.id, authorityIds);
-  }
 });
 
 // -------------------
@@ -469,12 +453,9 @@ client.once("ready", async () => {
   logTime(`Logged in as ${client.user?.tag}`);
   const guild = client.guilds.cache.get(GUILD_ID);
   if (!guild) return;
-
   const controlUnitSetup = await setupControlUnit(guild);
   if (controlUnitSetup) {
     const { controlRole, authorityIds } = controlUnitSetup;
-
-    // Periodic sync
     setInterval(() => synchronizeControlUnit(guild, controlRole.id, authorityIds), 60_000);
   }
 });
