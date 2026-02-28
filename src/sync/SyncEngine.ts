@@ -1,11 +1,12 @@
 // src/sync/SyncEngine.ts
-import { DelayModel } from "./DelayModel";
 import { Guild } from "discord.js";
+import { DelayModel } from "./SyncDelayModel";
 
 // Typ jednostki
 export interface Unit {
   name: string;
-  run: (guild: Guild) => Promise<void>;
+  // Każdy unit dostaje guild i DelayModel, żeby móc korzystać z delayów podczas operacji
+  run: (guild: Guild, delayModel: DelayModel) => Promise<void>;
 }
 
 export class SyncEngine {
@@ -26,26 +27,30 @@ export class SyncEngine {
     if (this.isRunning) return;
     this.isRunning = true;
 
-    while (this.isRunning) {
-      console.log(`[SyncEngine] Starting new sync cycle...`);
+    console.log("[SyncEngine] Sync engine started.");
 
-      // 1️⃣ Kolejno uruchamiane unit-y
+    while (this.isRunning) {
+      console.log("[SyncEngine] Starting new sync cycle...");
+
+      // --- Uruchamianie unitów kolejno ---
       for (const unit of this.units) {
         console.log(`[SyncEngine] Running unit: ${unit.name}`);
-        this.delayModel.startOperation();   // sygnał, że unit startuje
+        this.delayModel.startOperation(); // sygnał rozpoczęcia operacji
 
         try {
-          await unit.run(this.guild);
-        } catch (e) {
-          console.error(`[SyncEngine] Error in unit ${unit.name}:`, e);
+          await unit.run(this.guild, this.delayModel);
+        } catch (err) {
+          console.error(`[SyncEngine] Error in unit ${unit.name}:`, err);
         }
 
-        this.delayModel.finishOperation();  // sygnał, że unit zakończył
+        this.delayModel.finishOperation(); // sygnał zakończenia operacji
+
+        // Delay między unitami
         const unitDelay = await this.delayModel.waitUnit();
         console.log(`[SyncEngine] Waited ${unitDelay}ms between units`);
       }
 
-      // 2️⃣ Delay przed kolejnym cyklem
+      // --- Delay przed kolejnym cyklem ---
       const cycleDelay = await this.delayModel.waitCycle();
       console.log(`[SyncEngine] Cycle completed. Waiting ${cycleDelay}ms before next cycle.`);
     }
@@ -54,5 +59,24 @@ export class SyncEngine {
   // Zatrzymanie cyklu synchronizacji
   public stop() {
     this.isRunning = false;
+    console.log("[SyncEngine] Sync engine stopped.");
+  }
+
+  // Ręczne wywołanie pojedynczego cyklu (do testów lub EventUnit)
+  public async runSingleCycle() {
+    console.log("[SyncEngine] Running single sync cycle...");
+
+    for (const unit of this.units) {
+      this.delayModel.startOperation();
+      try {
+        await unit.run(this.guild, this.delayModel);
+      } catch (err) {
+        console.error(`[SyncEngine] Error in unit ${unit.name}:`, err);
+      }
+      this.delayModel.finishOperation();
+      await this.delayModel.waitUnit();
+    }
+
+    console.log("[SyncEngine] Single cycle completed.");
   }
 }
