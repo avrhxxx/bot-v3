@@ -2,7 +2,7 @@ import { Guild, OverwriteResolvable, PermissionFlagsBits, ChannelType } from "di
 import { RoleModule } from "../modules/RoleModule";
 import { ChannelModule } from "../modules/ChannelModule";
 import { allianceDB } from "./AllianceDB";
-import { SyncNotify } from "../sync/SyncNotify";
+import { NotificationCenter } from "../notiications/NotificationCenter";
 
 // -------------------
 // VALIDATION
