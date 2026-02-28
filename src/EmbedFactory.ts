@@ -1,4 +1,4 @@
-import { EmbedBuilder } from "discord.js";
+import { EmbedFactory } from "discord.js";
 
 export class EmbedFactory {
 
